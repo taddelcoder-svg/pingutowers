@@ -531,7 +531,7 @@
     requestAnimationFrame(schleife);
 
     // Nur für den Rauchtest (test/browser.js): ?test im Link
-    if (url.searchParams.has('test')) {
+    if (url.searchParams.has('test') && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
       window.__pt = {
         test() {
           spiel.geld = 100000;
