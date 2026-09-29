@@ -1,0 +1,14 @@
+{
+  "name": "pingutowers",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pingu Towers – 3D-Tower-Defense: Pinguine gegen Fische",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/sim.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
