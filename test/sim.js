@@ -1,12 +1,13 @@
 'use strict';
 // Balance-Test ohne Grafik: ein Bot baut nach einem festen Plan und spielt so weit er kommt.
 // node test/sim.js [karte] [stufe]
-const PT = require('../js/daten.js');
+const PT = require('../js/pinguine.js');
 require('../js/logik.js');
 
 const karte = process.argv[2] || 'scholle';
 const stufe = process.argv[3] || 'mittel';
-const s = new PT.Spiel({ karte, stufe, runden:60 });
+const modus = process.argv[4] || 'standard';
+const s = new PT.Spiel({ karte, stufe, runden:60, modus });
 
 // Bauplätze nach Abdeckung des Wegs sortieren
 function platzFuer(typ, reichweite) {
@@ -14,10 +15,10 @@ function platzFuer(typ, reichweite) {
   for (let x = 20; x < 1000; x += 12) for (let y = 20; y < 640; y += 12) {
     if (!s.platzFrei(typ, x, y)) continue;
     let w = 0;
-    for (let i = 0; i < s.weg.pts.length; i += 5) {
-      const [px, py] = s.weg.pts[i];
+    for (const weg of s.wege) for (let i = 0; i < weg.pts.length; i += 5) {
+      const [px, py] = weg.pts[i];
       if (px < 0 || px > 1000 || py < 0 || py > 640) continue;
-      if (Math.hypot(px - x, py - y) <= reichweite) w += 1 + i / s.weg.pts.length * 0.3;
+      if (Math.hypot(px - x, py - y) <= reichweite) w += 1 + i / weg.pts.length * 0.3;
     }
     if (w > bw) { bw = w; best = [x, y]; }
   }
@@ -55,7 +56,7 @@ function planAusfuehren() {
       const pos = p.pos || (p.pos = platzFuer(p[1], Math.min(R, 200)));
       if (!pos) { schritt++; continue; }
       if (s.preisBau(p[1], ...pos) > s.geld) return;
-      s.bauen(p[1], ...pos);
+      const neu = s.bauen(p[1], ...pos); if (neu && modus === 'boss') neu.ziel = 'stark';
     } else {
       const t = s.tuerme[p[1]];
       if (!t || !PT.upgradeErlaubt(t.pfade, p[2])) { schritt++; continue; }
@@ -67,12 +68,14 @@ function planAusfuehren() {
 }
 
 const start = Date.now();
-while (!s.vorbei && s.runde < 60) {
+if (process.env.UNSTERBLICH) s.leben = 1e7;
+const bis = +(process.argv[5] || 60);
+while (!s.vorbei && s.runde < bis) {
   planAusfuehren();
   s.rundeStarten();
   let n = 0;
-  while (s.laeuft && !s.vorbei && n < 60 * 600) { s.schritt(1 / 60); n++; if (n % 30 === 0) planAusfuehren(); }
-  if (s.runde % 5 === 0 || s.vorbei) {
+  while (s.laeuft && !s.vorbei && n < 60 * 600) { s.schritt(1 / 60); n++; if (n % 30 === 0) planAusfuehren(); for (const e of s.ereignisse) if (e.art === 'leck' && e.typ === 'krakus') console.log('Boss durch mit', Math.round(e.rest), 'Leben'); s.ereignisse.length = 0; }
+  if (s.runde % 5 === 0 || s.vorbei || process.env.ALLE) {
     console.log(`Runde ${s.runde}${s.vorbei ? ' (verloren in ' + (s.runde + 1) + ')' : ''}: Leben ${s.leben}, Geld ${s.geld}, Plan ${schritt}/${plan.length}, ` +
       s.tuerme.map(t => t.typ.slice(0, 4) + t.pfade.join('')).join(' '));
   }

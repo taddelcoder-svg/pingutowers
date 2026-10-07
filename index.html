@@ -82,6 +82,7 @@
     --rot: #e2463b;
     --gruen: #35b04a;
     --blau: #2f7fe0;
+    --lila: #6b4fd1;
     --panel: rgba(11, 29, 54, 0.92);
     --panel-2: rgba(255, 255, 255, 0.08);
     --panel-text: #eaf6fb;
@@ -120,13 +121,15 @@
     background: var(--menue-bg);
     padding: max(24px, env(safe-area-inset-top)) 16px 48px;
   }
-  .menue-innen { max-width: 1000px; margin: 0 auto; }
+  .menue-innen { max-width: 1040px; margin: 0 auto; }
   .kopf { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin: 12px 0 8px; }
   .kopf .logo { font-size: clamp(3rem, 10vw, 5rem); line-height: 1; filter: drop-shadow(4px 4px 0 rgba(19,49,92,.25)); }
   h1 { margin: 0; font-size: clamp(2.6rem, 9vw, 5.4rem); font-weight: 800; letter-spacing: -0.04em; line-height: .9; }
   h1 span { color: var(--blau); }
-  .unter { margin: 10px 0 0; max-width: 56ch; font-size: 1.12rem; line-height: 1.5; color: var(--tinte-weich); }
+  .unter { margin: 10px 0 0; max-width: 60ch; font-size: 1.12rem; line-height: 1.5; color: var(--tinte-weich); }
+  .erfolge { margin: 10px 0 0; font-weight: 700; color: var(--tinte-weich); }
   h2 { font-size: 1.35rem; margin: 30px 0 12px; letter-spacing: -0.01em; }
+  h2 small { font-weight: 600; font-size: .9rem; color: var(--tinte-weich); margin-left: 8px; }
   .karten { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
   .kartenwahl {
     text-align: left; background: var(--karte); border: 3px solid var(--rand); border-radius: 16px; padding: 0; overflow: hidden;
@@ -138,13 +141,26 @@
   .kartenwahl div { padding: 10px 14px 14px; }
   .kartenwahl b { font-size: 1.2rem; display: block; }
   .kartenwahl small { color: var(--tinte-weich); display: block; margin-top: 4px; line-height: 1.35; }
+  .medaillen { display: flex; gap: 4px; margin-top: 8px; align-items: center; font-size: 1.15rem; }
+  .medaillen i { font-style: normal; }
+  .medaillen i.aus { filter: grayscale(1); opacity: .28; }
+  .medaillen em { font-style: normal; font-size: .8rem; font-weight: 700; color: var(--tinte-weich); margin-left: 6px; }
   .chip { display: inline-block; font-size: .8rem; font-weight: 700; padding: 2px 9px; border-radius: 99px; background: var(--eis-2); margin-left: 6px; vertical-align: middle; }
-  .stufen { display: flex; gap: 10px; flex-wrap: wrap; }
-  .stufe {
+  .stufen, .modi { display: flex; gap: 10px; flex-wrap: wrap; }
+  .stufe, .modus {
     flex: 1 1 150px; text-align: left; background: var(--karte); border: 3px solid var(--rand); border-radius: 14px; padding: 12px 14px;
   }
-  .stufe[aria-pressed="true"] { background: var(--tinte); color: var(--karte); }
-  .stufe small { display: block; opacity: .8; margin-top: 2px; }
+  .modus { flex: 1 1 210px; }
+  .modus b::before { content: attr(data-symbol); margin-right: 6px; }
+  .stufe[aria-pressed="true"], .modus[aria-pressed="true"] { background: var(--tinte); color: var(--karte); }
+  .stufe small, .modus small { display: block; opacity: .8; margin-top: 2px; line-height: 1.35; }
+  .helden { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+  .heldwahl { display: flex; gap: 10px; align-items: center; text-align: left; background: var(--karte); border: 3px solid var(--rand); border-radius: 14px; padding: 8px 12px 8px 8px; }
+  .heldwahl img { width: 72px; height: 72px; flex: none; border-radius: 12px; background: var(--eis); }
+  .heldwahl b { display: block; font-size: 1.05rem; }
+  .heldwahl small { display: block; color: var(--tinte-weich); line-height: 1.3; }
+  .heldwahl[aria-pressed="true"] { outline: 3px solid var(--gold); outline-offset: 2px; box-shadow: 5px 5px 0 var(--gold); }
+  .heldwahl:disabled { opacity: .45; cursor: default; }
   .los-reihe { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; align-items: center; }
   .knopf {
     border: 3px solid var(--rand); border-radius: 14px; padding: 12px 22px; font-weight: 800; font-size: 1.15rem;
@@ -158,7 +174,7 @@
   details.hilfe { margin-top: 26px; background: var(--karte); border: 3px solid var(--rand); border-radius: 14px; padding: 12px 16px; }
   details.hilfe summary { font-weight: 800; cursor: pointer; font-size: 1.1rem; }
   details.hilfe p, details.hilfe li { line-height: 1.5; color: var(--tinte-weich); }
-  .lexikon { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin-top: 8px; }
+  .lexikon { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin-top: 8px; }
   .lexikon div { display: flex; align-items: center; gap: 8px; background: var(--eis); border-radius: 10px; padding: 6px 8px; font-size: .9rem; line-height: 1.25; }
   .lexikon img { width: 48px; height: 48px; flex: none; }
   .lexikon small { color: var(--tinte-weich); }
@@ -170,7 +186,7 @@
   #spiel {
     position: fixed; inset: 0;
     display: grid;
-    grid-template-columns: 1fr 312px;
+    grid-template-columns: 1fr 324px;
     grid-template-rows: auto 1fr;
     background: #0b1d36;
     color: var(--panel-text);
@@ -183,6 +199,7 @@
   }
   .wert { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 1.2rem; padding: 4px 12px; border-radius: 10px; background: var(--panel-2); font-variant-numeric: tabular-nums; }
   .wert small { font-weight: 600; font-size: .85rem; color: var(--panel-leise); }
+  .modus-anzeige { font-size: .85rem; font-weight: 700; color: var(--panel-leise); padding: 0 6px; }
   .luecke { flex: 1; }
   .lknopf {
     border: 0; border-radius: 10px; background: var(--panel-2); padding: 8px 12px; font-weight: 800; min-width: 44px; min-height: 40px;
@@ -196,7 +213,7 @@
   .buehne canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
   #ueber { pointer-events: none; }
   #banner {
-    position: absolute; left: 50%; top: 18%; transform: translate(-50%, -50%);
+    position: absolute; left: 50%; top: 22%; transform: translate(-50%, -50%);
     font-size: clamp(1.8rem, 5vw, 3.4rem); font-weight: 800; letter-spacing: -0.02em; color: #fff; text-align: center;
     -webkit-text-stroke: 7px #13315c; paint-order: stroke fill; text-shadow: 0 5px 0 #13315c; pointer-events: none; opacity: 0; transition: opacity .3s;
     white-space: nowrap;
@@ -204,40 +221,68 @@
   #banner.an { opacity: 1; }
   #banner small { display: block; font-size: .45em; font-weight: 700; margin-top: 4px; }
   #tipp {
-    position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: calc(100% - 32px);
+    position: absolute; left: 50%; top: 52px; transform: translateX(-50%); max-width: calc(100% - 32px);
     background: var(--panel); border-radius: 12px; padding: 8px 14px; font-size: .95rem; pointer-events: none; text-align: center;
   }
+  #faehigkeiten { position: absolute; left: 10px; bottom: 10px; display: flex; gap: 8px; flex-wrap: wrap; max-width: calc(100% - 80px); }
+  .fk {
+    position: relative; width: 54px; height: 54px; border-radius: 14px; border: 2px solid rgba(255,255,255,.25);
+    background: var(--panel); font-size: 1.6rem; display: grid; place-items: center; overflow: hidden; padding: 0;
+  }
+  .fk::after { content: ''; position: absolute; inset: 0; background: conic-gradient(rgba(5,12,25,.78) calc(var(--rest, 0) * 1turn), transparent 0); pointer-events: none; }
+  .fk.bereit { border-color: var(--gold); box-shadow: 0 0 14px rgba(246,195,67,.75); }
+  .fk kbd { position: absolute; top: 2px; left: 5px; font: 700 .65rem system-ui; color: var(--panel-leise); z-index: 1; }
+  .fk .anz { position: absolute; bottom: 1px; right: 5px; font-size: .7rem; font-weight: 800; z-index: 1; }
+  .zoom { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .zoom button { width: 40px; height: 40px; border: 0; border-radius: 10px; background: var(--panel); font-weight: 800; font-size: 1.2rem; }
 
   aside#seite { background: var(--panel); overflow-y: auto; padding: 12px; border-left: 2px solid rgba(127,214,224,.25); }
-  .laden { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .laden { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .gruppe { grid-column: 1 / -1; margin: 8px 2px 0; font-size: .78rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--panel-leise); }
   .pingu-kauf {
-    position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px;
-    border: 2px solid rgba(255,255,255,.12); border-radius: 12px; background: var(--panel-2); padding: 6px 4px 8px;
+    position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px;
+    border: 2px solid rgba(255,255,255,.12); border-radius: 12px; background: var(--panel-2); padding: 4px 2px 6px;
   }
-  .pingu-kauf img { width: 76px; height: 76px; }
-  .pingu-kauf b { font-size: .88rem; line-height: 1.1; text-align: center; }
-  .pingu-kauf span { font-weight: 800; color: var(--gold); font-size: .95rem; }
-  .pingu-kauf kbd { position: absolute; top: 4px; left: 6px; font: 700 .72rem system-ui; color: var(--panel-leise); }
+  .pingu-kauf img { width: 60px; height: 60px; }
+  .pingu-kauf b { font-size: .74rem; line-height: 1.1; text-align: center; }
+  .pingu-kauf span { font-weight: 800; color: var(--gold); font-size: .85rem; }
+  .pingu-kauf kbd { position: absolute; top: 3px; left: 5px; font: 700 .68rem system-ui; color: var(--panel-leise); text-transform: uppercase; }
   .pingu-kauf.teuer { opacity: .45; }
   .pingu-kauf.teuer span { color: var(--rot); }
+  .pingu-kauf.held { grid-column: 1 / -1; flex-direction: row; gap: 10px; padding: 6px 10px; border-color: rgba(246,195,67,.5); }
+  .pingu-kauf.held img { width: 52px; height: 52px; }
+  .pingu-kauf.held b { font-size: .95rem; text-align: left; }
   .pingu-kauf[aria-pressed="true"] { border-color: var(--gold); background: rgba(246,195,67,.18); }
   .pingu-kauf:hover { background: rgba(255,255,255,.14); }
-  .seiten-titel { margin: 2px 0 10px; font-size: 1.05rem; color: var(--panel-leise); font-weight: 700; }
+  .pingu-kauf:disabled { opacity: .3; cursor: default; }
+  .seiten-titel { margin: 2px 0 6px; font-size: 1.05rem; color: var(--panel-leise); font-weight: 700; }
   .info-kurz { font-size: .9rem; color: var(--panel-leise); margin: 10px 2px 0; line-height: 1.4; min-height: 2.8em; }
+  .sand { margin-top: 14px; border-top: 1px solid rgba(255,255,255,.12); padding-top: 10px; }
+  .sand-fische { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .sand-fische button { border: 0; border-radius: 8px; background: var(--panel-2); padding: 2px; }
+  .sand-fische img { width: 100%; aspect-ratio: 1; display: block; }
+  .sand-optionen { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 8px 0; font-size: .85rem; color: var(--panel-leise); }
+  .sand-optionen label { display: flex; gap: 4px; align-items: center; }
+  .sand-optionen select { font: inherit; border-radius: 6px; }
 
   .turm-kopf { display: flex; gap: 10px; align-items: center; }
   .turm-kopf img { width: 64px; height: 64px; background: var(--panel-2); border-radius: 12px; }
   .turm-kopf h3 { margin: 0; font-size: 1.2rem; }
   .turm-kopf small { color: var(--panel-leise); }
   .schliessen { margin-left: auto; align-self: flex-start; }
+  .werte { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  .werte span { font-size: .78rem; font-weight: 700; background: var(--panel-2); border-radius: 6px; padding: 2px 6px; }
   .ziele { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 10px 0; }
+  .ziele.drei { grid-template-columns: repeat(3, 1fr); }
   .ziele button { border: 0; border-radius: 8px; padding: 6px 2px; font-size: .8rem; font-weight: 700; background: var(--panel-2); }
   .ziele button[aria-pressed="true"] { background: var(--blau); }
+  .zielknopf { width: 100%; margin: 10px 0 2px; border: 0; border-radius: 10px; padding: 9px; background: var(--rot); color: #fff; font-weight: 800; }
   .pfad { border-radius: 12px; background: var(--panel-2); padding: 8px; margin-top: 8px; border-left: 5px solid var(--pf); }
   .pfad-kopf { display: flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--panel-leise); }
   .pips { display: flex; gap: 3px; }
-  .pips i { width: 16px; height: 8px; border-radius: 3px; background: rgba(255,255,255,.15); }
+  .pips i { width: 14px; height: 8px; border-radius: 3px; background: rgba(255,255,255,.15); }
   .pips i.an { background: var(--pf); }
+  .pips i:last-child { width: 18px; }
   .pfad button {
     width: 100%; margin-top: 6px; text-align: left; border: 0; border-radius: 10px; padding: 8px 10px; background: rgba(255,255,255,.1);
     display: grid; grid-template-columns: 1fr auto; gap: 2px 8px;
@@ -248,7 +293,17 @@
   .pfad button:not(:disabled):hover { background: rgba(255,255,255,.2); }
   .pfad button:disabled { cursor: default; opacity: .55; }
   .pfad button.teuer em { color: var(--rot); }
+  .pfad button.fuenf { background: linear-gradient(135deg, rgba(246,195,67,.28), rgba(255,255,255,.08)); }
   .pfad button kbd { font: 700 .7rem system-ui; color: var(--panel-leise); margin-left: 6px; }
+  .held-info { margin-top: 10px; }
+  .xp { height: 10px; border-radius: 5px; background: rgba(255,255,255,.12); overflow: hidden; margin: 6px 0; }
+  .xp i { display: block; height: 100%; background: linear-gradient(90deg, #f6c343, #ffdd78); }
+  .held-stufen { list-style: none; margin: 8px 0 0; padding: 0; font-size: .82rem; line-height: 1.5; }
+  .held-stufen li { color: var(--panel-leise); }
+  .held-stufen li.da { color: var(--panel-text); }
+  .held-stufen li b { display: inline-block; width: 26px; color: var(--gold); }
+  .kaufen { width: 100%; margin-top: 6px; border: 0; border-radius: 10px; padding: 9px; background: var(--gold); color: #13315c; font-weight: 800; }
+  .kaufen:disabled { opacity: .5; }
   .verkauf { width: 100%; margin-top: 12px; border: 0; border-radius: 10px; padding: 10px; background: rgba(226,70,59,.85); color: #fff; font-weight: 800; }
   .statistik { font-size: .85rem; color: var(--panel-leise); margin-top: 8px; }
 
@@ -271,13 +326,15 @@
     #spiel { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, auto) 1fr; }
     .buehne { aspect-ratio: 10 / 7; max-height: 62vh; width: 100%; }
     aside#seite { border-left: 0; border-top: 2px solid rgba(127,214,224,.25); }
-    .laden { grid-template-columns: repeat(4, 1fr); }
-    .pingu-kauf img { width: 56px; height: 56px; }
-    .pingu-kauf b { font-size: .75rem; }
+    .laden { grid-template-columns: repeat(5, 1fr); }
+    .pingu-kauf img { width: 48px; height: 48px; }
+    .pingu-kauf b { font-size: .68rem; }
     .wert { font-size: 1rem; padding: 3px 8px; }
     #start { min-width: 0; }
-    .auto span { display: none; }
+    .auto span, .modus-anzeige { display: none; }
     .info-kurz { display: none; }
+    .fk { width: 44px; height: 44px; font-size: 1.3rem; }
+    .zoom button { width: 34px; height: 34px; }
   }
   @media (prefers-reduced-motion: reduce) {
     .kartenwahl, #banner { transition: none; }
@@ -295,13 +352,13 @@
         <h1>Pingu <span>Towers</span></h1>
       </div>
     </div>
-    <p class="unter">Die Fische wollen durch euren Eiskanal! Stell Pinguine ans Ufer, rüste sie auf und lass keinen Fisch durch – vom kleinen Rotbarsch bis zum Megalodon.</p>
+    <p class="unter">Die Fische wollen durch euren Eiskanal! Stell Pinguine ans Ufer, rüste sie bis Stufe 5 auf, ruf einen Helden und lass keinen Fisch durch – vom kleinen Rotbarsch bis zu Krakus dem Boss.</p>
+    <p class="erfolge" id="erfolge"></p>
 
     <div id="olympBox" class="olymp-box" hidden>
       <h2>🏅 <span id="olympTitel">Olympiade</span></h2>
       <p id="olympText" style="margin:0"></p>
       <ul id="olympEinst"></ul>
-      <div class="los-reihe"><button class="knopf haupt" id="olympLos">Disziplin starten</button></div>
     </div>
 
     <div id="normalMenue">
@@ -316,20 +373,30 @@
       <h2>Schwierigkeit</h2>
       <div class="stufen" id="stufen"></div>
 
-      <div class="los-reihe">
-        <button class="knopf haupt" id="los">Los geht's!</button>
-      </div>
+      <h2>Spielmodus</h2>
+      <div class="modi" id="modi"></div>
+    </div>
+
+    <div id="heldBereich">
+      <h2>Held <small>Steigt jede Runde auf, bis Stufe 10</small></h2>
+      <div class="helden" id="helden"></div>
+    </div>
+
+    <div class="los-reihe">
+      <button class="knopf haupt" id="los">Los geht's!</button>
     </div>
 
     <details class="hilfe">
       <summary>So wird gespielt</summary>
       <ul>
-        <li>Wähle rechts einen Pinguin und setz ihn aufs Eis neben dem Kanal (nicht ins Wasser). Auf dem Handy: antippen, gedrückt halten und an die richtige Stelle ziehen, loslassen.</li>
+        <li>Wähle rechts einen Pinguin und setz ihn aufs Eis neben dem Kanal (nicht ins Wasser). Boot-Pinguine kommen in die runden Wasserlöcher. Auf dem Handy: antippen, gedrückt halten und an die richtige Stelle ziehen, loslassen.</li>
         <li>Mit <b>Runde starten</b> kommen die Fische. Während der Runde schaltet derselbe Knopf die Geschwindigkeit (1×, 2×, 3×).</li>
-        <li>Tippe einen Pinguin an, um ihn aufzurüsten. Jeder hat drei Pfade – höchstens zwei davon, und nur einer über Stufe 2.</li>
+        <li>Tippe einen Pinguin an, um ihn aufzurüsten. Jeder hat drei Pfade mit fünf Stufen – höchstens zwei Pfade, und nur einer über Stufe 2. Stufe 5 gibt es pro Pinguinart und Pfad nur einmal.</li>
+        <li>Manche Upgrades und Helden bringen <b>Fähigkeiten</b>: Sie erscheinen unten links auf der Karte und laden sich während der Runden wieder auf.</li>
         <li>Getroffene Fische werden zum nächstkleineren Fisch. Kommt einer durch, kostet das so viele Leben, wie er noch Schichten hat.</li>
-        <li>Getarnte Fische (halb durchsichtig) sehen nur Pinguine mit Nachtsicht, Radar & Co.</li>
-        <li>Tasten: <b>1–8</b> Pinguin wählen, <b>Leertaste</b> Runde/Tempo, <b>, . -</b> Upgrades, <b>Entf</b> verkaufen, <b>Tab</b> Ziel wechseln, <b>Esc</b> abbrechen.</li>
+        <li>Getarnte Fische (halb durchsichtig) sehen nur Pinguine mit Nachtsicht, Radar & Co. Fische mit grünen Algen wachsen wieder nach, Fische mit Helm sind doppelt so zäh.</li>
+        <li>Zoomen mit Mausrad, zwei Fingern oder den Knöpfen rechts unten; mit der rechten Maustaste oder einem Finger ziehen verschiebt die Karte.</li>
+        <li>Tasten: Buchstaben am Pinguin wählen ihn aus (<b>Q W E R …</b>, Held <b>H</b>), <b>1–9</b> Fähigkeiten, <b>Leertaste</b> Runde/Tempo, <b>, . -</b> Upgrades, <b>Entf</b> verkaufen, <b>Tab</b> Ziel wechseln, <b>Esc</b> abbrechen.</li>
       </ul>
       <p><b>Die Fische:</b></p>
       <div class="lexikon" id="lexikon"></div>
@@ -345,6 +412,7 @@
     <div class="wert" title="Leben">❤️ <span id="leben">150</span></div>
     <div class="wert" title="Geld">💰 <span id="geld">650</span></div>
     <div class="wert" title="Runde">🌊 <span id="runde">1</span><small>/<span id="rundenZiel">40</span></small></div>
+    <span class="modus-anzeige" id="modusAnzeige"></span>
     <div class="luecke"></div>
     <label class="auto" title="Nächste Runde automatisch starten"><input type="checkbox" id="auto"><span>Auto</span></label>
     <button class="lknopf" id="tonKnopf" aria-label="Ton an oder aus">🔊</button>
@@ -356,12 +424,28 @@
     <canvas id="ueber"></canvas>
     <div id="banner"></div>
     <div id="tipp" hidden></div>
+    <div id="faehigkeiten" aria-label="Fähigkeiten"></div>
+    <div class="zoom">
+      <button id="zoomRein" aria-label="Hineinzoomen">＋</button>
+      <button id="zoomRaus" aria-label="Herauszoomen">−</button>
+      <button id="zoomZurueck" aria-label="Ganze Karte zeigen">⟲</button>
+    </div>
   </div>
   <aside id="seite" aria-live="polite">
     <div id="laden">
-      <p class="seiten-titel">Pinguine</p>
       <div class="laden" id="ladenListe"></div>
       <p class="info-kurz" id="ladenInfo">Wähle einen Pinguin und setz ihn neben den Kanal.</p>
+      <div class="sand" id="sand" hidden>
+        <p class="seiten-titel">🏖️ Fische schicken</p>
+        <div class="sand-optionen">
+          <label><input type="checkbox" id="sandCamo"> getarnt</label>
+          <label><input type="checkbox" id="sandNach"> nachwachsend</label>
+          <label><input type="checkbox" id="sandFest"> gepanzert</label>
+          <label>Anzahl <select id="sandAnzahl"><option>1</option><option selected>10</option><option>50</option></select></label>
+        </div>
+        <div class="sand-fische" id="sandFische"></div>
+        <button class="verkauf" id="sandLeeren">Kanal leeren</button>
+      </div>
     </div>
     <div id="turmInfo" hidden></div>
   </aside>
@@ -392,7 +476,9 @@
 
 <script src="vendor/three.min.js"></script>
 <script src="js/daten.js"></script>
+<script src="js/pinguine.js"></script>
 <script src="js/logik.js"></script>
+<script src="js/modelle.js"></script>
 <script src="js/welt3d.js"></script>
 <script src="js/ton.js"></script>
 <script src="js/oberflaeche.js"></script>

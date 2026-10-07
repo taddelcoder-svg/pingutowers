@@ -60,6 +60,7 @@
     upgrade() { [523, 659, 784, 1047].forEach((f, i) => ton({ f, dauer:0.12, typ:'triangle', laut:0.2, verz:i * 0.06 })); },
     verkaufen() { ton({ f:900, f2:400, dauer:0.18, typ:'square', laut:0.08 }); },
     fehler() { ton({ f:200, f2:150, dauer:0.15, typ:'square', laut:0.1 }); },
+    faehigkeit() { rauschen(0.4, 0.25, 2500); [392, 523, 784].forEach((f, i) => ton({ f, f2:f * 1.5, dauer:0.2, typ:'sawtooth', laut:0.07, verz:i * 0.05 })); },
     ereignisse(liste) {
       if (!ctx || !an) return;
       for (const e of liste) {
@@ -77,6 +78,10 @@
           case 'rundeStart': ton({ f:392, dauer:0.1, typ:'triangle', laut:0.2 }); ton({ f:523, dauer:0.15, typ:'triangle', laut:0.2, verz:0.1 }); break;
           case 'rundeEnde': [523, 659, 784].forEach((f, i) => ton({ f, dauer:0.15, typ:'triangle', laut:0.18, verz:i * 0.08 })); break;
           case 'gewonnen': [523, 659, 784, 1047, 784, 1047].forEach((f, i) => ton({ f, dauer:0.25, typ:'triangle', laut:0.25, verz:i * 0.13 })); break;
+          case 'aufstieg': [523, 659, 784, 1047, 1319].forEach((f, i) => ton({ f, dauer:0.14, typ:'triangle', laut:0.18, verz:i * 0.07 })); break;
+          case 'bossPhase': ton({ f:110, f2:55, dauer:0.6, typ:'sawtooth', laut:0.2 }); rauschen(0.5, 0.3, 400); break;
+          case 'bossBesiegt': [392, 523, 659, 784, 1047, 1319].forEach((f, i) => ton({ f, dauer:0.3, typ:'triangle', laut:0.25, verz:i * 0.12 })); rauschen(0.8, 0.3, 900); break;
+          case 'rundeStart_boss': break;
           case 'verloren': [392, 330, 262, 196].forEach((f, i) => ton({ f, dauer:0.35, typ:'sawtooth', laut:0.1, verz:i * 0.22 })); break;
         }
       }

@@ -1,334 +1,25 @@
 'use strict';
 // Pingu Towers – 3D-Darstellung mit three.js (r128). Schräge Kamera von oben wie im Vorbild,
-// Eiskanal mit fließendem Wasser, Pinguine aus Grundformen, Fische als Instanzen (wenige Draw-Calls).
-// Die Logik rechnet auf der Ebene: x → three.x, y → three.z.
+// Eiskanäle mit fließendem Wasser, Pinguine aus Grundformen (modelle.js), Fische als Instanzen
+// (wenige Draw-Calls, Schwanzschlag im Shader). Die Logik rechnet auf der Ebene: x → three.x, y → three.z.
 (function () {
   const PT = window.PT;
   const T = window.THREE;
+  const { G, mat, mesh, fischGeo, pinguinBauen, pinguinKoerper, albatros, geschossArten, haufenGeo } = PT.M3;
   const W = PT.BREITE, H = PT.HOEHE;
   const X = x => x - W / 2, Z = y => y - H / 2;
   const WASSER_Y = 3.5;
+  const FLUGHOEHE = 78;
 
-  /* ---------- Hilfen ---------- */
-  const matCache = new Map();
-  function mat(farbe, art = 'lambert', extra = {}) {
-    const k = farbe + art + JSON.stringify(extra);
-    if (!matCache.has(k)) {
-      const M = art === 'phong' ? T.MeshPhongMaterial : art === 'basic' ? T.MeshBasicMaterial : T.MeshLambertMaterial;
-      matCache.set(k, new M(Object.assign({ color:farbe }, extra)));
-    }
-    return matCache.get(k);
-  }
-  function mesh(geo, material, x = 0, y = 0, z = 0) {
-    const m = new T.Mesh(geo, material);
-    m.position.set(x, y, z);
-    m.castShadow = true;
-    return m;
-  }
-  function matrix(px = 0, py = 0, pz = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) {
-    return new T.Matrix4().compose(new T.Vector3(px, py, pz), new T.Quaternion().setFromEuler(new T.Euler(rx, ry, rz)), new T.Vector3(sx, sy, sz));
-  }
-  // Mehrere Formen mit Farben pro Ecke zu einer Geometrie verschmelzen
-  function verschmelzen(teile) {
-    const pos = [], nor = [], col = [];
-    const c = new T.Color();
-    for (const [geo, farbe, m] of teile) {
-      const g = (geo.index ? geo.toNonIndexed() : geo.clone());
-      g.applyMatrix4(m);
-      const p = g.attributes.position, n = g.attributes.normal;
-      for (let i = 0; i < p.count; i++) {
-        const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-        pos.push(x, y, z);
-        nor.push(n.getX(i), n.getY(i), n.getZ(i));
-        const f = typeof farbe === 'function' ? farbe(x, y, z) : farbe;
-        if (Array.isArray(f)) col.push(f[0], f[1], f[2]);
-        else { c.set(f); col.push(c.r, c.g, c.b); }
-      }
-    }
-    const g = new T.BufferGeometry();
-    g.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
-    g.setAttribute('normal', new T.Float32BufferAttribute(nor, 3));
-    g.setAttribute('color', new T.Float32BufferAttribute(col, 3));
-    return g;
-  }
-  const hell = (hex, t) => { const c = new T.Color(hex).lerp(new T.Color(0xffffff), t); return [c.r, c.g, c.b]; };
-  const dunkel = (hex, t) => { const c = new T.Color(hex).lerp(new T.Color(0x000000), t); return [c.r, c.g, c.b]; };
-  const rgb = hex => { const c = new T.Color(hex); return [c.r, c.g, c.b]; };
-  const hash = (a, b) => { const s = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return s - Math.floor(s); };
-
-  const G = {
-    kugel:new T.SphereGeometry(1, 16, 12),
-    kugelGrob:new T.SphereGeometry(1, 10, 8),
-    kegel:new T.ConeGeometry(1, 1, 8),
-    kegel4:new T.ConeGeometry(1, 1, 4),
-    zyl:new T.CylinderGeometry(1, 1, 1, 12),
-    box:new T.BoxGeometry(1, 1, 1),
-    ikosa:new T.IcosahedronGeometry(1, 1),
-    okta:new T.OctahedronGeometry(1, 0),
-    torus:new T.TorusGeometry(1, 0.16, 8, 24)
-  };
-
-  /* ---------- Fische ---------- */
-  function fischGeo(typ) {
-    const f = PT.FISCHE[typ], r = f.r, c = f.farbe;
-    const bauch = hell(c, 0.55), ruecken = dunkel(c, 0.15);
-    const teile = [];
-    let koerper = (x, y) => y < -0.25 * r ? bauch : y > 0.4 * r ? ruecken : rgb(c);
-    let flosse = dunkel(c, 0.25);
-    let kScale = [1.2 * r, 0.72 * r, 0.62 * r];
-    let schwanz = [0.6 * r, 0.85 * r];
-    if (typ === 'zebra') koerper = x => (Math.floor((x / r + 3) * 2.4) % 2 ? rgb(0x1b1b1f) : rgb(0xf7f7f7));
-    if (typ === 'regen') koerper = (x, y) => { const k = new T.Color().setHSL(((x / r + 1.3) / 2.6) * 0.8, 0.85, y < -0.3 * r ? 0.75 : 0.58); return [k.r, k.g, k.b]; };
-    if (typ === 'rosa') koerper = (x, y, z) => (y > 0.2 * r && hash(Math.round(x), Math.round(z)) > 0.8 ? rgb(0x7a2f48) : y < -0.25 * r ? bauch : rgb(c));
-    if (typ === 'panzer') { koerper = (x, y) => y < -0.3 * r ? rgb(0xb9c0c8) : rgb(0x7d858f); flosse = rgb(0x5a616b); }
-    if (typ === 'schwarz') { koerper = (x, y) => y < -0.3 * r ? rgb(0x3a3f4b) : rgb(0x1f2229); flosse = rgb(0x121419); kScale = [1.15 * r, 0.85 * r, 0.75 * r]; }
-    if (typ === 'weiss') { koerper = (x, y) => y < 0 ? rgb(0xffffff) : rgb(0xd6ecf7); flosse = rgb(0xb8dcef); }
-    if (typ === 'gelb') { schwanz = [0.8 * r, 1.1 * r]; flosse = rgb(0xff8c1a); }
-    if (typ === 'wal' || typ === 'mega') {
-      kScale = [1.4 * r, 0.52 * r, 0.6 * r];
-      schwanz = [0.75 * r, 0.9 * r];
-      if (typ === 'wal') koerper = (x, y, z) => y < -0.15 * r ? rgb(0xe9eef2) : (hash(Math.round(x / 3), Math.round(z / 3) + Math.round(y / 3) * 7) > 0.86 ? rgb(0xeef5ff) : rgb(0x34557c));
-      else koerper = (x, y) => y < -0.15 * r ? rgb(0xe3e6ea) : rgb(0x5d6772);
-      flosse = typ === 'wal' ? rgb(0x2b4868) : rgb(0x4a525c);
-    }
-    if (typ === 'koffer') {
-      koerper = (x, y, z) => (Math.sin(x * 0.9) * Math.sin(z * 0.9) > 0.6 ? rgb(0x6b3f19) : y < -0.3 * r ? rgb(0xe2b27a) : rgb(0xb8773a));
-      teile.push([G.box, koerper, matrix(0, 0, 0, 0, 0, 0, 2.1 * r, 1.25 * r, 1.25 * r)]);
-      flosse = rgb(0x8d5423);
-    } else {
-      teile.push([G.kugel, koerper, matrix(0, 0, 0, 0, 0, 0, ...kScale)]);
-    }
-    // Schwanzflosse (senkrecht), Rückenflosse, Seitenflossen
-    teile.push([G.kegel, flosse, matrix(-kScale[0] - schwanz[1] * 0.3, 0, 0, 0, 0, -Math.PI / 2, schwanz[0], schwanz[1], schwanz[0] * 0.3)]);
-    const rueckenH = typ === 'wal' || typ === 'mega' ? 0.9 * r : 0.55 * r;
-    teile.push([G.kegel, flosse, matrix(-0.1 * r, kScale[1] + rueckenH * 0.35, 0, 0, 0, 0.35, 0.38 * r, rueckenH, 0.08 * r)]);
-    for (const s of [-1, 1]) {
-      teile.push([G.kugel, flosse, matrix(0.25 * r, -0.2 * r, s * kScale[2] * 0.95, 0, s * 0.5, 0, 0.4 * r, 0.07 * r, 0.3 * r)]);
-      // Augen
-      const ax = kScale[0] * 0.66, ay = typ === 'wal' || typ === 'mega' ? 0.05 * r : 0.2 * r, az = s * kScale[2] * 0.62;
-      const aug = typ === 'schwarz' ? 0.26 * r : typ === 'wal' || typ === 'mega' ? 0.1 * r : 0.2 * r;
-      teile.push([G.kugelGrob, 0xffffff, matrix(ax, ay, az, 0, 0, 0, aug, aug, aug)]);
-      teile.push([G.kugelGrob, 0x111111, matrix(ax + aug * 0.45, ay + aug * 0.1, az + s * aug * 0.45, 0, 0, 0, aug * 0.55, aug * 0.55, aug * 0.55)]);
-    }
-    if (typ === 'schwarz') {
-      teile.push([G.zyl, 0x2b2f38, matrix(0.75 * r, 1.1 * r, 0, 0, 0, -0.7, 0.06 * r, 0.9 * r, 0.06 * r)]);
-      teile.push([G.kugelGrob, 0xfff27a, matrix(1.15 * r, 1.45 * r, 0, 0, 0, 0, 0.22 * r, 0.22 * r, 0.22 * r)]);
-      for (const z of [-0.3, 0, 0.3]) teile.push([G.kegel4, 0xffffff, matrix(1.05 * r, -0.2 * r, z * r, Math.PI, 0, 0, 0.08 * r, 0.25 * r, 0.08 * r)]);
-    }
-    if (typ === 'panzer') {
-      for (const x of [-0.6, -0.1, 0.4]) teile.push([G.box, 0x5f666f, matrix(x * r, 0.62 * r, 0, 0, 0, 0.2, 0.4 * r, 0.22 * r, 0.7 * r)]);
-      for (const s of [-1, 1]) teile.push([G.zyl, 0x3d434a, matrix(1.35 * r, -0.15 * r, s * 0.35 * r, s * 0.9, 0, 1.2, 0.04 * r, 0.7 * r, 0.04 * r)]);
-    }
-    if (typ === 'mega' || typ === 'wal') {
-      // Maul
-      teile.push([G.box, typ === 'mega' ? 0x6b1320 : 0x1d2d44, matrix(1.28 * r, -0.12 * r, 0, 0, 0, 0, 0.22 * r, 0.1 * r, 0.62 * r)]);
-      if (typ === 'mega') for (let i = -3; i <= 3; i++) teile.push([G.kegel4, 0xffffff, matrix(1.33 * r, -0.05 * r, i * 0.08 * r, Math.PI, 0, 0, 0.035 * r, 0.1 * r, 0.035 * r)]);
-    }
-    return verschmelzen(teile);
-  }
-
-  /* ---------- Pinguine ---------- */
-  const SCHWARZ = 0x1d2230, WEISS = 0xf7f9fc, ORANGE = 0xff9a1a;
-  const PFAD_FARBEN = [0xe2463b, 0x2f7fe0, 0x35b04a];
-
-  function pinguinKoerper(g, teile, s = 1) {
-    const k = mesh(G.kugel, mat(SCHWARZ, 'phong', { shininess:30 }), 0, 16 * s, 0);
-    k.scale.set(10 * s, 14 * s, 10 * s);
-    const b = mesh(G.kugel, mat(WEISS), 3.8 * s, 14.5 * s, 0);
-    b.scale.set(7 * s, 11 * s, 7.6 * s);
-    const kopf = mesh(G.kugel, mat(SCHWARZ, 'phong', { shininess:30 }), 1 * s, 30 * s, 0);
-    kopf.scale.setScalar(8 * s);
-    g.add(k, b, kopf);
-    for (const z of [-1, 1]) {
-      const w = mesh(G.kugel, mat(WEISS), 5.6 * s, 31.5 * s, z * 3.2 * s); w.scale.set(2.2 * s, 2.6 * s, 2.2 * s);
-      const p = mesh(G.kugelGrob, mat(0x111111), 7.4 * s, 32 * s, z * 3.4 * s); p.scale.setScalar(1.1 * s);
-      const fuss = mesh(G.kugel, mat(ORANGE), 5 * s, 2.5 * s, z * 4.5 * s); fuss.scale.set(4.5 * s, 1.5 * s, 2.6 * s);
-      g.add(w, p, fuss);
-      const fl = mesh(G.kugel, mat(SCHWARZ), 0, 18 * s, z * 10.2 * s);
-      fl.scale.set(4 * s, 9 * s, 1.6 * s);
-      fl.rotation.x = z * 0.35;
-      g.add(fl);
-      teile[z < 0 ? 'fluegelL' : 'fluegelR'] = fl;
-    }
-    const schnabel = mesh(G.kegel, mat(ORANGE), 10 * s, 29.5 * s, 0);
-    schnabel.scale.set(2.4 * s, 7 * s, 2.4 * s);
-    schnabel.rotation.z = -Math.PI / 2;
-    g.add(schnabel);
-    teile.koerper = k;
-  }
-  function sockel(g, r = 17) {
-    const s = mesh(G.zyl, mat(0xffffff), 0, 1.5, 0);
-    s.scale.set(r + 2, 3, r + 2);
-    s.receiveShadow = true;
-    g.add(s);
-  }
-  function hut(g, farbe, x, y, h, r) {
-    const k = mesh(G.kegel, mat(farbe), x, y + h / 2, 0); k.scale.set(r, h, r); g.add(k); return k;
-  }
-
-  // Aussehen je Pinguin, wächst mit den Upgrades mit
-  const MODELLE = {
-    zapfen(g, p, t) {
-      pinguinKoerper(g, t);
-      const band = mesh(G.torus, mat(p[1] >= 3 ? 0xffc93c : 0xe2463b), 1, 33, 0); band.scale.setScalar(8.2); band.rotation.x = Math.PI / 2; g.add(band);
-      const zapfen = (z, farbe) => { const k = mesh(G.kegel, mat(farbe, 'phong', { shininess:90 }), 6, 20, z); k.scale.set(2, 12, 2); k.rotation.z = -Math.PI / 2 - 0.3; g.add(k); };
-      zapfen(11, p[2] >= 4 ? 0x5ec8ff : p[1] >= 4 ? 0xffd54a : 0xcdefff);
-      if (p[1] >= 3) zapfen(-11, p[1] >= 4 ? 0xffd54a : 0xcdefff);
-      if (p[0] >= 3) { const kg = mesh(G.ikosa, mat(0xdff4ff, 'phong', { flatShading:true, shininess:80 }), -11, 16, 0); kg.scale.setScalar(p[0] >= 4 ? 11 : 8); g.add(kg); }
-      if (p[2] >= 2) for (const z of [-3.4, 3.4]) { const b = mesh(G.zyl, mat(p[2] >= 4 ? 0x2f7fe0 : 0x3cb371), 7.5, 32.5, z); b.scale.set(2, 1.5, 2); b.rotation.z = Math.PI / 2; g.add(b); }
-    },
-    rundum(g, p, t) {
-      pinguinKoerper(g, t);
-      const farbe = p[0] >= 4 ? 0xffc93c : p[2] >= 4 ? 0xc0c8d4 : 0x8e5bd6;
-      const helm = mesh(G.kugel, mat(farbe, 'phong', { shininess:60 }), 1, 32, 0); helm.scale.set(8.6, 5.5, 8.6); g.add(helm);
-      const n = p[0] >= 3 || p[2] >= 3 ? 12 : 8;
-      for (let i = 0; i < n; i++) {
-        const w = i / n * Math.PI * 2;
-        const k = mesh(G.kegel, mat(0xcfe8ff, 'phong', { shininess:90 }), 1 + Math.cos(w) * 8, 34, Math.sin(w) * 8);
-        k.scale.set(1.3, 6, 1.3); k.rotation.set(Math.sin(w) * 1.1, 0, -Math.cos(w) * 1.1); g.add(k);
-      }
-      if (p[1] >= 3) { const r = mesh(G.torus, mat(p[1] >= 4 ? 0xb36bff : 0x7fd6e0, 'basic', { transparent:true, opacity:0.7 }), 0, 5, 0); r.scale.setScalar(20); r.rotation.x = Math.PI / 2; g.add(r); t.dreher = r; }
-    },
-    schneeball(g, p, t) {
-      pinguinKoerper(g, t);
-      const eimer = mesh(G.zyl, mat(p[1] >= 3 ? 0x444a55 : 0xe2463b), 1, 38, 0); eimer.scale.set(6.5, 7, 6.5); g.add(eimer);
-      const gross = p[0] >= 3 ? 1.35 : 1;
-      const rohr = mesh(G.zyl, mat(p[2] >= 4 ? 0x5ec8ff : 0x6d7f95, 'phong', { shininess:70 }), 12, 14, -12);
-      rohr.scale.set(5 * gross, 20 * gross, 5 * gross); rohr.rotation.z = -Math.PI / 2; g.add(rohr);
-      const ball = mesh(G.kugel, mat(0xffffff), 23 * gross, 14, -12); ball.scale.setScalar(4.5 * gross); g.add(ball);
-      if (p[1] >= 3) for (const z of [-6, 6]) { const f = mesh(G.box, mat(0xe2463b), 3, 14, -12 + z); f.scale.set(6, 1, 4); g.add(f); }
-    },
-    frost(g, p, t) {
-      pinguinKoerper(g, t);
-      const schal = mesh(G.torus, mat(0x2f7fe0), 1, 24, 0); schal.scale.set(9.5, 9.5, 12); schal.rotation.x = Math.PI / 2; g.add(schal);
-      const ende = mesh(G.box, mat(0x2f7fe0), -6, 18, 6); ende.scale.set(3, 10, 4); g.add(ende);
-      const n = Math.max(1, Math.min(3, 1 + Math.floor((p[0] + p[1] + p[2]) / 3)));
-      const kristalle = new T.Group();
-      for (let i = 0; i < n; i++) {
-        const k = mesh(G.okta, mat(p[0] >= 4 || p[1] >= 4 || p[2] >= 4 ? 0x9ff3ff : 0xbfeaff, 'phong', { flatShading:true, shininess:100, emissive:0x1d5a7a }), n > 1 ? Math.cos(i / n * 6.28) * 8 : 0, 0, n > 1 ? Math.sin(i / n * 6.28) * 8 : 0);
-        k.scale.set(3.5, 6, 3.5); kristalle.add(k);
-      }
-      kristalle.position.y = 48; g.add(kristalle); t.dreher = kristalle;
-    },
-    harpune(g, p, t) {
-      pinguinKoerper(g, t);
-      const hutFarbe = p[1] >= 4 ? 0x7a4a1e : 0x1f3a5f;
-      const krempe = mesh(G.zyl, mat(hutFarbe), 1, 36, 0); krempe.scale.set(10, 1.2, 10); g.add(krempe);
-      const kr = mesh(G.zyl, mat(hutFarbe), 1, 40, 0); kr.scale.set(7, 7, 7); g.add(kr);
-      const band = mesh(G.zyl, mat(0xffc93c), 1, 37.6, 0); band.scale.set(7.2, 1.2, 7.2); g.add(band);
-      const lang = p[0] >= 3 ? 44 : 34;
-      const schaft = mesh(G.zyl, mat(0x8b5a2b), 10, 20, 11); schaft.scale.set(1.1, lang, 1.1); schaft.rotation.z = -Math.PI / 2; g.add(schaft);
-      const spitze = mesh(G.kegel, mat(p[0] >= 4 ? 0xffd54a : 0xc8d0da, 'phong', { shininess:100 }), 10 + lang / 2 + 3, 20, 11); spitze.scale.set(2.4, 7, 2.4); spitze.rotation.z = -Math.PI / 2; g.add(spitze);
-      if (p[2] >= 3) { const s2 = schaft.clone(); s2.position.z = -11; const sp2 = spitze.clone(); sp2.position.z = -11; g.add(s2, sp2); }
-      if (p[1] >= 4) { const boot = mesh(G.box, mat(0xb8773a), -16, 5, 0); boot.scale.set(10, 6, 26); g.add(boot); }
-    },
-    polar(g, p, t) {
-      pinguinKoerper(g, t);
-      const farbe = p[2] >= 4 ? 0x2b1d6b : 0x6b4fd1;
-      const krempe = mesh(G.zyl, mat(farbe), 1, 36, 0); krempe.scale.set(11, 1, 11); g.add(krempe);
-      const h = hut(g, farbe, 1, 36, 20, 7); h.rotation.z = 0.15;
-      const stern = mesh(G.okta, mat(0xffe066, 'basic'), 2, 48, 5); stern.scale.setScalar(2.2); g.add(stern);
-      const stab = mesh(G.zyl, mat(0x8b5a2b), 8, 20, 12); stab.scale.set(1, 34, 1); g.add(stab);
-      const orbFarbe = p[0] >= 3 ? 0x7dffb2 : 0xb49bff;
-      const orb = mesh(G.kugel, mat(orbFarbe, 'basic', { transparent:true, opacity:0.9 }), 8, 39, 12); orb.scale.setScalar(p[0] >= 3 ? 5 : 3.8); g.add(orb);
-      t.orb = orb;
-      if (p[2] >= 3) { const umhang = mesh(G.kugel, mat(farbe), -5, 18, 0); umhang.scale.set(6, 15, 11); g.add(umhang); }
-    },
-    markt(g, p, t) {
-      const theke = mesh(G.box, mat(0x9b6a3c), 6, 7, 0); theke.scale.set(14, 14, 40); g.add(theke);
-      const brett = mesh(G.box, mat(0xd8e9f2), 6, 14.5, 0); brett.scale.set(15, 1, 41); g.add(brett);
-      for (let i = 0; i < 5; i++) {
-        const f = mesh(G.kugel, mat([0xe8453c, 0x2f7fe0, 0xf5b623, 0x35b04a, 0xff7fa8][i]), 7, 16.5, -15 + i * 7.5); f.scale.set(3, 1.6, 2.2); f.rotation.y = 1.3; g.add(f);
-      }
-      for (const z of [-19, 19]) for (const x of [-12, 12]) { const s = mesh(G.zyl, mat(0x7a4a1e), x, 20, z); s.scale.set(1.2, 40, 1.2); g.add(s); }
-      for (let i = 0; i < 8; i++) {
-        const d = mesh(G.box, mat(i % 2 ? 0xffffff : p[1] >= 3 ? 0x2f7fe0 : 0xe2463b), 0, 41, -21 + i * 6 + 3);
-        d.scale.set(30, 2, 6); d.rotation.z = 0.25; g.add(d);
-      }
-      const pg = new T.Group(); pg.position.set(-9, 0, 0); pg.scale.setScalar(0.8); pinguinKoerper(pg, t); g.add(pg);
-      const schuerze = mesh(G.box, mat(0xffffff), -4, 14, 0); schuerze.scale.set(1, 12, 9); g.add(schuerze);
-      const kisten = Math.min(6, p[0] + 1);
-      for (let i = 0; i < kisten; i++) { const k = mesh(G.box, mat(0xb8773a), -20 + (i % 3) * 0, 4 + Math.floor(i / 3) * 8, -14 + (i % 3) * 14); k.scale.setScalar(8); g.add(k); }
-      if (p[2] >= 3) { const m = mesh(G.zyl, mat(0xffd54a, 'phong', { shininess:100 }), 16, 20, 0); m.scale.set(5, 1.5, 5); m.rotation.z = Math.PI / 2; g.add(m); }
-    },
-    haeuptling(g, p, t) {
-      pinguinKoerper(g, t);
-      const farben = [0xe2463b, 0xf6c343, 0x35b04a, 0x2f7fe0, 0xb36bff];
-      const n = p[0] >= 4 ? 9 : 7;
-      for (let i = 0; i < n; i++) {
-        const w = (i / (n - 1) - 0.5) * 2.2;
-        const fe = mesh(G.kugel, mat(farben[i % 5]), -3, 38, 0);
-        fe.scale.set(1.2, 7, 2.2); fe.position.set(-3 + Math.sin(w) * -0, 38 + Math.cos(w) * 4, Math.sin(w) * 8); fe.rotation.x = w * 0.9; g.add(fe);
-      }
-      if (p[0] >= 4) { const k = mesh(G.zyl, mat(0xffd54a, 'phong', { shininess:100 }), 1, 38, 0); k.scale.set(7, 4, 7); g.add(k); }
-      const tr = mesh(G.zyl, mat(0x9b5a2b), 14, 9, 0); tr.scale.set(p[0] >= 1 ? 8 : 6.5, 12, p[0] >= 1 ? 8 : 6.5); g.add(tr);
-      const fell = mesh(G.zyl, mat(0xf3e2c3), 14, 15.2, 0); fell.scale.set(p[0] >= 1 ? 8.2 : 6.7, 0.6, p[0] >= 1 ? 8.2 : 6.7); g.add(fell);
-      if (p[1] >= 2) { const st = mesh(G.zyl, mat(0x777777), -10, 30, 10); st.scale.set(0.8, 26, 0.8); g.add(st); const sch = mesh(G.kegel, mat(0xdfe6ee), -10, 44, 10); sch.scale.set(6, 4, 6); sch.rotation.x = Math.PI; g.add(sch); t.dreher = sch; }
-      if (p[2] >= 3) for (let i = 0; i < 4; i++) { const m = mesh(G.zyl, mat(0xffd54a, 'phong', { shininess:100 }), -14, 2 + i * 1.6, -10); m.scale.set(4, 1.4, 4); g.add(m); }
-    }
-  };
-
-  const MODELL_GROESSE = 1.3;
-  function pinguinBauen(typ, pfade) {
-    const g = new T.Group();
-    const teile = {};
-    sockel(g, PT.turmRadius(typ));
-    const innen = new T.Group();
-    MODELLE[typ](innen, pfade, teile);
-    innen.scale.setScalar(MODELL_GROESSE);
-    g.add(innen);
-    // Stufen-Punkte am Sockel (rot, blau, grün je Pfad)
-    let k = 0;
-    const r = PT.turmRadius(typ) + 1.5;
-    for (let i = 0; i < 3; i++) for (let s = 0; s < pfade[i]; s++) {
-      const w = Math.PI * 0.75 + k++ * 0.32;
-      const pk = mesh(G.kugelGrob, mat(PFAD_FARBEN[i], 'basic'), Math.cos(w) * r, 3.4, Math.sin(w) * r);
-      pk.scale.setScalar(2.2);
-      g.add(pk);
-    }
-    return { g, innen, teile };
-  }
-
-  /* ---------- Geschosse ---------- */
-  function geschossArten() {
-    const eis = (farbe) => mat(farbe, 'phong', { shininess:90 });
-    const zapfenGeo = new T.ConeGeometry(2.4, 15, 6).applyMatrix4(matrix(0, 0, 0, 0, 0, -Math.PI / 2));
-    const splitterGeo = new T.OctahedronGeometry(1, 0).applyMatrix4(matrix(0, 0, 0, 0, 0, 0, 5, 1.6, 1.6));
-    const harpGeo = new T.ConeGeometry(2, 12, 6).applyMatrix4(matrix(0, 0, 0, 0, 0, -Math.PI / 2));
-    const kug = new T.SphereGeometry(1, 12, 9);
-    const iko = new T.IcosahedronGeometry(1, 1);
-    const rak = new T.ConeGeometry(3, 16, 8).applyMatrix4(matrix(0, 0, 0, 0, 0, -Math.PI / 2));
-    return {
-      zapfen:{ geo:zapfenGeo, mat:eis(0xcdefff), y:18 },
-      zapfenGold:{ geo:zapfenGeo, mat:eis(0xffd54a), y:18 },
-      zapfenBlau:{ geo:zapfenGeo, mat:eis(0x5ec8ff), y:18 },
-      eisstrahl:{ geo:zapfenGeo, mat:mat(0x7ff0ff, 'basic'), y:14 },
-      kugel:{ geo:iko, mat:mat(0xdff4ff, 'phong', { flatShading:true }), y:null, rollen:true },
-      lawine:{ geo:iko, mat:mat(0xf2fbff, 'phong', { flatShading:true }), y:null, rollen:true },
-      splitter:{ geo:splitterGeo, mat:eis(0xcfe8ff), y:12 },
-      splitterGold:{ geo:splitterGeo, mat:eis(0xffd54a), y:12 },
-      splitterBlau:{ geo:splitterGeo, mat:eis(0x6ad0ff), y:12 },
-      klinge:{ geo:splitterGeo, mat:mat(0xe8eef6, 'phong', { shininess:120 }), y:12 },
-      schneeball:{ geo:kug, mat:mat(0xffffff), y:22 },
-      schneeballGross:{ geo:kug, mat:mat(0xffffff), y:22 },
-      schneeballBlau:{ geo:kug, mat:mat(0xa8dcff), y:22 },
-      schneeballKlein:{ geo:kug, mat:mat(0xffffff), y:10 },
-      rakete:{ geo:rak, mat:mat(0xe2463b, 'phong'), y:20 },
-      magie:{ geo:kug, mat:mat(0xc3b0ff, 'basic'), y:26 },
-      magieGross:{ geo:kug, mat:mat(0x7dffb2, 'basic'), y:26 },
-      eule:{ geo:kug, mat:mat(0xe6f6ff, 'basic'), y:40 },
-      harpune:{ geo:harpGeo, mat:mat(0xc8d0da), y:18 }
-    };
-  }
-
-  /* ---------- Boden-Textur ---------- */
+  /* ---------- Themen und Boden ---------- */
   const THEMEN = {
     tag:        { himmel:0xcfe9f7, boden:['#d9eaf3', '#bcd6e6'], licht:0.8, halb:0.5, nebel:0xcfe9f7, fluss:0x4cc3f0, schnee:0.4, meer:0x1c5d8c },
     daemmerung: { himmel:0xf2c9c0, boden:['#eedde3', '#cdc4e2'], licht:0.8, halb:0.5, nebel:0xe7d2dc, fluss:0x55b6e6, schnee:0.6, meer:0x3b5d8f },
-    nacht:      { himmel:0x0b1630, boden:['#b8c9e2', '#8ea3c6'], licht:0.55, halb:0.55, nebel:0x0e1c3a, fluss:0x3a9fd6, schnee:0.8, meer:0x0a1d3a }
+    nacht:      { himmel:0x0b1630, boden:['#b8c9e2', '#8ea3c6'], licht:0.55, halb:0.55, nebel:0x0e1c3a, fluss:0x3a9fd6, schnee:0.8, meer:0x0a1d3a },
+    vulkan:     { himmel:0x2a1a1c, boden:['#857e8a', '#5f5866'], licht:0.75, halb:0.45, nebel:0x2a1a1c, fluss:0x3fb0e0, schnee:0.25, meer:0x16202e, lava:true }
   };
 
-  function bodenTextur(karte, weg, thema) {
+  function bodenTextur(karte, wege, thema) {
     const S = 2;
     const c = document.createElement('canvas');
     c.width = W * S; c.height = H * S;
@@ -337,25 +28,24 @@
     const gr = x.createLinearGradient(0, 0, 0, H);
     gr.addColorStop(0, thema.boden[0]); gr.addColorStop(1, thema.boden[1]);
     x.fillStyle = gr; x.fillRect(0, 0, W, H);
-    // Eisplatten und Schneewehen
     let seed = 7;
     const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    // Eisplatten (bzw. Gesteinsplatten am Vulkan) und Schneewehen
     for (let i = 0; i < 26; i++) {
       const px = rnd() * W, py = rnd() * H, r = 30 + rnd() * 70;
-      x.fillStyle = `rgba(160,205,230,${0.12 + rnd() * 0.12})`;
+      x.fillStyle = thema.lava ? `rgba(40,35,45,${0.15 + rnd() * 0.15})` : `rgba(160,205,230,${0.12 + rnd() * 0.12})`;
       x.beginPath();
       for (let k = 0; k < 7; k++) { const w = k / 7 * Math.PI * 2; const rr = r * (0.7 + rnd() * 0.4); x.lineTo(px + Math.cos(w) * rr, py + Math.sin(w) * rr * 0.7); }
       x.closePath(); x.fill();
-      x.strokeStyle = 'rgba(255,255,255,0.6)'; x.lineWidth = 1.2; x.stroke();
+      x.strokeStyle = thema.lava ? 'rgba(30,25,30,0.4)' : 'rgba(255,255,255,0.6)'; x.lineWidth = 1.2; x.stroke();
     }
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < (thema.lava ? 30 : 40); i++) {
       const px = rnd() * W, py = rnd() * H, r = 20 + rnd() * 50;
       const rg = x.createRadialGradient(px, py, 0, px, py, r);
-      rg.addColorStop(0, 'rgba(255,255,255,0.7)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+      rg.addColorStop(0, `rgba(255,255,255,${thema.lava ? 0.85 : 0.7})`); rg.addColorStop(1, 'rgba(255,255,255,0)');
       x.fillStyle = rg; x.beginPath(); x.ellipse(px, py, r, r * 0.6, rnd() * 3, 0, Math.PI * 2); x.fill();
     }
-    // Risse
-    x.strokeStyle = 'rgba(120,170,200,0.35)'; x.lineWidth = 1;
+    x.strokeStyle = thema.lava ? 'rgba(20,15,20,0.5)' : 'rgba(120,170,200,0.35)'; x.lineWidth = 1;
     for (let i = 0; i < 18; i++) {
       let px = rnd() * W, py = rnd() * H;
       x.beginPath(); x.moveTo(px, py);
@@ -363,23 +53,57 @@
       x.stroke();
     }
     for (let i = 0; i < 2500; i++) { x.fillStyle = `rgba(255,255,255,${rnd() * 0.5})`; x.fillRect(rnd() * W, rnd() * H, 1.2, 1.2); }
-    // Schatten und Grund unter dem Kanal
+    // Schatten und Grund unter den Kanälen
     x.lineJoin = x.lineCap = 'round';
     const linie = (breite, farbe) => {
-      x.strokeStyle = farbe; x.lineWidth = breite; x.beginPath();
-      weg.pts.forEach(([px, py], i) => (i ? x.lineTo(px, py) : x.moveTo(px, py))); x.stroke();
+      for (const w of wege) {
+        x.strokeStyle = farbe; x.lineWidth = breite; x.beginPath();
+        w.pts.forEach(([px, py], i) => (i ? x.lineTo(px, py) : x.moveTo(px, py))); x.stroke();
+      }
     };
-    linie(PT.WEG_BREITE + 44, 'rgba(90,140,180,0.18)');
+    linie(PT.WEG_BREITE + 44, thema.lava ? 'rgba(30,20,25,0.25)' : 'rgba(90,140,180,0.18)');
     linie(PT.WEG_BREITE + 2, '#3a8fc0');
-    // Schatten unter Hindernissen
+    for (const [wx, wy, wr] of karte.wasser || []) {
+      x.fillStyle = 'rgba(90,140,180,0.22)'; x.beginPath(); x.arc(wx, wy, wr + 14, 0, Math.PI * 2); x.fill();
+      x.fillStyle = '#2f7fb0'; x.beginPath(); x.arc(wx, wy, wr, 0, Math.PI * 2); x.fill();
+    }
+    for (const w of wege) {
+      for (const [ok, i] of [[w.lochEnde, w.pts.length - 1], [w.lochAnfang, 0]]) {
+        if (!ok) continue;
+        const [px, py] = w.pts[i];
+        x.fillStyle = '#0d2c45'; x.beginPath(); x.arc(px, py, 34, 0, Math.PI * 2); x.fill();
+      }
+    }
     for (const [hx, hy, hr] of karte.hindernisse) {
       const rg = x.createRadialGradient(hx + 6, hy + 6, hr * 0.5, hx + 6, hy + 6, hr * 1.4);
-      rg.addColorStop(0, 'rgba(60,90,120,0.3)'); rg.addColorStop(1, 'rgba(60,90,120,0)');
+      rg.addColorStop(0, 'rgba(40,60,90,0.3)'); rg.addColorStop(1, 'rgba(40,60,90,0)');
       x.fillStyle = rg; x.beginPath(); x.arc(hx + 6, hy + 6, hr * 1.4, 0, Math.PI * 2); x.fill();
     }
     const tex = new T.CanvasTexture(c);
     tex.anisotropy = 4;
-    return tex;
+    // Vulkan: glühende Lavaspalten als Leuchttextur
+    let glut = null;
+    if (thema.lava) {
+      const l = document.createElement('canvas');
+      l.width = W; l.height = H;
+      const y = l.getContext('2d');
+      y.fillStyle = '#000'; y.fillRect(0, 0, W, H);
+      y.lineCap = 'round';
+      for (let i = 0; i < 22; i++) {
+        let px = rnd() * W, py = rnd() * H;
+        const pfad = [[px, py]];
+        for (let k = 0; k < 6; k++) { px += (rnd() - 0.5) * 70; py += (rnd() - 0.5) * 70; pfad.push([px, py]); }
+        for (const [b, f] of [[7, 'rgba(255,90,20,0.35)'], [2.5, '#ffb020']]) {
+          y.strokeStyle = f; y.lineWidth = b; y.beginPath();
+          pfad.forEach(([a, c2], k) => (k ? y.lineTo(a, c2) : y.moveTo(a, c2))); y.stroke();
+        }
+      }
+      // keine Glut im Wasser
+      y.strokeStyle = '#000'; y.lineWidth = PT.WEG_BREITE + 30; y.lineJoin = 'round';
+      for (const w of wege) { y.beginPath(); w.pts.forEach(([px, py], i) => (i ? y.lineTo(px, py) : y.moveTo(px, py))); y.stroke(); }
+      glut = new T.CanvasTexture(l);
+    }
+    return { tex, glut };
   }
   function wasserTextur() {
     const c = document.createElement('canvas');
@@ -401,8 +125,23 @@
     t.wrapS = t.wrapT = T.RepeatWrapping;
     return t;
   }
+  function strudelTextur() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const x = c.getContext('2d');
+    const gr = x.createRadialGradient(64, 64, 4, 64, 64, 64);
+    gr.addColorStop(0, '#04121f'); gr.addColorStop(0.6, '#1d5f8f'); gr.addColorStop(1, '#4cc3f0');
+    x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+    x.strokeStyle = 'rgba(255,255,255,0.55)'; x.lineWidth = 3;
+    for (let a = 0; a < 4; a++) {
+      x.beginPath();
+      for (let t = 0; t < 1; t += 0.02) { const r = 60 * (1 - t), w = a * Math.PI / 2 + t * 7; x.lineTo(64 + Math.cos(w) * r, 64 + Math.sin(w) * r); }
+      x.stroke();
+    }
+    return new T.CanvasTexture(c);
+  }
 
-  // Band entlang des Wegs: profil = [[Abstand zur Mitte, Höhe], …]
+  // Band entlang eines Wegs: profil = [[Abstand zur Mitte, Höhe], …], nur der Teil auf der Karte
   function wegBand(weg, profil, uvLaenge) {
     const pos = [], uv = [], idx = [];
     const pts = weg.pts;
@@ -449,10 +188,20 @@
       this.scene = new T.Scene();
       this.kamera = new T.PerspectiveCamera(36, 1.6, 10, 6000);
       this.zeit = 0;
+      this.zeitUniform = { value:0 };
       this.pinguine = new Map();
+      this.flieger = new Map();
+      this.eulen = new Map();
       this.effekte = [];
       this.texte = [];
       this.blitz = 0;
+      this.flash = null;
+      this.wackeln = 0;
+      this.zoom = 1;
+      this.schwenk = new T.Vector2(0, 0);
+      this.kartenMitte = new T.Vector3(0, 0, 18);
+      this.basisAbstand = 1200;
+      this.rauch = []; this.lichter = []; this.strudel = [];
       this.fischGeos = {};
       for (const typ of Object.keys(PT.FISCHE)) this.fischGeos[typ] = fischGeo(typ);
       this.geschossArten = geschossArten();
@@ -467,31 +216,49 @@
       this.groesse();
     }
 
+    // Fischmaterial mit Schwanzschlag: der hintere Teil schwingt seitlich, je Fisch versetzt
+    wackelMaterial(material, laenge, tempo) {
+      const zeit = this.zeitUniform;
+      material.onBeforeCompile = sh => {
+        sh.uniforms.uZeit = zeit;
+        sh.uniforms.uLaenge = { value:laenge };
+        sh.uniforms.uTempo = { value:tempo };
+        sh.vertexShader = 'uniform float uZeit;\nuniform float uLaenge;\nuniform float uTempo;\nattribute float aWag;\n' +
+          sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+            float hinten = clamp(-transformed.x / uLaenge, 0.0, 2.4);
+            float ph = instanceMatrix[3].x * 0.071 + instanceMatrix[3].z * 0.053;
+            transformed.z += sin(uZeit * uTempo + ph - hinten * 1.6) * hinten * hinten * uLaenge * 0.17 * aWag;`);
+      };
+      return material;
+    }
+
     karteLaden(spiel) {
-      // alles Alte weg
       this.scene = new T.Scene();
-      this.pinguine.clear();
+      this.pinguine.clear(); this.flieger.clear(); this.eulen.clear();
+      this.strudel = []; this.lavaLicht = null; this.rauch = [];
       this.effekte = [];
       this.texte = [];
+      this.zoom = 1; this.schwenk.set(0, 0);
       const karte = spiel.kartenDaten;
-      const thema = THEMEN[karte.thema];
+      const thema = THEMEN[karte.thema] || THEMEN.tag;
       this.thema = thema;
       const sc = this.scene;
       sc.background = new T.Color(thema.himmel);
-      sc.fog = new T.Fog(thema.nebel, 1400, 3200);
+      sc.fog = new T.Fog(thema.nebel, 1500, 3400);
 
       sc.add(new T.HemisphereLight(0xeaf6ff, 0x7f9fb8, thema.halb));
-      const sonne = new T.DirectionalLight(karte.thema === 'daemmerung' ? 0xffd9c2 : 0xffffff, thema.licht);
+      const sonne = new T.DirectionalLight(karte.thema === 'daemmerung' ? 0xffd9c2 : thema.lava ? 0xffe2cc : 0xffffff, thema.licht);
       sonne.position.set(-350, 800, 380);
       sonne.castShadow = true;
       sonne.shadow.mapSize.set(2048, 2048);
       Object.assign(sonne.shadow.camera, { left:-620, right:620, top:420, bottom:-420, near:100, far:2200 });
       sonne.shadow.bias = -0.0008;
       sc.add(sonne);
-      this.sonne = sonne;
 
-      // Boden: Karte mit Textur, drumherum Schnee
-      const boden = new T.Mesh(new T.PlaneGeometry(W, H), new T.MeshLambertMaterial({ map:bodenTextur(karte, spiel.weg, thema) }));
+      // Boden der Scholle
+      const { tex, glut } = bodenTextur(karte, spiel.wege, thema);
+      this.bodenMat = new T.MeshLambertMaterial({ map:tex, emissive:glut ? 0xffffff : 0x000000, emissiveMap:glut });
+      const boden = new T.Mesh(new T.PlaneGeometry(W, H), this.bodenMat);
       boden.rotation.x = -Math.PI / 2;
       boden.receiveShadow = true;
       sc.add(boden);
@@ -501,43 +268,154 @@
       const aussen = new T.Mesh(new T.PlaneGeometry(8000, 8000), new T.MeshPhongMaterial({ color:thema.meer, map:this.meerTex, shininess:90, specular:0x557799 }));
       aussen.rotation.x = -Math.PI / 2; aussen.position.y = -22; aussen.receiveShadow = true;
       sc.add(aussen);
-      const klippe = mat(0xcfe8f5, 'phong', { shininess:40 });
+      const klippe = mat(thema.lava ? 0x4b4552 : 0xcfe8f5, 'phong', { shininess:40 });
       for (const [x, z, sx, sz] of [[0, -H / 2 - 5, W + 10, 10], [0, H / 2 + 5, W + 10, 10], [-W / 2 - 5, 0, 10, H], [W / 2 + 5, 0, 10, H]]) {
         const m = mesh(G.box, klippe, x, -11, z); m.scale.set(sx, 24, sz); m.receiveShadow = true; sc.add(m);
         const kante = mesh(G.box, mat(0xffffff), x, 0.6, z); kante.scale.set(sx + 1, 1.2, sz + 1); sc.add(kante);
       }
-      // ein paar Eisschollen im Meer
       for (let i = 0; i < 14; i++) {
         const w = i / 14 * Math.PI * 2 + 0.3, d = 640 + (i % 3) * 110;
         const e = mesh(new T.CylinderGeometry(1, 1.1, 1, 7), mat(0xeef8fd, 'lambert', { flatShading:true }), Math.cos(w) * d * 1.1, -19, Math.sin(w) * d * 0.8);
         e.scale.set(30 + (i * 17) % 50, 5, 22 + (i * 13) % 40); e.rotation.y = i; sc.add(e);
       }
 
-      // Kanal: Wasser und Eisufer
+      // Kanäle: Wasser und Eisufer
       const b = PT.WEG_BREITE / 2;
       this.wasserTex = wasserTextur();
-      const wasser = new T.Mesh(wegBand(spiel.weg, [[-b - 1, WASSER_Y], [0, WASSER_Y], [b + 1, WASSER_Y]], 120),
-        new T.MeshPhongMaterial({ color:thema.fluss, map:this.wasserTex, transparent:true, opacity:0.82, shininess:120, specular:0xbfe6ff, emissive:0x0b3a5a }));
-      wasser.receiveShadow = true;
-      sc.add(wasser);
-      const ufer = new T.MeshLambertMaterial({ color:0xeaf6fd });
-      for (const s of [-1, 1]) {
-        const prof = [[s * (b + 16), 0], [s * (b + 9), 5.5], [s * (b + 3), 6.5], [s * (b - 1), 2]];
-        const m = new T.Mesh(wegBand(spiel.weg, s < 0 ? prof : prof.reverse(), 100), ufer);
-        m.receiveShadow = true; m.castShadow = true;
-        sc.add(m);
+      const wasserMat = new T.MeshPhongMaterial({ color:thema.fluss, map:this.wasserTex, transparent:true, opacity:0.82, shininess:120, specular:0xbfe6ff, emissive:0x0b3a5a });
+      const ufer = new T.MeshLambertMaterial({ color:thema.lava ? 0xd9d4dc : 0xeaf6fd });
+      for (const w of spiel.wege) {
+        const wasser = new T.Mesh(wegBand(w, [[-b - 1, WASSER_Y], [0, WASSER_Y], [b + 1, WASSER_Y]], 120), wasserMat);
+        wasser.receiveShadow = true;
+        sc.add(wasser);
+        for (const s of [-1, 1]) {
+          const prof = [[s * (b + 16), 0], [s * (b + 9), 5.5], [s * (b + 3), 6.5], [s * (b - 1), 2]];
+          const m = new T.Mesh(wegBand(w, s < 0 ? prof : prof.reverse(), 100), ufer);
+          m.receiveShadow = true; m.castShadow = true;
+          sc.add(m);
+        }
+        // Eisbogen an den Kartenrändern, Strudel bei einem Eisloch mitten auf der Karte
+        const bogen = (p, farbe) => {
+          const m = mesh(new T.TorusGeometry(b + 10, 7, 8, 16, Math.PI), mat(farbe, 'phong', { shininess:60 }), X(p[0]), 0, Z(p[1]));
+          m.rotation.y = -p[2] + Math.PI / 2;
+          sc.add(m);
+        };
+        if (!w.lochAnfang) bogen(w.punkt(w.vonDist + 4), 0xbfe6f7);
+        if (!w.lochEnde) bogen(w.punkt(w.bisDist - 4), 0xa4d3ee);
+        for (const [ok, p] of [[w.lochEnde, w.pts[w.pts.length - 1]], [w.lochAnfang, w.pts[0]]]) {
+          if (!ok) continue;
+          const s = new T.Mesh(new T.CircleGeometry(32, 40), new T.MeshBasicMaterial({ map:strudelTextur() }));
+          s.rotation.x = -Math.PI / 2; s.position.set(X(p[0]), WASSER_Y + 0.4, Z(p[1]));
+          sc.add(s); this.strudel.push(s);
+          const rand = mesh(G.torus, mat(0xeaf6fd), X(p[0]), 2, Z(p[1])); rand.scale.set(34, 34, 30); rand.rotation.x = Math.PI / 2; sc.add(rand);
+        }
       }
-      // Eishöhle am Eingang, Eisbogen am Ausgang
-      const ende = (p, w, farbe) => {
-        const bogen = mesh(new T.TorusGeometry(b + 10, 7, 8, 16, Math.PI), mat(farbe, 'phong', { shininess:60 }), X(p[0]), 0, Z(p[1]));
-        bogen.rotation.y = -w + Math.PI / 2;
-        sc.add(bogen);
-      };
-      const pe = spiel.weg.punkt(40), pa = spiel.weg.punkt(spiel.weg.laenge - 40);
-      ende(pe, pe[2], 0xbfe6f7);
-      ende(pa, pa[2], 0xa4d3ee);
+      // Wasserlöcher für Boote
+      for (const [wx, wy, wr] of karte.wasser || []) {
+        const s = new T.Mesh(new T.CircleGeometry(wr, 40), wasserMat);
+        s.rotation.x = -Math.PI / 2; s.position.set(X(wx), WASSER_Y, Z(wy)); s.receiveShadow = true;
+        sc.add(s);
+        const rand = mesh(G.torus, ufer, X(wx), 2.4, Z(wy)); rand.scale.set(wr + 3, wr + 3, 22); rand.rotation.x = Math.PI / 2; rand.receiveShadow = true;
+        sc.add(rand);
+      }
 
-      // Hindernisse: Eisberge, Felsen, Iglu
+      this.dekoBauen(karte, thema);
+
+      // Polarlicht in der Nacht, Glut am Vulkan
+      this.lichter = [];
+      if (karte.thema === 'nacht') {
+        for (const farbe of [0x3cff9a, 0x9a6bff, 0x3cc8ff]) {
+          const l = new T.PointLight(farbe, 1.1, 900, 1.4);
+          l.position.set(0, 160, 0); l.polar = true;
+          sc.add(l); this.lichter.push(l);
+        }
+      }
+
+      // Schneefall
+      const n = Math.round(500 * thema.schnee);
+      const sp = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) { sp[i * 3] = (Math.random() - 0.5) * 1300; sp[i * 3 + 1] = Math.random() * 500; sp[i * 3 + 2] = (Math.random() - 0.5) * 900; }
+      const sg = new T.BufferGeometry(); sg.setAttribute('position', new T.BufferAttribute(sp, 3));
+      this.schnee = new T.Points(sg, new T.PointsMaterial({ color:thema.lava ? 0xbbbbbb : 0xffffff, size:3, transparent:true, opacity:0.85, depthWrite:false }));
+      sc.add(this.schnee);
+
+      // Fische als Instanzen mit Schwanzschlag, getarnte Fische halb durchsichtig
+      this.fischMeshes = {};
+      for (const typ of Object.keys(PT.FISCHE)) {
+        const F = PT.FISCHE[typ];
+        const max = F.boss ? 4 : F.riese ? 80 : 900;
+        const mach = (material) => {
+          const geo = this.fischGeos[typ].clone();
+          const wag = new T.InstancedBufferAttribute(new Float32Array(max), 1);
+          geo.setAttribute('aWag', wag);
+          const m = new T.InstancedMesh(geo, this.wackelMaterial(material, F.r, F.riese ? 4 : 11), max);
+          m.setColorAt(0, new T.Color(1, 1, 1));   // vor count = 0, sonst ist der Farbpuffer leer
+          m.count = 0; m.frustumCulled = false;
+          m.wag = wag;
+          sc.add(m);
+          return m;
+        };
+        const normal = mach(new T.MeshPhongMaterial({
+          vertexColors:true, shininess:typ === 'panzer' ? 110 : 40, specular:typ === 'panzer' ? 0xffffff : 0x333333,
+          transparent:typ === 'weiss', opacity:typ === 'weiss' ? 0.82 : 1
+        }));
+        normal.castShadow = true;
+        const camo = mach(new T.MeshLambertMaterial({ vertexColors:true, color:0x9fdc9f, transparent:true, opacity:0.4, depthWrite:false }));
+        this.fischMeshes[typ] = { normal, camo, max };
+      }
+      const markerMesh = (geo, material, max, farbig) => {
+        const m = new T.InstancedMesh(geo, material, max);
+        if (farbig) m.setColorAt(0, new T.Color(1, 1, 1));   // vor count = 0, sonst ist der Farbpuffer leer
+        m.count = 0; m.frustumCulled = false; sc.add(m); return m;
+      };
+      this.eisBlock = markerMesh(new T.BoxGeometry(1, 1, 1), new T.MeshPhongMaterial({ color:0xbfeaff, transparent:true, opacity:0.45, shininess:120, depthWrite:false }), 900);
+      // Nachwachsend: grüne Algen-Sprosse; gepanzert: Metallhelm
+      const algen = PT.M3.verschmelzen([[G.kegel, 0x35d05a, PT.M3.matrix(0, 0.5, 0, 0, 0, 0.4, 0.22, 1, 0.22)], [G.kegel, 0x2aa34a, PT.M3.matrix(0, 0.45, 0, 0.5, 0, -0.4, 0.2, 0.9, 0.2)], [G.kugelGrob, 0x7dffb2, PT.M3.matrix(0, 1.05, 0, 0, 0, 0, 0.16, 0.16, 0.16)]]);
+      this.algenMesh = markerMesh(algen, new T.MeshLambertMaterial({ vertexColors:true }), 900);
+      this.helmMesh = markerMesh(G.halbkugel, new T.MeshPhongMaterial({ color:0x9aa3ad, shininess:120, specular:0xffffff }), 900);
+
+      // Geschosse, Granaten und Stachelhaufen als Instanzen
+      this.geschossMeshes = {};
+      for (const [k, a] of Object.entries(this.geschossArten)) {
+        const m = markerMesh(a.geo, a.mat, 600);
+        m.castShadow = true;
+        this.geschossMeshes[k] = m;
+      }
+      this.granatenMesh = markerMesh(G.kugel, new T.MeshPhongMaterial({ color:0x4a5260, shininess:60 }), 200);
+      this.granatenMesh.castShadow = true;
+      this.haufenMesh = markerMesh(haufenGeo(), new T.MeshPhongMaterial({ vertexColors:true, shininess:90 }), 800, true);
+
+      // Spritzer und Schnee-Teilchen
+      this.teilchen = [];
+      this.teilchenMesh = new T.InstancedMesh(new T.SphereGeometry(1, 6, 5), new T.MeshBasicMaterial({ color:0xffffff }), 1500);
+      this.teilchenMesh.setColorAt(0, new T.Color(1, 1, 1));
+      this.teilchenMesh.count = 0; this.teilchenMesh.frustumCulled = false;
+      sc.add(this.teilchenMesh);
+
+      // Reichweite, Vorschau und Mörserziel
+      this.reichweite = new T.Group();
+      const flaeche = new T.Mesh(new T.CircleGeometry(1, 64), new T.MeshBasicMaterial({ color:0x2f7fe0, transparent:true, opacity:0.18, depthWrite:false }));
+      const ring = new T.Mesh(new T.RingGeometry(0.975, 1, 64), new T.MeshBasicMaterial({ color:0x13315c, transparent:true, opacity:0.6, depthWrite:false }));
+      for (const m of [flaeche, ring]) { m.rotation.x = -Math.PI / 2; m.position.y = 7.5; m.renderOrder = 2; this.reichweite.add(m); }
+      this.reichweiteFlaeche = flaeche; this.reichweiteRing = ring;
+      this.reichweite.visible = false;
+      sc.add(this.reichweite);
+      this.zielKreuz = new T.Group();
+      const zr = new T.Mesh(new T.RingGeometry(0.9, 1, 48), new T.MeshBasicMaterial({ color:0xe2463b, transparent:true, opacity:0.85, depthWrite:false, side:T.DoubleSide }));
+      zr.rotation.x = -Math.PI / 2; this.zielKreuz.add(zr);
+      for (const w of [0, Math.PI / 2]) { const s = new T.Mesh(new T.PlaneGeometry(2.2, 0.08), zr.material); s.rotation.set(-Math.PI / 2, 0, w); this.zielKreuz.add(s); }
+      this.zielKreuz.position.y = 8; this.zielKreuz.visible = false;
+      sc.add(this.zielKreuz);
+      this.geist = null; this.geistTyp = null;
+
+      this.kartenMitte = new T.Vector3(0, 0, 18);
+      this.groesse();
+    }
+
+    // Hindernisse und Dekoration je Karte
+    dekoBauen(karte, thema) {
+      const sc = this.scene;
+      this.rauch = [];
       karte.hindernisse.forEach(([hx, hy, hr], i) => {
         const g = new T.Group();
         g.position.set(X(hx), 0, Z(hy));
@@ -548,6 +426,39 @@
           const tuer = mesh(new T.CircleGeometry(hr * 0.26, 12, 0, Math.PI), mat(0x24384d)); tuer.position.set(hr * 1.21, 0.5, 0); tuer.rotation.y = Math.PI / 2;
           g.add(kuppel, tunnel, tuer);
           for (let r = 1; r < 4; r++) { const ring = mesh(G.torus, mat(0xd7e7f2), 0, hr * 0.9 * Math.sin(r * 0.38), 0); ring.scale.set(hr * 0.9 * Math.cos(r * 0.38), hr * 0.9 * Math.cos(r * 0.38), 1.2); ring.rotation.x = Math.PI / 2; g.add(ring); }
+        } else if (i === 0 && karte.deko === 'bucht') {
+          // eine kleine Pinguinkolonie schaut zu
+          const schnee = mesh(G.halbkugel, mat(0xffffff), 0, 0, 0); schnee.scale.set(hr, hr * 0.3, hr); g.add(schnee);
+          for (let k = 0; k < 5; k++) {
+            const p = new T.Group();
+            const w = k / 5 * Math.PI * 2;
+            p.position.set(Math.cos(w) * hr * 0.55, hr * 0.15, Math.sin(w) * hr * 0.55);
+            p.scale.setScalar(0.38); p.rotation.y = Math.PI / 2 + k;
+            pinguinKoerper(p, null);
+            g.add(p);
+          }
+        } else if (i === 0 && karte.deko === 'vulkan') {
+          const kegel = mesh(new T.CylinderGeometry(hr * 0.45, hr, hr * 0.9, 14), mat(0x3d3842, 'lambert', { flatShading:true }), 0, hr * 0.45, 0);
+          const lava = mesh(new T.CircleGeometry(hr * 0.4, 20), mat(0xff7a20, 'basic'), 0, hr * 0.91, 0); lava.rotation.x = -Math.PI / 2;
+          const schnee = mesh(new T.CylinderGeometry(hr * 0.88, hr * 1.02, hr * 0.12, 14), mat(0xffffff), 0, hr * 0.05, 0);
+          g.add(kegel, lava, schnee);
+          const l = new T.PointLight(0xff6a20, 1.4, 320, 1.5); l.position.set(0, hr * 1.4, 0); g.add(l);
+          this.lavaLicht = l;
+          for (let k = 0; k < 8; k++) {
+            const r = mesh(G.kugel, new T.MeshLambertMaterial({ color:0x8a8590, transparent:true, opacity:0.5, depthWrite:false }), 0, 0, 0);
+            r.castShadow = false;
+            this.rauch.push({ m:r, t:k / 8, x:X(hx), y:hr * 0.95, z:Z(hy) });
+            sc.add(r);
+          }
+        } else if (karte.deko === 'vulkan') {
+          for (let k = 0; k < 3; k++) {
+            const f = mesh(new T.DodecahedronGeometry(hr * (0.55 - k * 0.1), 0), mat(0x2f2a33, 'lambert', { flatShading:true }), (k - 1) * hr * 0.45, hr * 0.25, (k % 2) * hr * 0.3);
+            f.rotation.set(k, k * 2, 0); g.add(f);
+          }
+          const glut = mesh(G.okta, mat(0xff8a2a, 'basic'), hr * 0.2, hr * 0.6, 0); glut.scale.set(3, 6, 3); g.add(glut);
+          const kappe = mesh(G.kugel, mat(0xffffff), 0, hr * 0.5, 0); kappe.scale.set(hr * 0.45, hr * 0.1, hr * 0.35); g.add(kappe);
+        } else if (karte.deko === 'bucht') {
+          const huegel = mesh(G.halbkugel, mat(0xf4fbff, 'phong', { shininess:10 }), 0, 0, 0); huegel.scale.set(hr, hr * 0.55, hr * 0.9); g.add(huegel);
         } else if (i % 2 === 0 || karte.deko === 'gletscher') {
           const hoch = karte.deko === 'gletscher' ? 2.2 : 1.1;
           const berg = mesh(new T.DodecahedronGeometry(hr, 1), mat(0xdff3ff, 'phong', { flatShading:true, shininess:70, specular:0x88bbdd }), 0, hr * 0.35 * hoch, 0);
@@ -565,77 +476,13 @@
         if (karte.deko === 'nacht') {
           const kr = mesh(G.okta, mat(i % 2 ? 0x7dffb2 : 0xb49bff, 'basic'), hr * 0.3, hr * 1.1, 0); kr.scale.set(4, 9, 4); g.add(kr);
         }
-        g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+        g.traverse(o => { if (o.isMesh && !o.material.transparent) { o.castShadow = true; o.receiveShadow = true; } });
         sc.add(g);
       });
-
-      // Polarlicht in der Nacht: farbige Lichter, die über das Eis wandern
-      this.polarLichter = [];
-      if (karte.thema === 'nacht') {
-        for (const farbe of [0x3cff9a, 0x9a6bff, 0x3cc8ff]) {
-          const l = new T.PointLight(farbe, 1.1, 900, 1.4);
-          l.position.set(0, 160, 0);
-          sc.add(l);
-          this.polarLichter.push(l);
-        }
-      }
-
-      // Schneefall
-      const n = Math.round(500 * thema.schnee);
-      const sp = new Float32Array(n * 3);
-      for (let i = 0; i < n; i++) { sp[i * 3] = (Math.random() - 0.5) * 1300; sp[i * 3 + 1] = Math.random() * 500; sp[i * 3 + 2] = (Math.random() - 0.5) * 900; }
-      const sg = new T.BufferGeometry(); sg.setAttribute('position', new T.BufferAttribute(sp, 3));
-      this.schnee = new T.Points(sg, new T.PointsMaterial({ color:0xffffff, size:3, transparent:true, opacity:0.85, depthWrite:false }));
-      sc.add(this.schnee);
-
-      // Fische als Instanzen, getarnte Fische halb durchsichtig
-      this.fischMeshes = {};
-      for (const typ of Object.keys(PT.FISCHE)) {
-        const max = PT.FISCHE[typ].riese ? 60 : 900;
-        const normal = new T.InstancedMesh(this.fischGeos[typ], new T.MeshPhongMaterial({
-          vertexColors:true, shininess:typ === 'panzer' ? 110 : 40, specular:typ === 'panzer' ? 0xffffff : 0x333333,
-          transparent:typ === 'weiss', opacity:typ === 'weiss' ? 0.82 : 1
-        }), max);
-        const camo = new T.InstancedMesh(this.fischGeos[typ], new T.MeshLambertMaterial({ vertexColors:true, color:0x9fdc9f, transparent:true, opacity:0.4, depthWrite:false }), max);
-        for (const m of [normal, camo]) { m.setColorAt(0, new T.Color(1, 1, 1)); m.count = 0; m.frustumCulled = false; m.castShadow = m === normal; sc.add(m); }
-        this.fischMeshes[typ] = { normal, camo, max };
-      }
-      this.eisBlock = new T.InstancedMesh(new T.BoxGeometry(1, 1, 1), new T.MeshPhongMaterial({ color:0xbfeaff, transparent:true, opacity:0.45, shininess:120, depthWrite:false }), 900);
-      this.eisBlock.count = 0; this.eisBlock.frustumCulled = false;
-      sc.add(this.eisBlock);
-
-      // Geschosse als Instanzen
-      this.geschossMeshes = {};
-      for (const [k, a] of Object.entries(this.geschossArten)) {
-        const m = new T.InstancedMesh(a.geo, a.mat, 600);
-        m.count = 0; m.frustumCulled = false; m.castShadow = true;
-        sc.add(m);
-        this.geschossMeshes[k] = m;
-      }
-
-      // Spritzer und Schnee-Teilchen
-      this.teilchen = [];
-      this.teilchenMesh = new T.InstancedMesh(new T.SphereGeometry(1, 6, 5), new T.MeshBasicMaterial({ color:0xffffff }), 1500);
-      this.teilchenMesh.setColorAt(0, new T.Color(1, 1, 1));   // vor count = 0, sonst ist der Farbpuffer leer
-      this.teilchenMesh.count = 0; this.teilchenMesh.frustumCulled = false;
-      sc.add(this.teilchenMesh);
-
-      // Reichweite und Vorschau
-      this.reichweite = new T.Group();
-      const flaeche = new T.Mesh(new T.CircleGeometry(1, 64), new T.MeshBasicMaterial({ color:0x2f7fe0, transparent:true, opacity:0.18, depthWrite:false }));
-      const ring = new T.Mesh(new T.RingGeometry(0.975, 1, 64), new T.MeshBasicMaterial({ color:0x13315c, transparent:true, opacity:0.6, depthWrite:false }));
-      for (const m of [flaeche, ring]) { m.rotation.x = -Math.PI / 2; m.position.y = 7.5; m.renderOrder = 2; this.reichweite.add(m); }
-      this.reichweiteFlaeche = flaeche; this.reichweiteRing = ring;
-      this.reichweite.visible = false;
-      sc.add(this.reichweite);
-      this.geist = null; this.geistTyp = null;
-      this.eulen = new Map();
-
-      this.kartenMitte = new T.Vector3(0, 0, 18);
-      this.groesse();
     }
 
-    // Kamera so weit weg, dass die ganze Karte drauf passt
+    /* ---------- Kamera ---------- */
+    // Entfernung so wählen, dass die ganze Karte drauf passt; Zoom und Schwenk kommen dazu
     groesse() {
       const w = this.canvas.clientWidth || 800, h = this.canvas.clientHeight || 500;
       this.renderer.setSize(w, h, false);
@@ -647,22 +494,56 @@
       const k = this.kamera;
       k.aspect = w / h;
       k.updateProjectionMatrix();
-      const hoehe = 63 * Math.PI / 180;
+      this.hoehe = 63 * Math.PI / 180;
       const ziel = this.kartenMitte || new T.Vector3();
       const ecken = [[-W / 2 - 14, -H / 2 - 14], [W / 2 + 14, -H / 2 - 14], [-W / 2 - 14, H / 2 + 14], [W / 2 + 14, H / 2 + 14]].map(([x, z]) => new T.Vector3(x, 0, z));
       let lo = 200, hi = 6000;
       for (let i = 0; i < 28; i++) {
         const d = (lo + hi) / 2;
-        k.position.set(ziel.x, ziel.y + Math.sin(hoehe) * d, ziel.z + Math.cos(hoehe) * d);
+        k.position.set(ziel.x, ziel.y + Math.sin(this.hoehe) * d, ziel.z + Math.cos(this.hoehe) * d);
         k.lookAt(ziel);
         k.updateMatrixWorld();
         const passt = ecken.every(e => { const p = e.clone().project(k); return Math.abs(p.x) <= 0.99 && Math.abs(p.y) <= 0.97; });
         if (passt) hi = d; else lo = d;
       }
-      k.position.set(ziel.x, ziel.y + Math.sin(hoehe) * hi, ziel.z + Math.cos(hoehe) * hi);
+      this.basisAbstand = hi;
+      this.kameraSetzen();
+    }
+    kameraSetzen() {
+      const k = this.kamera;
+      // Schwenk so begrenzen, dass man nicht von der Karte wegschiebt
+      const grenzeX = W / 2 * (1 - 1 / this.zoom), grenzeZ = H / 2 * (1 - 1 / this.zoom);
+      this.schwenk.x = Math.max(-grenzeX, Math.min(grenzeX, this.schwenk.x));
+      this.schwenk.y = Math.max(-grenzeZ, Math.min(grenzeZ, this.schwenk.y));
+      const ziel = new T.Vector3(this.kartenMitte.x + this.schwenk.x, 0, this.kartenMitte.z + this.schwenk.y);
+      const d = this.basisAbstand / this.zoom;
+      const zittern = this.wackeln > 0 ? this.wackeln * 6 : 0;
+      k.position.set(ziel.x + (Math.random() - 0.5) * zittern, Math.sin(this.hoehe) * d, ziel.z + Math.cos(this.hoehe) * d + (Math.random() - 0.5) * zittern);
       k.lookAt(ziel);
       k.updateMatrixWorld();
     }
+    // Zoomen zum Punkt unter dem Finger bzw. Mauszeiger
+    zoomen(faktor, cx, cy) {
+      const alt = this.zoom;
+      this.zoom = Math.max(1, Math.min(2.8, this.zoom * faktor));
+      if (cx != null && this.zoom !== alt) {
+        const p = this.bodenPunkt(cx, cy);
+        if (p) {
+          const mx = this.kartenMitte.x + this.schwenk.x, mz = this.kartenMitte.z + this.schwenk.y;
+          const k = 1 - alt / this.zoom;
+          this.schwenk.x += (X(p[0]) - mx) * k;
+          this.schwenk.y += (Z(p[1]) - mz) * k;
+        }
+      }
+      this.kameraSetzen();
+    }
+    schwenken(dx, dy) {
+      const s = this.basisAbstand / this.zoom / this.ph * 0.9;
+      this.schwenk.x -= dx * s;
+      this.schwenk.y -= dy * s / Math.sin(this.hoehe);
+      this.kameraSetzen();
+    }
+    zoomZurueck() { this.zoom = 1; this.schwenk.set(0, 0); this.kameraSetzen(); }
 
     // Bildschirmpunkt → Kartenpunkt (oder null)
     bodenPunkt(cx, cy) {
@@ -686,6 +567,12 @@
       this.reichweiteFlaeche.material.color.set(ok ? 0x2f7fe0 : 0xff4a3a);
       this.reichweiteRing.material.color.set(ok ? 0x13315c : 0xb3261e);
     }
+    zielZeigen(x, y, r) {
+      if (x == null) { this.zielKreuz.visible = false; return; }
+      this.zielKreuz.visible = true;
+      this.zielKreuz.position.set(X(x), 8, Z(y));
+      this.zielKreuz.scale.setScalar(Math.max(20, r));
+    }
     geistZeigen(typ, x, y, ok) {
       if (!typ) { if (this.geist) this.geist.visible = false; return; }
       if (this.geistTyp !== typ) {
@@ -696,13 +583,15 @@
         this.scene.add(g);
       }
       this.geist.visible = true;
-      this.geist.position.set(X(x), 0, Z(y));
+      this.geist.position.set(X(x), PT.def(typ).wasser ? WASSER_Y - 4 : 0, Z(y));
       this.geist.rotation.y = Math.PI / 2;
       this.geist.traverse(o => { if (o.isMesh && o.material.emissive) o.material.emissive.set(ok ? 0x000000 : 0x661010); });
     }
 
     /* ---------- Ereignisse aus der Logik ---------- */
     ereignisse(liste) {
+      const ringFarben = { ring:0xbfeaff, ringLila:0xb36bff, sonne:0xffb020, frost:0x7fd6ff, frostStark:0x5ec8ff, saeule:0x9ff3ff, netz:0xd9c49a };
+      const flashFarben = { schneesturm:'#dff6ff', kaelteschock:'#9ff3ff', himmelsfeuer:'#ff9a4a', himmelsblitz:'#7dffb2', bombenteppich:'#ffb37a', knall:'#ffd29a', sabotage:'#b49bff', geldregen:'#ffd54a', stachelsturm:'#dff6ff' };
       for (const e of liste) {
         switch (e.art) {
           case 'platzen': {
@@ -713,25 +602,33 @@
             if (f.riese) this.texte.push({ x:e.x, y:e.y, h:30, text:'💥', farbe:'#fff', t:0, dauer:1, gross:28 });
             break;
           }
+          case 'bossBesiegt':
+            for (let i = 0; i < 120; i++) this.teilchenDazu(e.x, e.y, 20, i % 2 ? 0xc0392b : 0xffd54a, 3, 260);
+            this.texte.push({ x:e.x, y:e.y, h:60, text:'Krakus besiegt!', farbe:'#ffd54a', t:0, dauer:2.5, gross:30 });
+            this.wackeln = 0.8;
+            break;
+          case 'bossPhase':
+            this.wackeln = 0.5;
+            this.effekte.push({ art:'ring', x:e.fisch.x, y:e.fisch.y, r:160, t:0, dauer:0.6, farbe:0xc0392b });
+            break;
           case 'explosion': {
             const r = Math.max(12, e.r);
-            this.effekte.push({ art:'kugel', x:e.x, y:e.y, r, t:0, dauer:0.28, farbe:e.bild === 'schneeballBlau' ? 0xa8dcff : e.bild === 'rakete' ? 0xffb37a : 0xffffff });
+            const farbe = e.bild === 'schneeballBlau' ? 0xa8dcff : e.bild === 'rakete' ? 0xffb37a : e.bild === 'mine' ? 0xff6a3a : e.bild === 'rauch' ? 0x9aa3ad : e.bild === 'blitzbombe' ? 0xfff27a : 0xffffff;
+            this.effekte.push({ art:'kugel', x:e.x, y:e.y, r, t:0, dauer:0.28, farbe });
             for (let i = 0; i < 6; i++) this.teilchenDazu(e.x, e.y, 10, 0xffffff, 2, r * 3);
             break;
           }
-          case 'ring': {
-            const farben = { ring:0xbfeaff, ringLila:0xb36bff, frost:0x7fd6ff, frostStark:0x5ec8ff, saeule:0x9ff3ff };
-            this.effekte.push({ art:'ring', x:e.x, y:e.y, r:e.r, t:0, dauer:e.bild.startsWith('frost') ? 0.45 : 0.3, farbe:farben[e.bild] || 0xffffff });
+          case 'ring':
+            this.effekte.push({ art:'ring', x:e.x, y:e.y, r:e.r, t:0, dauer:e.bild.startsWith('frost') || e.bild === 'netz' ? 0.45 : 0.3, farbe:ringFarben[e.bild] || 0xffffff });
             if (e.bild.startsWith('frost')) for (let i = 0; i < 12; i++) this.teilchenDazu(e.x + (Math.random() - 0.5) * e.r * 1.5, e.y + (Math.random() - 0.5) * e.r * 1.5, 8, 0xe6f8ff, 1.5, 30);
             this.animieren(e.turm, 0.2);
             break;
-          }
           case 'strahl':
-            this.effekte.push({ art:'strahl', x1:e.x1, y1:e.y1, x2:e.x2, y2:e.y2, t:0, dauer:0.12, farbe:e.bild === 'harpuneGold' ? 0xffd54a : 0xe8f0ff });
+            this.effekte.push({ art:'strahl', x1:e.x1, y1:e.y1, x2:e.x2, y2:e.y2, t:0, dauer:0.12, farbe:e.bild === 'harpuneGold' ? 0xffd54a : e.bild === 'haft' ? 0xff6a3a : 0xe8f0ff, h1:e.turm && e.turm.eff && e.turm.eff.flieger ? FLUGHOEHE : 22 });
             this.animieren(e.turm, 0.12);
             break;
           case 'blitz':
-            this.effekte.push({ art:'blitz', pts:e.pts, t:0, dauer:0.22, farbe:e.bild === 'blitzGross' ? 0x7dffb2 : 0xc3b0ff });
+            this.effekte.push({ art:'blitz', pts:e.pts, t:0, dauer:0.22, farbe:e.bild === 'blitzGross' ? 0x7dffb2 : e.bild === 'blitzAurora' ? 0x5effc8 : 0xc3b0ff });
             this.animieren(e.turm, 0.2);
             break;
           case 'wurf':
@@ -739,6 +636,25 @@
             break;
           case 'kiste':
             this.texte.push({ x:e.turm.x, y:e.turm.y, h:50, text:'+' + e.wert, farbe:'#ffd54a', t:0, dauer:1.1 });
+            break;
+          case 'nachwachsen':
+            for (let i = 0; i < 3; i++) this.teilchenDazu(e.x, e.y, 10, 0x35d05a, 1.4, 40);
+            break;
+          case 'aufstieg':
+            for (let i = 0; i < 30; i++) this.teilchenDazu(e.turm.x, e.turm.y, 20, 0xffd54a, 2, 110);
+            this.texte.push({ x:e.turm.x, y:e.turm.y, h:70, text:`Stufe ${e.stufe}!`, farbe:'#ffd54a', t:0, dauer:1.8, gross:22 });
+            this.pinguinEntfernen(e.turm.id);
+            break;
+          case 'faehigkeit':
+            if (flashFarben[e.id]) this.flash = { farbe:flashFarben[e.id], t:0, dauer:0.6 };
+            if (e.turm) { this.effekte.push({ art:'ring', x:e.turm.x, y:e.turm.y, r:70, t:0, dauer:0.5, farbe:0xffd54a }); this.animieren(e.turm, 0.3); }
+            if (e.id === 'knall' || e.id === 'bombenteppich') this.wackeln = 0.4;
+            break;
+          case 'geschossFaehigkeit':
+            for (const [x, y] of e.ziele) {
+              this.effekte.push({ art:'strahl', x1:e.turm.x, y1:e.turm.y, x2:x, y2:y, t:0, dauer:0.35, farbe:e.id === 'haken' ? 0x8b5a2b : e.id === 'torpedos' ? 0x5ec8ff : 0xff6a3a, h1:60 });
+              this.effekte.push({ art:'kugel', x, y, r:45, t:0, dauer:0.4, farbe:e.id === 'torpedos' ? 0x9fe4ff : 0xffb37a });
+            }
             break;
           case 'gebaut': case 'upgrade':
             for (let i = 0; i < 18; i++) this.teilchenDazu(e.turm.x, e.turm.y, 12, e.art === 'upgrade' ? 0xffd54a : 0xffffff, 1.8, 90);
@@ -761,130 +677,35 @@
       this.teilchen.push({ x:X(x), y:h, z:Z(y), vx:Math.cos(w) * v, vy:60 + Math.random() * 90, vz:Math.sin(w) * v, t:0, dauer:0.45 + Math.random() * 0.3, g:groesse, farbe:new T.Color(farbe) });
     }
     pinguinEntfernen(id) {
-      const p = this.pinguine.get(id);
-      if (p) { this.scene.remove(p.g); this.pinguine.delete(id); }
-      const e = this.eulen.get(id);
-      if (e) { this.scene.remove(e); this.eulen.delete(id); }
+      for (const karte of [this.pinguine, this.flieger, this.eulen]) {
+        const o = karte.get(id);
+        if (o) { this.scene.remove(o.g || o); karte.delete(id); }
+      }
     }
 
     /* ---------- Jedes Bild ---------- */
     zeichnen(spiel, dt, auswahl) {
       this.zeit += dt;
+      this.zeitUniform.value = this.zeit;
       const sc = this.scene;
       if (this.wasserTex) this.wasserTex.offset.x -= dt * 0.35;
+      if (this.strudel) for (const s of this.strudel) s.rotation.z += dt * 1.5;
+      if (this.wackeln > 0) { this.wackeln = Math.max(0, this.wackeln - dt); this.kameraSetzen(); }
+      if (this.bodenMat && this.thema.lava) this.bodenMat.emissiveIntensity = 0.75 + Math.sin(this.zeit * 1.7) * 0.25;
+      if (this.lavaLicht) this.lavaLicht.intensity = 1.2 + Math.sin(this.zeit * 3) * 0.3;
+      for (const r of this.rauch) {
+        r.t = (r.t + dt * 0.12) % 1;
+        r.m.position.set(r.x + Math.sin(r.t * 6) * 8, r.y + r.t * 140, r.z - r.t * 20);
+        r.m.scale.setScalar(8 + r.t * 26);
+        r.m.material.opacity = 0.5 * (1 - r.t);
+      }
 
-      // Pinguine
-      const da = new Set();
-      for (const t of spiel.tuerme) {
-        da.add(t.id);
-        let p = this.pinguine.get(t.id);
-        if (!p) {
-          p = pinguinBauen(t.typ, t.pfade);
-          p.g.position.set(X(t.x), 0, Z(t.y));
-          p.winkel = -t.winkel; p.anim = 0; p.plopp = 0.25;
-          p.innen.rotation.y = p.winkel;
-          this.pinguine.set(t.id, p);
-          sc.add(p.g);
-        }
-        if (PT.PINGUINE[t.typ].greift !== false) {
-          let d = -t.winkel - p.winkel;
-          while (d > Math.PI) d -= Math.PI * 2;
-          while (d < -Math.PI) d += Math.PI * 2;
-          p.winkel += d * Math.min(1, dt * 14);
-          p.innen.rotation.y = p.winkel;
-        } else p.innen.rotation.y = t.typ === 'markt' ? Math.PI / 2 : Math.PI / 2 + Math.sin(this.zeit * 0.8 + t.id) * 0.3;
-        // Wurfbewegung und Aufploppen
-        p.anim = Math.max(0, p.anim - dt);
-        p.plopp = Math.max(0, p.plopp - dt);
-        const a = p.anim > 0 ? Math.sin(p.anim / 0.18 * Math.PI) : 0;
-        if (p.teile.fluegelR) p.teile.fluegelR.rotation.x = 0.35 + a * 1.4;
-        if (p.teile.fluegelL) p.teile.fluegelL.rotation.x = -0.35 - (t.typ === 'rundum' || t.typ === 'haeuptling' ? a * 1.4 : 0);
-        const s = 1 + Math.sin(p.plopp / 0.25 * Math.PI) * 0.25 - a * 0.05;
-        p.innen.scale.set(s * MODELL_GROESSE, (1 + (s - 1) * 1.2 + Math.sin(this.zeit * 3 + t.id) * 0.012) * MODELL_GROESSE, s * MODELL_GROESSE);
-        if (p.teile.dreher) p.teile.dreher.rotation.y += dt * 1.6;
-        if (p.teile.orb) p.teile.orb.scale.setScalar((t.pfade[0] >= 3 ? 5 : 3.8) * (1 + Math.sin(this.zeit * 5) * 0.12));
-        // Eule der Polarlicht-Pinguine
-        if (t.eff && t.eff.eule) {
-          let e = this.eulen.get(t.id);
-          if (!e) {
-            e = new T.Group();
-            const k = mesh(G.kugel, mat(0xf4f8ff), 0, 0, 0); k.scale.set(6, 7, 6);
-            const f1 = mesh(G.kugel, mat(0xdfe8f2), 0, 1, 7); f1.scale.set(4, 1.2, 8);
-            const f2 = f1.clone(); f2.position.z = -7;
-            const au = mesh(G.kugelGrob, mat(0xffc93c, 'basic'), 5, 3, 2); au.scale.setScalar(1.4);
-            const au2 = au.clone(); au2.position.z = -2;
-            e.add(k, f1, f2, au, au2); e.fluegel = [f1, f2];
-            this.eulen.set(t.id, e); sc.add(e);
-          }
-          const w = this.zeit * 1.5 + t.id;
-          e.position.set(X(t.x) + Math.cos(w) * 40, 70 + Math.sin(this.zeit * 3) * 4, Z(t.y) + Math.sin(w) * 40);
-          e.rotation.y = -w - Math.PI / 2;
-          e.fluegel.forEach((f, i) => { f.rotation.x = Math.sin(this.zeit * 14) * 0.5 * (i ? -1 : 1); });
-        }
-      }
-      for (const id of [...this.pinguine.keys()]) if (!da.has(id)) this.pinguinEntfernen(id);
-
-      // Fische
-      const m4 = new T.Matrix4(), q = new T.Quaternion(), eu = new T.Euler(), v = new T.Vector3(), sk = new T.Vector3(), col = new T.Color();
-      const zaehler = {}, zaehlerC = {};
-      for (const k of Object.keys(this.fischMeshes)) { zaehler[k] = 0; zaehlerC[k] = 0; }
-      let eis = 0;
-      for (const f of spiel.fische) {
-        const fm = this.fischMeshes[f.typ];
-        const typ = PT.FISCHE[f.typ];
-        const zielMesh = f.camo ? fm.camo : fm.normal;
-        const n = f.camo ? zaehlerC[f.typ] : zaehler[f.typ];
-        if (n >= fm.max || f.x < -4 || f.x > W + 4 || f.y < -4 || f.y > H + 4) continue;
-        const steht = f.frost > 0 || f.betaeubt > 0;
-        const wackeln = steht ? 0 : Math.sin(this.zeit * (typ.riese ? 4 : 11) + f.id) * (typ.riese ? 0.06 : 0.18);
-        eu.set(0, -f.w + wackeln, steht ? 0 : Math.sin(this.zeit * 7 + f.id) * 0.08);
-        q.setFromEuler(eu);
-        const h = WASSER_Y + typ.r * (typ.riese ? 0.15 : 0.35) + Math.sin(this.zeit * 4 + f.id * 1.3) * 0.8;
-        v.set(X(f.x), h, Z(f.y));
-        const auftauchen = Math.min(1, (spiel.zeit - f.geboren) * 6 + 0.3);
-        sk.setScalar(auftauchen * (typ.riese ? 1.15 : 1.45));
-        m4.compose(v, q, sk);
-        zielMesh.setMatrixAt(n, m4);
-        // Farbe: eingefroren bläulich, betäubt gelblich, Riesen werden mit Schaden dunkler
-        if (f.frost > 0) col.setRGB(0.75, 0.92, 1.15);
-        else if (f.betaeubt > 0) col.setRGB(1.1, 1.05, 0.7);
-        else if (typ.hp > 1) { const k = 0.55 + 0.45 * Math.max(0, f.hp / f.hpMax); col.setRGB(k, k, k); }
-        else col.setRGB(1, 1, 1);
-        zielMesh.setColorAt(n, col);
-        if (f.camo) zaehlerC[f.typ]++; else zaehler[f.typ]++;
-        if (f.frost > 0 && eis < 900) {
-          const s = typ.r * 2.5 * 1.45;
-          m4.compose(v, q, sk.set(s * 1.1, s * 0.75, s * 0.85));
-          this.eisBlock.setMatrixAt(eis++, m4);
-        }
-      }
-      for (const [k, fm] of Object.entries(this.fischMeshes)) {
-        fm.normal.count = zaehler[k]; fm.camo.count = zaehlerC[k];
-        for (const m of [fm.normal, fm.camo]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; }
-      }
-      this.eisBlock.count = eis;
-      this.eisBlock.instanceMatrix.needsUpdate = true;
-
-      // Geschosse
-      const gz = {};
-      for (const k of Object.keys(this.geschossMeshes)) gz[k] = 0;
-      for (const g of spiel.geschosse) {
-        const art = this.geschossArten[g.bild] || this.geschossArten.zapfen;
-        const m = this.geschossMeshes[g.bild] || this.geschossMeshes.zapfen;
-        const k = this.geschossMeshes[g.bild] ? g.bild : 'zapfen';
-        if (gz[k] >= 600) continue;
-        const w = Math.atan2(g.vy, g.vx);
-        const kugelig = art.geo.type === 'SphereGeometry' || art.geo.type === 'IcosahedronGeometry';
-        eu.set(art.rollen ? 0 : 0, -w, art.rollen ? -this.zeit * 8 : 0);
-        q.setFromEuler(eu);
-        const s = kugelig ? g.groesse : g.bild === 'rakete' ? 1 : g.groesse / 5;
-        v.set(X(g.x), art.y == null ? g.groesse + 1 : art.y, Z(g.y));
-        m4.compose(v, q, sk.setScalar(s));
-        m.setMatrixAt(gz[k]++, m4);
-      }
-      for (const [k, m] of Object.entries(this.geschossMeshes)) { m.count = gz[k]; m.instanceMatrix.needsUpdate = true; }
+      this.pinguineZeichnen(spiel, dt);
+      this.fischeZeichnen(spiel);
+      this.geschosseZeichnen(spiel);
 
       // Teilchen
+      const m4 = new T.Matrix4(), q = new T.Quaternion(), v = new T.Vector3(), sk = new T.Vector3();
       let tn = 0;
       this.teilchen = this.teilchen.filter(p => (p.t += dt) < p.dauer);
       for (const p of this.teilchen) {
@@ -905,7 +726,7 @@
         e.t += dt;
         if (!e.obj) this.effektBauen(e);
         const k = e.t / e.dauer;
-        if (k >= 1) { sc.remove(e.obj); return false; }
+        if (k >= 1) { sc.remove(e.obj); if (e.obj.geometry !== G.kugel) e.obj.geometry.dispose(); e.obj.material.dispose(); return false; }
         if (e.art === 'ring') { e.obj.scale.setScalar(Math.max(1, e.r * (0.3 + 0.7 * k))); e.obj.material.opacity = 0.7 * (1 - k); }
         else if (e.art === 'kugel') { e.obj.scale.setScalar(e.r * (0.4 + 0.6 * Math.sqrt(k))); e.obj.material.opacity = 0.75 * (1 - k); }
         else e.obj.material.opacity = 1 - k;
@@ -913,7 +734,8 @@
       });
 
       // Polarlicht und Schnee
-      this.polarLichter.forEach((l, i) => {
+      this.lichter.forEach((l, i) => {
+        if (!l.polar) return;
         const w = this.zeit * (0.15 + i * 0.05) + i * 2.1;
         l.position.set(Math.cos(w) * 380, 150 + Math.sin(this.zeit + i) * 30, Math.sin(w * 1.3) * 220);
         l.intensity = 0.8 + Math.sin(this.zeit * 0.7 + i) * 0.35;
@@ -929,11 +751,194 @@
         p.needsUpdate = true;
       }
 
-      // Auswahl
-      if (auswahl && auswahl.eff) this.reichweiteZeigen(auswahl.x, auswahl.y, auswahl.eff.reichweite > 5000 ? 0 : auswahl.eff.reichweite, true);
-
+      // Auswahl: Reichweite, beim Mörser das Ziel
+      if (auswahl && auswahl.eff) {
+        this.reichweiteZeigen(auswahl.x, auswahl.y, auswahl.eff.reichweite > 5000 ? 0 : auswahl.eff.reichweite, true);
+        if (auswahl.zielPunkt && !this.zielModus) this.zielZeigen(auswahl.zielPunkt[0], auswahl.zielPunkt[1], auswahl.eff.angriffe[0].splash);
+      }
       this.renderer.render(sc, this.kamera);
       this.overlayZeichnen(spiel, dt);
+    }
+
+    pinguineZeichnen(spiel, dt) {
+      const sc = this.scene;
+      const da = new Set();
+      for (const t of spiel.tuerme) {
+        da.add(t.id);
+        let p = this.pinguine.get(t.id);
+        const wasser = PT.def(t.typ).wasser;
+        if (!p) {
+          p = pinguinBauen(t.typ, t.pfade, t.stufe);
+          p.g.position.set(X(t.x), wasser ? WASSER_Y - 4 : 0, Z(t.y));
+          p.winkel = -t.winkel; p.anim = 0; p.plopp = 0.25;
+          p.innen.rotation.y = p.winkel;
+          this.pinguine.set(t.id, p);
+          sc.add(p.g);
+        }
+        const greift = PT.def(t.typ).greift !== false && t.typ !== 'flieger';
+        if (greift) {
+          let d = -t.winkel - p.winkel;
+          while (d > Math.PI) d -= Math.PI * 2;
+          while (d < -Math.PI) d += Math.PI * 2;
+          p.winkel += d * Math.min(1, dt * 14);
+          p.innen.rotation.y = p.winkel;
+        } else p.innen.rotation.y = t.typ === 'markt' || t.typ === 'flieger' ? Math.PI / 2 : Math.PI / 2 + Math.sin(this.zeit * 0.8 + t.id) * 0.3;
+        if (wasser) { p.g.position.y = WASSER_Y - 4 + Math.sin(this.zeit * 2 + t.id) * 0.8; p.g.rotation.z = Math.sin(this.zeit * 1.6 + t.id) * 0.04; }
+        // Wurfbewegung und Aufploppen
+        p.anim = Math.max(0, p.anim - dt);
+        p.plopp = Math.max(0, p.plopp - dt);
+        const a = p.anim > 0 ? Math.sin(p.anim / 0.18 * Math.PI) : 0;
+        if (p.teile.fluegelR) p.teile.fluegelR.rotation.x = 0.35 + a * 1.4;
+        if (p.teile.fluegelL) p.teile.fluegelL.rotation.x = -0.35 - (t.typ === 'rundum' || t.typ === 'haeuptling' ? a * 1.4 : 0);
+        const s = 1 + Math.sin(p.plopp / 0.25 * Math.PI) * 0.25 - a * 0.05;
+        const gr = p.teile.groesse;
+        p.innen.scale.set(s * gr, (1 + (s - 1) * 1.2 + Math.sin(this.zeit * 3 + t.id) * 0.012) * gr, s * gr);
+        if (p.teile.dreher) p.teile.dreher.rotation.y += dt * 1.6;
+        if (p.teile.aura) p.teile.aura.rotation.y -= dt * 0.9;
+        if (p.teile.orb) p.teile.orb.scale.setScalar((p.teile.orbGroesse || 4) * (1 + Math.sin(this.zeit * 5) * 0.12));
+        // Albatros fliegt über die Karte
+        if (t.eff && t.eff.flieger) {
+          let f = this.flieger.get(t.id);
+          if (!f) { f = albatros(t.pfade); this.flieger.set(t.id, f); sc.add(f); f.letzterWinkel = t.fw; }
+          let dw = t.fw - f.letzterWinkel;
+          while (dw > Math.PI) dw -= Math.PI * 2;
+          while (dw < -Math.PI) dw += Math.PI * 2;
+          f.letzterWinkel = t.fw;
+          f.neigung = (f.neigung || 0) * 0.9 + Math.max(-0.6, Math.min(0.6, dw / Math.max(dt, 0.001) * 0.25)) * 0.1;
+          f.position.set(X(t.fx), FLUGHOEHE + Math.sin(this.zeit * 2 + t.id) * 3, Z(t.fy));
+          f.rotation.set(-f.neigung, -t.fw, 0, 'YXZ');
+          const schlag = Math.sin(this.zeit * 6 + t.id) * 0.35;
+          f.fluegel.forEach((fl, i) => { fl.rotation.x = (i ? -1 : 1) * schlag; });
+        }
+        // Eulen der Polarlicht-Pinguine
+        if (t.eff && t.eff.eule) {
+          let e = this.eulen.get(t.id);
+          if (!e) {
+            e = new T.Group();
+            for (let n = 0; n < t.eff.eule; n++) {
+              const eu = new T.Group();
+              const k = mesh(G.kugel, mat(n ? 0xfff2c4 : 0xf4f8ff), 0, 0, 0); k.scale.set(6, 7, 6);
+              const f1 = mesh(G.kugel, mat(0xdfe8f2), 0, 1, 7); f1.scale.set(4, 1.2, 8);
+              const f2 = f1.clone(); f2.position.z = -7;
+              const au = mesh(G.kugelGrob, mat(0xffc93c, 'basic'), 5, 3, 2); au.scale.setScalar(1.4);
+              const au2 = au.clone(); au2.position.z = -2;
+              eu.add(k, f1, f2, au, au2); eu.fluegel = [f1, f2];
+              e.add(eu);
+            }
+            this.eulen.set(t.id, e); sc.add(e);
+          }
+          e.children.forEach((eu, n) => {
+            const w = this.zeit * 1.5 + t.id + n * Math.PI;
+            eu.position.set(X(t.x) + Math.cos(w) * 40, 70 + Math.sin(this.zeit * 3 + n) * 4, Z(t.y) + Math.sin(w) * 40);
+            eu.rotation.y = -w - Math.PI / 2;
+            eu.fluegel.forEach((f, i) => { f.rotation.x = Math.sin(this.zeit * 14) * 0.5 * (i ? -1 : 1); });
+          });
+        }
+      }
+      for (const id of [...this.pinguine.keys()]) if (!da.has(id)) this.pinguinEntfernen(id);
+    }
+
+    fischeZeichnen(spiel) {
+      const m4 = new T.Matrix4(), q = new T.Quaternion(), eu = new T.Euler(), v = new T.Vector3(), sk = new T.Vector3(), col = new T.Color();
+      const zaehler = {}, zaehlerC = {};
+      for (const k of Object.keys(this.fischMeshes)) { zaehler[k] = 0; zaehlerC[k] = 0; }
+      let eis = 0, algen = 0, helme = 0;
+      const mo = new T.Matrix4();
+      for (const f of spiel.fische) {
+        const fm = this.fischMeshes[f.typ];
+        const typ = PT.FISCHE[f.typ];
+        const zielMesh = f.camo ? fm.camo : fm.normal;
+        const n = f.camo ? zaehlerC[f.typ] : zaehler[f.typ];
+        if (n >= fm.max || f.x < -4 || f.x > W + 4 || f.y < -4 || f.y > H + 4) continue;
+        const steht = f.frost > 0 || f.betaeubt > 0;
+        eu.set(0, -f.w, steht ? 0 : Math.sin(this.zeit * 7 + f.id) * 0.06);
+        q.setFromEuler(eu);
+        const h = WASSER_Y + typ.r * (typ.riese ? 0.15 : 0.35) + Math.sin(this.zeit * 4 + f.id * 1.3) * 0.8;
+        v.set(X(f.x), h, Z(f.y));
+        const auftauchen = Math.min(1, (spiel.zeit - f.geboren) * 6 + 0.3);
+        const gross = auftauchen * (typ.riese ? 1.15 : 1.45);
+        sk.setScalar(gross);
+        m4.compose(v, q, sk);
+        zielMesh.setMatrixAt(n, m4);
+        zielMesh.wag.array[n] = steht ? 0 : 1;
+        // Farbe: eingefroren bläulich, betäubt gelblich, zähe Fische werden mit Schaden dunkler
+        if (f.frost > 0) col.setRGB(0.75, 0.92, 1.15);
+        else if (f.betaeubt > 0) col.setRGB(1.1, 1.05, 0.7);
+        else if (typ.hp > 1 || f.fest) { const k = 0.55 + 0.45 * Math.max(0, f.hp / f.hpMax); col.setRGB(k, k, k); }
+        else col.setRGB(1, 1, 1);
+        zielMesh.setColorAt(n, col);
+        if (f.camo) zaehlerC[f.typ]++; else zaehler[f.typ]++;
+        if (f.frost > 0 && eis < 900) {
+          const s = typ.r * 2.5 * 1.45;
+          mo.compose(v, q, sk.set(s * 1.1, s * 0.75, s * 0.85));
+          this.eisBlock.setMatrixAt(eis++, mo);
+        }
+        if (f.nach && algen < 900) {
+          const s = typ.r * gross * 0.9;
+          mo.compose(v.set(X(f.x), h + typ.r * gross * 0.75, Z(f.y)), q, sk.setScalar(s));
+          this.algenMesh.setMatrixAt(algen++, mo);
+        }
+        if (f.fest && helme < 900) {
+          const s = typ.r * gross;
+          mo.compose(v.set(X(f.x), h + typ.r * gross * (typ.riese ? 0.35 : 0.5), Z(f.y)), q, sk.set(s * 0.9, s * 0.55, s * 0.75));
+          this.helmMesh.setMatrixAt(helme++, mo);
+        }
+      }
+      for (const [k, fm] of Object.entries(this.fischMeshes)) {
+        fm.normal.count = zaehler[k]; fm.camo.count = zaehlerC[k];
+        for (const m of [fm.normal, fm.camo]) {
+          m.instanceMatrix.needsUpdate = true; m.wag.needsUpdate = true;
+          if (m.instanceColor) m.instanceColor.needsUpdate = true;
+        }
+      }
+      for (const [m, n] of [[this.eisBlock, eis], [this.algenMesh, algen], [this.helmMesh, helme]]) { m.count = n; m.instanceMatrix.needsUpdate = true; }
+    }
+
+    geschosseZeichnen(spiel) {
+      const m4 = new T.Matrix4(), q = new T.Quaternion(), eu = new T.Euler(), v = new T.Vector3(), sk = new T.Vector3(), col = new T.Color();
+      const gz = {};
+      for (const k of Object.keys(this.geschossMeshes)) gz[k] = 0;
+      for (const g of spiel.geschosse) {
+        const k = this.geschossMeshes[g.bild] ? g.bild : 'zapfen';
+        const art = this.geschossArten[k];
+        const m = this.geschossMeshes[k];
+        if (gz[k] >= 600) continue;
+        const w = Math.atan2(g.vy, g.vx);
+        eu.set(art.drehen ? 0 : 0, art.drehen ? this.zeit * 14 : -w, art.rollen ? -this.zeit * 8 : 0);
+        q.setFromEuler(eu);
+        const s = art.kugelig ? g.groesse : g.bild === 'rakete' ? 1 : (g.groesse / 5) * (art.skala || 1);
+        let y = art.y == null ? g.groesse + 1 : art.y;
+        if (art.flug) y = 12 + (FLUGHOEHE - 20) * Math.max(0, g.rest / g.a.flug);
+        v.set(X(g.x), y, Z(g.y));
+        m4.compose(v, q, sk.setScalar(s));
+        m.setMatrixAt(gz[k]++, m4);
+      }
+      for (const [k, m] of Object.entries(this.geschossMeshes)) { m.count = gz[k]; m.instanceMatrix.needsUpdate = true; }
+      // Granaten fliegen im hohen Bogen
+      let gn = 0;
+      for (const g of spiel.granaten) {
+        if (gn >= 200) break;
+        const k = Math.min(1, g.t / g.dauer);
+        v.set(X(g.x0 + (g.x - g.x0) * k), 24 + Math.sin(k * Math.PI) * 170, Z(g.y0 + (g.y - g.y0) * k));
+        m4.compose(v, q.identity(), sk.setScalar(g.bild === 'granateGross' ? 8 : 6));
+        this.granatenMesh.setMatrixAt(gn++, m4);
+      }
+      this.granatenMesh.count = gn; this.granatenMesh.instanceMatrix.needsUpdate = true;
+      // Stachelhaufen (fliegen erst von der Fabrik in den Kanal)
+      let hn = 0;
+      for (const h of spiel.haufen) {
+        if (hn >= 800) break;
+        const k = Math.min(1, (spiel.zeit - h.start) / 0.35);
+        const x = h.x0 + (h.x - h.x0) * k, y = h.y0 + (h.y - h.y0) * k;
+        const s = h.radius * 0.95 * (0.55 + 0.45 * Math.max(0, h.durchschlag / h.max));
+        eu.set(0, h.id, 0); q.setFromEuler(eu);
+        m4.compose(v.set(X(x), WASSER_Y + 1 + Math.sin(k * Math.PI) * 40, Z(y)), q, sk.setScalar(s));
+        this.haufenMesh.setMatrixAt(hn, m4);
+        this.haufenMesh.setColorAt(hn, h.a.mine ? col.setRGB(1.2, 0.55, 0.45) : col.setRGB(1, 1, 1));
+        hn++;
+      }
+      this.haufenMesh.count = hn; this.haufenMesh.instanceMatrix.needsUpdate = true;
+      if (this.haufenMesh.instanceColor) this.haufenMesh.instanceColor.needsUpdate = true;
     }
 
     effektBauen(e) {
@@ -945,7 +950,7 @@
         e.obj = new T.Mesh(G.kugel, new T.MeshBasicMaterial({ color:e.farbe, transparent:true, opacity:0.75, depthWrite:false }));
         e.obj.position.set(X(e.x), 10, Z(e.y));
       } else if (e.art === 'strahl') {
-        const g = new T.BufferGeometry().setFromPoints([new T.Vector3(X(e.x1), 22, Z(e.y1)), new T.Vector3(X(e.x2), 8, Z(e.y2))]);
+        const g = new T.BufferGeometry().setFromPoints([new T.Vector3(X(e.x1), e.h1 || 22, Z(e.y1)), new T.Vector3(X(e.x2), 8, Z(e.y2))]);
         e.obj = new T.Line(g, new T.LineBasicMaterial({ color:e.farbe, transparent:true }));
         this.teilchenDazu(e.x2, e.y2, 8, 0xffffff, 1.5, 50);
       } else if (e.art === 'blitz') {
@@ -965,15 +970,36 @@
     overlayZeichnen(spiel, dt) {
       const x = this.ox;
       x.clearRect(0, 0, this.pw, this.ph);
-      // Lebensbalken der großen Fische
+      const schrift = gr => `800 ${gr}px "Bricolage Grotesque", system-ui, sans-serif`;
+      // Lebensbalken der zähen Fische; der Boss bekommt einen großen Balken oben
+      let boss = null;
       for (const f of spiel.fische) {
         const typ = PT.FISCHE[f.typ];
-        if (typ.hp < 10 || (f.camo)) continue;
+        if (f.boss) { boss = f; continue; }
+        if (typ.hp < 10 || f.camo) continue;
         const [sx, sy] = this.bildschirm(f.x, f.y, typ.r * 1.4 + 6);
-        const b = typ.riese ? 50 : 24;
+        const b = typ.riese ? Math.min(80, 30 + typ.r) : 24;
         x.fillStyle = 'rgba(10,20,40,0.7)'; x.fillRect(sx - b / 2 - 1, sy - 1, b + 2, 6);
         x.fillStyle = f.hp / f.hpMax > 0.5 ? '#4cd964' : f.hp / f.hpMax > 0.25 ? '#f6c343' : '#e2463b';
         x.fillRect(sx - b / 2, sy, b * Math.max(0, f.hp / f.hpMax), 4);
+      }
+      if (boss) {
+        const b = Math.min(this.pw - 40, 520), lx = (this.pw - b) / 2, ly = 14;
+        x.fillStyle = 'rgba(10,20,40,0.85)'; x.fillRect(lx - 4, ly - 4, b + 8, 30);
+        x.fillStyle = '#5a1010'; x.fillRect(lx, ly, b, 22);
+        x.fillStyle = '#e2463b'; x.fillRect(lx, ly, b * Math.max(0, boss.hp / boss.hpMax), 22);
+        x.fillStyle = 'rgba(255,255,255,0.5)';
+        for (const k of [0.25, 0.5, 0.75]) x.fillRect(lx + b * k - 1, ly, 2, 22);
+        x.font = schrift(15); x.textAlign = 'center'; x.fillStyle = '#fff';
+        x.fillText(`🐙 Krakus · Stufe ${boss.boss} · ${Math.ceil(boss.hp)} / ${Math.round(boss.hpMax)}`, this.pw / 2, ly + 16);
+      }
+      // Heldenstufe
+      for (const t of spiel.tuerme) {
+        if (!PT.HELDEN[t.typ]) continue;
+        const [sx, sy] = this.bildschirm(t.x, t.y, 72);
+        x.font = schrift(14); x.textAlign = 'center';
+        x.lineWidth = 4; x.strokeStyle = 'rgba(20,30,50,0.85)'; x.strokeText(`⭐ ${t.stufe}`, sx, sy);
+        x.fillStyle = '#ffd54a'; x.fillText(`⭐ ${t.stufe}`, sx, sy);
       }
       // schwebende Texte
       x.textAlign = 'center';
@@ -981,11 +1007,18 @@
       for (const t of this.texte) {
         const [sx, sy] = this.bildschirm(t.x, t.y, t.h + t.t * 40);
         x.globalAlpha = 1 - t.t / t.dauer;
-        x.font = `800 ${t.gross || 18}px "Bricolage Grotesque", system-ui, sans-serif`;
+        x.font = schrift(t.gross || 18);
         x.lineWidth = 4; x.strokeStyle = 'rgba(20,30,50,0.8)'; x.strokeText(t.text, sx, sy);
         x.fillStyle = t.farbe; x.fillText(t.text, sx, sy);
       }
       x.globalAlpha = 1;
+      // Aufblitzen bei großen Fähigkeiten
+      if (this.flash) {
+        this.flash.t += dt;
+        const k = this.flash.t / this.flash.dauer;
+        if (k >= 1) this.flash = null;
+        else { x.globalAlpha = 0.45 * (1 - k); x.fillStyle = this.flash.farbe; x.fillRect(0, 0, this.pw, this.ph); x.globalAlpha = 1; }
+      }
       // roter Rand, wenn ein Fisch durchkommt
       if (this.blitz > 0) {
         this.blitz -= dt;
@@ -995,55 +1028,44 @@
       }
     }
 
-    // Kleines Vorschaubild eines Pinguins für den Shop
-    static vorschauBilder(typen, groesse = 96) {
+    /* ---------- Vorschaubilder für Laden und Lexikon ---------- */
+    static bilder(typen, fische) {
+      const groesse = 192;
       const c = document.createElement('canvas');
-      c.width = c.height = groesse * 2;
+      c.width = c.height = groesse;
       const r = new T.WebGLRenderer({ canvas:c, antialias:true, alpha:true, preserveDrawingBuffer:true });
-      r.setPixelRatio(1); r.setSize(groesse * 2, groesse * 2, false);
+      r.setPixelRatio(1); r.setSize(groesse, groesse, false);
       const sc = new T.Scene();
       sc.add(new T.HemisphereLight(0xffffff, 0x8899aa, 0.9));
       const l = new T.DirectionalLight(0xffffff, 0.7); l.position.set(1, 2, 1.5); sc.add(l);
-      const k = new T.PerspectiveCamera(30, 1, 1, 1000);
-      const bilder = {};
+      const k = new T.PerspectiveCamera(30, 1, 0.1, 2000);
+      const pingu = {}, fisch = {};
       for (const typ of typen) {
-        const { g, innen } = pinguinBauen(typ, [0, 0, 0]);
-        innen.rotation.y = typ === 'markt' ? Math.PI / 2 + 0.6 : 0.9;
+        let g;
+        if (typ === 'flieger') { g = albatros([0, 0, 0]); g.rotation.y = 0.9; g.position.y = 20; }
+        else { const b = pinguinBauen(typ, [0, 0, 0]); g = b.g; b.innen.rotation.y = typ === 'markt' || typ === 'fabrik' ? Math.PI / 2 + 0.6 : 0.9; }
         sc.add(g);
-        const hoch = typ === 'markt' ? 26 : 26;
-        k.position.set(68, 62 + hoch * 0.4, 88); k.lookAt(0, hoch - 2, 0);
+        const boot = typ === 'boot';
+        k.position.set(68, boot ? 70 : 72, 88); k.lookAt(0, boot ? 14 : 24, 0);
+        if (typ === 'flieger') { k.position.set(60, 70, 80); k.lookAt(0, 20, 0); }
         r.render(sc, k);
-        bilder[typ] = c.toDataURL('image/png');
+        pingu[typ] = c.toDataURL('image/png');
         sc.remove(g);
       }
-      r.dispose();
-      if (r.forceContextLoss) r.forceContextLoss();
-      return bilder;
-    }
-    static fischBilder(groesse = 64) {
-      const c = document.createElement('canvas');
-      c.width = c.height = groesse * 2;
-      const r = new T.WebGLRenderer({ canvas:c, antialias:true, alpha:true, preserveDrawingBuffer:true });
-      r.setPixelRatio(1); r.setSize(groesse * 2, groesse * 2, false);
-      const sc = new T.Scene();
-      sc.add(new T.HemisphereLight(0xffffff, 0x8899aa, 0.95));
-      const l = new T.DirectionalLight(0xffffff, 0.6); l.position.set(1, 2, 2); sc.add(l);
-      const k = new T.PerspectiveCamera(30, 1, 0.1, 1000);
-      const bilder = {};
-      for (const typ of Object.keys(PT.FISCHE)) {
+      for (const typ of fische) {
         const f = PT.FISCHE[typ];
         const m = new T.Mesh(fischGeo(typ), new T.MeshPhongMaterial({ vertexColors:true, shininess:50 }));
         m.rotation.y = -0.5;
         sc.add(m);
-        const d = f.r * 5.2;
+        const d = f.r * (typ === 'krake' || typ === 'krakus' || typ === 'rochen' ? 6.5 : 5.2);
         k.position.set(d * 0.2, d * 0.45, d); k.lookAt(0, 0, 0);
         r.render(sc, k);
-        bilder[typ] = c.toDataURL('image/png');
+        fisch[typ] = c.toDataURL('image/png');
         sc.remove(m);
       }
       r.dispose();
       if (r.forceContextLoss) r.forceContextLoss();
-      return bilder;
+      return { pingu, fisch };
     }
   }
 
