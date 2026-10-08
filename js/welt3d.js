@@ -416,6 +416,7 @@
     dekoBauen(karte, thema) {
       const sc = this.scene;
       this.rauch = [];
+      this.schollen = [];
       karte.hindernisse.forEach(([hx, hy, hr], i) => {
         const g = new T.Group();
         g.position.set(X(hx), 0, Z(hy));
@@ -450,6 +451,36 @@
             this.rauch.push({ m:r, t:k / 8, x:X(hx), y:hr * 0.95, z:Z(hy) });
             sc.add(r);
           }
+        } else if (i === 0 && karte.deko === 'hafen') {
+          // kleiner Fischerhafen: Holzsteg, Hütte und ein Kutter
+          const steg = mesh(G.box, mat(0x8b5a2b), 0, 4, 0); steg.scale.set(hr * 1.8, 4, hr * 0.5); g.add(steg);
+          for (const sx of [-0.8, -0.3, 0.2, 0.7]) for (const sz of [-1, 1]) { const pf = mesh(G.zyl, mat(0x6b4423), sx * hr, -2, sz * hr * 0.22); pf.scale.set(2.4, 14, 2.4); g.add(pf); }
+          const huette = mesh(G.box, mat(0xe2463b), -hr * 0.55, 16, 0); huette.scale.set(hr * 0.6, 24, hr * 0.5); g.add(huette);
+          const dach = mesh(G.kegel4, mat(0x5a3420, 'lambert', { flatShading:true }), -hr * 0.55, 34, 0); dach.scale.set(hr * 0.5, 14, hr * 0.45); dach.rotation.y = Math.PI / 4; g.add(dach);
+          const kutter = new T.Group(); kutter.position.set(hr * 0.5, 2, hr * 0.6);
+          const rumpf = mesh(G.box, mat(0x2f7fe0), 0, 0, 0); rumpf.scale.set(hr * 0.9, 9, hr * 0.32); kutter.add(rumpf);
+          const kabine = mesh(G.box, mat(0xffffff), -4, 9, 0); kabine.scale.set(12, 10, 10); kutter.add(kabine);
+          const mast = mesh(G.zyl, mat(0x6b4423), 8, 20, 0); mast.scale.set(1, 30, 1); kutter.add(mast);
+          g.add(kutter);
+        } else if (karte.deko === 'hafen') {
+          // Fischkisten und Fässer am Ufer
+          for (let k = 0; k < 4; k++) {
+            const kiste = mesh(k % 2 ? G.zyl : G.box, mat(k % 2 ? 0x5a6573 : 0xb07a3c), (k % 2 - 0.5) * hr * 0.6, 5 + (k > 1 ? 10 : 0), (k > 1 ? 0 : (k - 0.5) * hr * 0.5));
+            kiste.scale.set(hr * 0.35, 10, hr * 0.35); kiste.rotation.y = k; g.add(kiste);
+          }
+          const schnee = mesh(G.halbkugel, mat(0xffffff), 0, 0, 0); schnee.scale.set(hr, hr * 0.15, hr); g.add(schnee);
+        } else if (karte.deko === 'treibeis') {
+          // flache Eisschollen, die leicht schaukeln; auf der ersten sonnt sich eine Robbe
+          const scholle = mesh(new T.CylinderGeometry(hr, hr * 0.92, 8, 7), mat(0xf2faff, 'phong', { flatShading:true, shininess:60, specular:0x88bbdd }), 0, 2, 0);
+          scholle.rotation.y = i * 1.3; g.add(scholle);
+          if (i === 0) {
+            const robbe = mesh(G.kugel, mat(0x8a93a3, 'phong', { shininess:40 }), 0, 12, 0); robbe.scale.set(hr * 0.55, hr * 0.22, hr * 0.25); g.add(robbe);
+            const kopf = mesh(G.kugel, mat(0x8a93a3), hr * 0.5, 18, 0); kopf.scale.setScalar(hr * 0.18); g.add(kopf);
+          } else if (i % 2) {
+            const brocken = mesh(new T.DodecahedronGeometry(hr * 0.35, 0), mat(0xdff3ff, 'phong', { flatShading:true }), hr * 0.2, 10, -hr * 0.2); g.add(brocken);
+          }
+          this.schollen = this.schollen || [];
+          this.schollen.push({ g, i });
         } else if (karte.deko === 'vulkan') {
           for (let k = 0; k < 3; k++) {
             const f = mesh(new T.DodecahedronGeometry(hr * (0.55 - k * 0.1), 0), mat(0x2f2a33, 'lambert', { flatShading:true }), (k - 1) * hr * 0.45, hr * 0.25, (k % 2) * hr * 0.3);
@@ -577,7 +608,7 @@
       if (!typ) { if (this.geist) this.geist.visible = false; return; }
       if (this.geistTyp !== typ) {
         if (this.geist) this.scene.remove(this.geist);
-        const { g } = pinguinBauen(typ, [0, 0, 0]);
+        const { g } = pinguinBauen(typ, [0, 0, 0], 1, { skin:this.aussehen({ typ }).skin });
         g.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.65; o.castShadow = false; } });
         this.geist = g; this.geistTyp = typ;
         this.scene.add(g);
@@ -590,8 +621,9 @@
 
     /* ---------- Ereignisse aus der Logik ---------- */
     ereignisse(liste) {
-      const ringFarben = { ring:0xbfeaff, ringLila:0xb36bff, sonne:0xffb020, frost:0x7fd6ff, frostStark:0x5ec8ff, saeule:0x9ff3ff, netz:0xd9c49a };
-      const flashFarben = { schneesturm:'#dff6ff', kaelteschock:'#9ff3ff', himmelsfeuer:'#ff9a4a', himmelsblitz:'#7dffb2', bombenteppich:'#ffb37a', knall:'#ffd29a', sabotage:'#b49bff', geldregen:'#ffd54a', stachelsturm:'#dff6ff' };
+      const ringFarben = { ring:0xbfeaff, ringLila:0xb36bff, sonne:0xffb020, frost:0x7fd6ff, frostStark:0x5ec8ff, saeule:0x9ff3ff, netz:0xd9c49a, schall:0xff5ec8, schallGross:0xffd54a };
+      const flashFarben = { schneesturm:'#dff6ff', kaelteschock:'#9ff3ff', himmelsfeuer:'#ff9a4a', himmelsblitz:'#7dffb2', bombenteppich:'#ffb37a', knall:'#ffd29a', sabotage:'#b49bff', geldregen:'#ffd54a', stachelsturm:'#dff6ff',
+        nordlicht:'#5effc8', orbital:'#fff2a8', party:'#ff5ec8', tanz:'#b36bff', sternschnuppe:'#ffe066', eiszeit:'#bfeaff', anker:'#8a93a3' };
       for (const e of liste) {
         switch (e.art) {
           case 'platzen': {
@@ -604,8 +636,16 @@
           }
           case 'bossBesiegt':
             for (let i = 0; i < 120; i++) this.teilchenDazu(e.x, e.y, 20, i % 2 ? 0xc0392b : 0xffd54a, 3, 260);
-            this.texte.push({ x:e.x, y:e.y, h:60, text:'Krakus besiegt!', farbe:'#ffd54a', t:0, dauer:2.5, gross:30 });
+            this.texte.push({ x:e.x, y:e.y, h:60, text:`${PT.FISCHE[e.typ] ? PT.FISCHE[e.typ].name : 'Boss'} besiegt!`, farbe:'#ffd54a', t:0, dauer:2.5, gross:30 });
             this.wackeln = 0.8;
+            break;
+          case 'flutwelle':
+            // Kaiser Orka schlägt mit der Flosse: Welle, die Pinguine im Umkreis kurz betäubt
+            this.wackeln = 0.6;
+            this.effekte.push({ art:'ring', x:e.x, y:e.y, r:e.r, t:0, dauer:0.8, farbe:0x5ec8ff });
+            this.effekte.push({ art:'ring', x:e.x, y:e.y, r:e.r * 0.7, t:0, dauer:0.6, farbe:0xdff6ff });
+            for (let i = 0; i < 40; i++) { const w = Math.random() * Math.PI * 2, d = Math.random() * e.r; this.teilchenDazu(e.x + Math.cos(w) * d, e.y + Math.sin(w) * d, 6, 0xbfeaff, 2.2, 60); }
+            this.texte.push({ x:e.x, y:e.y, h:70, text:'🌊 Flutwelle!', farbe:'#9fe4ff', t:0, dauer:1.6, gross:24 });
             break;
           case 'bossPhase':
             this.wackeln = 0.5;
@@ -670,6 +710,10 @@
         }
       }
     }
+    // Aussehen eines Pinguins: Look (Pingu-Pass) und im Koop die Farbe seines Besitzers. Setzt die Oberfläche.
+    aussehen(t) { return this.aussehenFuer ? this.aussehenFuer(t) || {} : {}; }
+    // alle Pinguine neu bauen (neuer Look oder Spielstand vom Server übernommen)
+    allesNeu() { for (const id of [...this.pinguine.keys(), ...this.flieger.keys(), ...this.eulen.keys()]) this.pinguinEntfernen(id); }
     animieren(turm, d) { const p = turm && this.pinguine.get(turm.id); if (p) p.anim = d; }
     teilchenDazu(x, y, h, farbe, groesse, tempo) {
       if (this.teilchen.length >= 1500) return;
@@ -690,6 +734,7 @@
       const sc = this.scene;
       if (this.wasserTex) this.wasserTex.offset.x -= dt * 0.35;
       if (this.strudel) for (const s of this.strudel) s.rotation.z += dt * 1.5;
+      if (this.schollen) for (const s of this.schollen) { s.g.rotation.x = Math.sin(this.zeit * 0.9 + s.i) * 0.03; s.g.rotation.z = Math.cos(this.zeit * 0.7 + s.i) * 0.03; }
       if (this.wackeln > 0) { this.wackeln = Math.max(0, this.wackeln - dt); this.kameraSetzen(); }
       if (this.bodenMat && this.thema.lava) this.bodenMat.emissiveIntensity = 0.75 + Math.sin(this.zeit * 1.7) * 0.25;
       if (this.lavaLicht) this.lavaLicht.intensity = 1.2 + Math.sin(this.zeit * 3) * 0.3;
@@ -768,7 +813,7 @@
         let p = this.pinguine.get(t.id);
         const wasser = PT.def(t.typ).wasser;
         if (!p) {
-          p = pinguinBauen(t.typ, t.pfade, t.stufe);
+          p = pinguinBauen(t.typ, t.pfade, t.stufe, this.aussehen(t));
           p.g.position.set(X(t.x), wasser ? WASSER_Y - 4 : 0, Z(t.y));
           p.winkel = -t.winkel; p.anim = 0; p.plopp = 0.25;
           p.innen.rotation.y = p.winkel;
@@ -799,7 +844,7 @@
         // Albatros fliegt über die Karte
         if (t.eff && t.eff.flieger) {
           let f = this.flieger.get(t.id);
-          if (!f) { f = albatros(t.pfade); this.flieger.set(t.id, f); sc.add(f); f.letzterWinkel = t.fw; }
+          if (!f) { f = albatros(t.pfade, this.aussehen(t).skin); this.flieger.set(t.id, f); sc.add(f); f.letzterWinkel = t.fw; }
           let dw = t.fw - f.letzterWinkel;
           while (dw > Math.PI) dw -= Math.PI * 2;
           while (dw < -Math.PI) dw += Math.PI * 2;
@@ -991,7 +1036,25 @@
         x.fillStyle = 'rgba(255,255,255,0.5)';
         for (const k of [0.25, 0.5, 0.75]) x.fillRect(lx + b * k - 1, ly, 2, 22);
         x.font = schrift(15); x.textAlign = 'center'; x.fillStyle = '#fff';
-        x.fillText(`🐙 Krakus · Stufe ${boss.boss} · ${Math.ceil(boss.hp)} / ${Math.round(boss.hpMax)}`, this.pw / 2, ly + 16);
+        const bd = PT.BOSSE[boss.typ] || {};
+        x.fillText(`${bd.symbol || '👑'} ${PT.FISCHE[boss.typ].name} · Stufe ${boss.boss} · ${Math.ceil(boss.hp)} / ${Math.round(boss.hpMax)}`, this.pw / 2, ly + 16);
+      }
+      // betäubte Pinguine (Flutwelle) und im Koop der Name des Besitzers
+      const koop = spiel.koop && spiel.spieler.length > 1;
+      for (const t of spiel.tuerme) {
+        if (t.betaeubt > 0) {
+          const [sx, sy] = this.bildschirm(t.x, t.y, 58);
+          x.font = schrift(18); x.textAlign = 'center';
+          x.fillText('💫', sx + Math.sin(this.zeit * 6 + t.id) * 4, sy);
+        }
+        if (koop && t.besitzer != null && this.namenZeigen) {
+          const sp = spiel.spielerVon(t.besitzer);
+          if (!sp) continue;
+          const [sx, sy] = this.bildschirm(t.x, t.y, -4);
+          x.font = schrift(11); x.textAlign = 'center';
+          x.lineWidth = 3; x.strokeStyle = 'rgba(20,30,50,0.85)'; x.strokeText(sp.name, sx, sy + 14);
+          x.fillStyle = PT.KOOP_FARBEN[sp.farbe] || '#fff'; x.fillText(sp.name, sx, sy + 14);
+        }
       }
       // Heldenstufe
       for (const t of spiel.tuerme) {
@@ -1029,7 +1092,8 @@
     }
 
     /* ---------- Vorschaubilder für Laden und Lexikon ---------- */
-    static bilder(typen, fische) {
+    // skin: Look für die Pinguine; looks: diese Looks zusätzlich am Zapfen-Pingu zeigen (Pingu-Pass)
+    static bilder(typen, fische, skin = null, looks = []) {
       const groesse = 192;
       const c = document.createElement('canvas');
       c.width = c.height = groesse;
@@ -1042,8 +1106,8 @@
       const pingu = {}, fisch = {};
       for (const typ of typen) {
         let g;
-        if (typ === 'flieger') { g = albatros([0, 0, 0]); g.rotation.y = 0.9; g.position.y = 20; }
-        else { const b = pinguinBauen(typ, [0, 0, 0]); g = b.g; b.innen.rotation.y = typ === 'markt' || typ === 'fabrik' ? Math.PI / 2 + 0.6 : 0.9; }
+        if (typ === 'flieger') { g = albatros([0, 0, 0], skin); g.rotation.y = 0.9; g.position.y = 20; }
+        else { const b = pinguinBauen(typ, [0, 0, 0], 1, { skin }); g = b.g; b.innen.rotation.y = typ === 'markt' || typ === 'fabrik' ? Math.PI / 2 + 0.6 : 0.9; }
         sc.add(g);
         const boot = typ === 'boot';
         k.position.set(68, boot ? 70 : 72, 88); k.lookAt(0, boot ? 14 : 24, 0);
@@ -1052,12 +1116,22 @@
         pingu[typ] = c.toDataURL('image/png');
         sc.remove(g);
       }
+      const look = {};
+      for (const id of looks) {
+        const b = pinguinBauen('zapfen', [0, 0, 0], 1, { skin:id });
+        b.innen.rotation.y = 0.9;
+        sc.add(b.g);
+        k.position.set(68, 72, 88); k.lookAt(0, 24, 0);
+        r.render(sc, k);
+        look[id] = c.toDataURL('image/png');
+        sc.remove(b.g);
+      }
       for (const typ of fische) {
         const f = PT.FISCHE[typ];
         const m = new T.Mesh(fischGeo(typ), new T.MeshPhongMaterial({ vertexColors:true, shininess:50 }));
         m.rotation.y = -0.5;
         sc.add(m);
-        const d = f.r * (typ === 'krake' || typ === 'krakus' || typ === 'rochen' ? 6.5 : 5.2);
+        const d = f.r * (typ === 'krake' || typ === 'krakus' || typ === 'rochen' ? 6.5 : typ === 'orka' ? 7.2 : 5.2);
         k.position.set(d * 0.2, d * 0.45, d); k.lookAt(0, 0, 0);
         r.render(sc, k);
         fisch[typ] = c.toDataURL('image/png');
@@ -1065,7 +1139,7 @@
       }
       r.dispose();
       if (r.forceContextLoss) r.forceContextLoss();
-      return { pingu, fisch };
+      return { pingu, fisch, look };
     }
   }
 

@@ -1,10 +1,13 @@
 'use strict';
-// Pingu Towers – Server: liefert das Spiel aus. Gespielt wird komplett im Browser.
+// Pingu Towers – Server: liefert das Spiel aus. Allein wird komplett im Browser gespielt, im Koop rechnet
+// der Server mit und gibt den Takt vor (raeume.js, WebSocket unter /ws).
 // Als Disziplin der Olympiade kommt man per Ticket (?olymp=…) herein; der Browser meldet
 // sich über /api/olymp, und der Server gibt das Ergebnis signiert an die Olympiade weiter (olymp.js).
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { WebSocketServer } = require('ws');
+const { raeume } = require('./raeume');
 const zugang = require('./zugang')({ titel:'Pingu Towers', offen:['/api/olymp'] });
 const olymp = require('./olymp')({ spiel:'pingutowers' });
 const PT = require('./js/daten.js');
@@ -131,4 +134,21 @@ const server = http.createServer((req, res) => {
   res.end('Nicht gefunden');
 });
 
+/* ---------- Koop ---------- */
+const R = raeume();
+const wss = new WebSocketServer({ server, path:'/ws', maxPayload:4096, perMessageDeflate:true, verifyClient:({ req }) => zugang.hatZugang(req) });
+wss.on('connection', ws => {
+  ws.lebt = true;
+  ws.on('pong', () => { ws.lebt = true; });
+  const v = R.verbinden({ send:t => { if (ws.readyState === 1) ws.send(t); }, close:() => ws.close(4002, 'ersetzt') });
+  ws.on('message', roh => v.nachricht(roh.toString()));
+  ws.on('close', () => v.getrennt());
+});
+setInterval(() => {
+  for (const ws of wss.clients) { if (!ws.lebt) { ws.terminate(); continue; } ws.lebt = false; try { ws.ping(); } catch (_) { /* weg */ } }
+}, 25_000).unref();
+setInterval(() => R.takt(), 50).unref();
+setInterval(() => R.aufraeumenAlt(), 60_000).unref();
+
 server.listen(PORT, () => console.log(`Pingu Towers läuft auf http://localhost:${PORT}`));
+for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => server.close(() => process.exit(0)));

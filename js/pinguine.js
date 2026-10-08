@@ -51,7 +51,14 @@
     schleier:     { name:'Polarlichtschleier', symbol:'✨', text:'Pinguine in der Nähe greifen doppelt so schnell an.' },
     himmelsfeuer: { name:'Himmelsfeuer', symbol:'🔥', text:'Trifft jeden Fisch auf der Karte.' },
     eisfalle:     { name:'Eisfalle', symbol:'🧊', text:'Eine riesige Stachelfalle am Kanaleingang.' },
-    kaelteschock: { name:'Kälteschock', symbol:'🥶', text:'Friert die ganze Karte ein, sogar Eisfische.' }
+    kaelteschock: { name:'Kälteschock', symbol:'🥶', text:'Friert die ganze Karte ein, sogar Eisfische.' },
+    orbital:      { name:'Orbital-Laser', symbol:'🛰️', text:'Ein Laser aus dem All trifft die stärksten Fische.' },
+    nordlicht:    { name:'Nordlicht-Sturm', symbol:'🌠', text:'Trifft jeden Fisch, friert die kleinen ein und bremst die Riesen.' },
+    tanz:         { name:'Tanzfieber', symbol:'🕺', text:'Alle Fische tanzen kurz statt zu schwimmen.' },
+    party:        { name:'Party-Zeit', symbol:'🎉', text:'Pinguine in der Nähe greifen kurz doppelt so schnell an.' },
+    anker:        { name:'Ankerwurf', symbol:'⚓', text:'Trifft die stärksten Riesen schwer und hält sie kurz fest.' },
+    sternschnuppe:{ name:'Sternschnuppen', symbol:'💫', text:'Trifft jeden Fisch und enttarnt alle.' },
+    eiszeit:      { name:'Eiszeit', symbol:'🧊', text:'Alle Fische schwimmen eine Weile halb so schnell, Pinguine in der Nähe werden schneller.' }
   };
 
   /* ---------- Pinguine ---------- */
@@ -379,6 +386,46 @@
       ]
     },
 
+
+    laser: {
+      name:'Laser-Pingu', preis:2500, gruppe:'Magie', taste:'l', kurz:'Ein Super-Pinguin mit Laserblick. Teuer, aber schießt ohne Pause.',
+      basis:() => ({ reichweite:165, camo:false, angriffe:[angriff({ intervall:0.11, schaden:1, durchschlag:1, typ:'normal', tempo:900, flug:300, groesse:4, bild:'laser' })] }),
+      pfade:[
+        [
+          { name:'Laserstrahlen', preis:900, text:'Durchschlag +2.', fx:s => { A(s).durchschlag += 2; } },
+          { name:'Plasmasalven', preis:2600, text:'Doppelt so schnell, +1 Schaden.', fx:s => { const a = A(s); a.intervall *= 0.5; a.schaden += 1; a.bild = 'plasma'; } },
+          { name:'Polarstrahl', preis:9500, text:'Mächtige Strahlen: +3 Schaden, Durchschlag +6, +6 gegen Riesen.', fx:s => {
+            const a = A(s); a.schaden += 3; a.durchschlag += 6; a.riesen += 6; a.groesse = 7; a.bild = 'laserGross'; } },
+          { name:'Sonnenstrahl-Pingu', preis:26000, text:'Zwei Strahlen, +6 Schaden, +25 gegen Riesen.', fx:s => {
+            const a = A(s); a.anzahl = 2; a.streuung = 0.08; a.schaden += 6; a.riesen += 25; a.durchschlag += 6; } },
+          { name:'Nordstern-Pingu', preis:72000, text:'Ein Stern auf zwei Flossen: drei Strahlen, +20 Schaden, +120 gegen Riesen, riesige Reichweite.', fx:s => {
+            const a = A(s); a.anzahl = 3; a.schaden += 20; a.riesen += 120; a.durchschlag += 10; s.reichweite += 60; a.flug += 80; a.bild = 'sonnenstrahl'; } }
+        ],
+        [
+          { name:'Roboarm', preis:1500, text:'Ein zweiter Arm schießt nach hinten.', fx:s => {
+            s.angriffe.push(angriff({ ...A(s), id:'arm', hinten:true })); } },
+          { name:'Turbo-Prozessor', preis:1800, text:'Beide Arme schießen 25 % schneller.', fx:s => { for (const a of s.angriffe) a.intervall *= 0.75; } },
+          { name:'Robo-Pingu', preis:7500, text:'+2 Schaden auf beiden Armen, sieht getarnte Fische.', fx:s => { s.camo = true; for (const a of s.angriffe) { a.schaden += 2; a.bild = 'plasma'; } } },
+          { name:'Mecha-Pingu', preis:28000, text:'+5 Schaden, +15 gegen Riesen. Fähigkeit Orbital-Laser.', fx:s => {
+            for (const a of s.angriffe) { a.schaden += 5; a.riesen += 15; a.durchschlag += 3; }
+            F(s, { id:'orbital', cd:45, schaden:3000, anzahl:3 }); } },
+          { name:'Giga-Mecha', preis:85000, text:'Vier Arme, +15 Schaden, Orbital-Laser viel stärker.', fx:s => {
+            for (const a of s.angriffe) { a.schaden += 15; a.riesen += 40; a.anzahl = Math.max(a.anzahl, 2); a.streuung = 0.1; }
+            F(s, { id:'orbital', cd:35, schaden:14000, anzahl:4 }); } }
+        ],
+        [
+          { name:'Fernsicht', preis:500, text:'Reichweite +30.', fx:s => { s.reichweite += 30; A(s).flug += 30; } },
+          { name:'Nachtsensor', preis:900, text:'Sieht getarnte Fische.', fx:s => { s.camo = true; } },
+          { name:'Kältelaser', preis:5000, text:'+1 Schaden, getroffene Fische werden langsamer.', fx:s => {
+            for (const a of s.angriffe) { a.schaden += 1; a.verlangsam = 0.6; a.verlangsamDauer = 1; a.riesenLangsam = 0.85; a.bild = a.bild === 'laser' ? 'laserBlau' : a.bild; } } },
+          { name:'Nordlicht-Ritter', preis:16000, text:'+4 Schaden, +10 gegen Riesen, viel mehr Reichweite.', fx:s => {
+            for (const a of s.angriffe) { a.schaden += 4; a.riesen += 10; a.flug += 60; } s.reichweite += 50; } },
+          { name:'Herr des Nordlichts', preis:60000, text:'+10 Schaden. Fähigkeit Nordlicht-Sturm.', fx:s => {
+            for (const a of s.angriffe) { a.schaden += 10; a.riesen += 30; } F(s, { id:'nordlicht', cd:50, schaden:80, riesen:1500, dauer:3 }); } }
+        ]
+      ]
+    },
+
     /* ===== Unterstützung ===== */
     markt: {
       name:'Fischmarkt', preis:1000, gruppe:'Unterstützung', taste:'u', kurz:'Kämpft nicht, bringt aber jede Runde Geld.', greift:false,
@@ -438,6 +485,37 @@
       ]
     },
 
+    disco: {
+      name:'Disco-Pingu', preis:650, gruppe:'Unterstützung', taste:'d', kurz:'Seine Musik bremst die Fische, und Pinguine in der Nähe feiern mit.', greift:false,
+      basis:() => ({ reichweite:110, camo:false, angriffe:[angriff({ art:'ring', intervall:1.6, schaden:0, durchschlag:25, typ:'normal', bild:'schall', verlangsam:0.7, verlangsamDauer:1.2 })] }),
+      pfade:[
+        [
+          { name:'Bassbox', preis:350, text:'Die Schallwellen lassen Fische platzen (1 Schaden).', fx:s => { A(s).schaden = 1; } },
+          { name:'Subwoofer', preis:750, text:'+1 Schaden, Durchschlag +20.', fx:s => { const a = A(s); a.schaden += 1; a.durchschlag += 20; } },
+          { name:'Schallkanone', preis:2400, text:'Doppelt so oft, betäubt auch Riesen kurz, +3 gegen Riesen.', fx:s => { const a = A(s); a.intervall *= 0.5; a.riesenBetaeuben = 0.35; a.riesen += 3; } },
+          { name:'Mega-Bass', preis:7500, text:'+3 Schaden, betäubt kleine Fische, Durchschlag +40.', fx:s => { const a = A(s); a.schaden += 3; a.betaeuben = 0.3; a.durchschlag += 40; a.bild = 'schallGross'; } },
+          { name:'Disco-Inferno', preis:30000, text:'+10 Schaden, +30 gegen Riesen. Fähigkeit Tanzfieber.', fx:s => {
+            const a = A(s); a.schaden += 10; a.riesen += 30; a.durchschlag += 60; s.reichweite += 30; F(s, { id:'tanz', cd:50, dauer:4 }); } }
+        ],
+        [
+          { name:'Discokugel', preis:500, text:'Pinguine in der Nähe greifen 10 % schneller an.', fx:s => { s.buff = { reichweite:0, camo:false, tempo:0.9, schaden:0, durchschlag:0, rabatt:0 }; } },
+          { name:'Lichtorgel', preis:900, text:'Pinguine in der Nähe: +10 % Reichweite, größerer Wirkungskreis.', fx:s => { s.buff.reichweite = 0.1; s.reichweite += 25; } },
+          { name:'Partystimmung', preis:2600, text:'Pinguine in der Nähe: 20 % schneller und sie sehen getarnte Fische.', fx:s => { s.buff.tempo = 0.8; s.buff.camo = true; } },
+          { name:'Superstar', preis:6000, text:'Pinguine in der Nähe: +1 Schaden. Fähigkeit Party-Zeit.', fx:s => { s.buff.schaden += 1; F(s, { id:'party', cd:45, dauer:10, faktor:2 }); } },
+          { name:'Weltstar', preis:24000, text:'Pinguine in der Nähe: 35 % schneller, +2 Schaden, +2 Durchschlag.', fx:s => {
+            s.buff.tempo = 0.65; s.buff.schaden += 1; s.buff.durchschlag += 2; s.reichweite += 30; F(s, { id:'party', cd:35, dauer:12, faktor:2 }); } }
+        ],
+        [
+          { name:'Eintritt', preis:600, text:'+60 Geld am Ende jeder Runde.', fx:s => { s.geld = { kisten:0, wert:0, flat:60 }; } },
+          { name:'Fanshop', preis:1300, text:'+180 Geld am Ende jeder Runde.', fx:s => { s.geld.flat = 180; } },
+          { name:'Konzert', preis:3200, text:'Zusätzlich 3 Kisten pro Runde mit je 150 Geld.', fx:s => { s.geld.kisten = 3; s.geld.wert = 150; } },
+          { name:'Tournee', preis:8500, text:'+700 Geld pro Runde, Kisten 300 wert.', fx:s => { s.geld.flat = 700; s.geld.wert = 300; } },
+          { name:'Welttournee', preis:38000, text:'8 Kisten zu 500 und +2000 pro Runde. Fähigkeit Geldregen.', fx:s => {
+            s.geld.kisten = 8; s.geld.wert = 500; s.geld.flat = 2000; F(s, { id:'geldregen', cd:60, betrag:3000 }); } }
+        ]
+      ]
+    },
+
     fabrik: {
       name:'Eisstachel-Fabrik', preis:1000, gruppe:'Unterstützung', taste:'a', kurz:'Legt Eisstachel-Haufen in den Kanal. Fängt durchgerutschte Fische ab.',
       ziele:[['smart', 'Klug'], ['nah', 'Nah'], ['anfang', 'Anfang'], ['ende', 'Ende']],
@@ -470,19 +548,21 @@
   };
   for (const id of Object.keys(PINGUINE)) PINGUINE[id].id = id;
   PT.PINGUINE = PINGUINE;
-  PT.PINGUIN_REIHE = ['zapfen', 'rundum', 'schneeball', 'frost', 'harpune', 'boot', 'flieger', 'moerser', 'polar', 'ninja', 'markt', 'haeuptling', 'fabrik'];
+  PT.PINGUIN_REIHE = ['zapfen', 'rundum', 'schneeball', 'frost', 'harpune', 'boot', 'flieger', 'moerser', 'polar', 'ninja', 'laser', 'markt', 'haeuptling', 'disco', 'fabrik'];
   PT.GRUPPEN = ['Primär', 'Militär', 'Magie', 'Unterstützung'];
 
   /* ---------- Helden ----------
-     Ein Held pro Spiel. Er steigt am Ende jeder Runde auf (Stufe 1–10) und bekommt dabei
-     neue Kräfte und auf Stufe 3 und 7 je eine Fähigkeit. */
+     Ein Held pro Spiel (im Koop einer pro Spieler). Er steigt am Ende jeder Runde auf (Stufe 1–10) und bekommt dabei
+     neue Kräfte und auf Stufe 3 und 7 je eine Fähigkeit. Die Meisterkraft (im Pingu-Pass freigeschaltet)
+     bringt ab Stufe 5 eine dritte Fähigkeit. */
   const HELDEN = {
     kiel: {
       name:'Kapitän Kiel', preis:550, held:true, taste:'h', farbe:'#2d5a8a',
       kurz:'Alter Seebär mit Harpune und Fischernetz. Ein guter Allrounder.',
+      kraft:{ id:'anker', text:'Ab Stufe 5: Ankerwurf trifft die drei stärksten Riesen und hält sie fest.' },
       stufen:['Wirft Harpunen.', 'Durchschlag +1.', 'Fähigkeit Fischernetz.', 'Sieht getarnte Fische, Reichweite +15.', 'Drei Harpunen auf einmal.',
         '+1 Schaden, +2 gegen Riesen.', 'Fähigkeit Torpedo-Salve.', 'Wirft 25 % schneller.', 'Größeres Netz, öfter.', '+2 Schaden, stärkere Torpedos.'],
-      basis(L) {
+      basis(L, kraft) {
         const a = angriff({ intervall:0.9, schaden:1, durchschlag:3, tempo:640, flug:300, bild:'harpuneKlein' });
         const s = { reichweite:135, camo:false, angriffe:[a] };
         if (L >= 2) a.durchschlag += 1;
@@ -494,15 +574,17 @@
         if (L >= 8) a.intervall *= 0.75;
         if (L >= 9) F(s, { id:'netz', cd:40, radius:260, dauer:3.5 });
         if (L >= 10) { a.schaden += 2; F(s, { id:'torpedos', cd:50, schaden:450, anzahl:12 }); }
+        if (kraft && L >= 5) F(s, { id:'anker', cd:L >= 9 ? 45 : 55, schaden:L >= 9 ? 900 : 350, anzahl:3, betaeuben:2 });
         return s;
       }
     },
     aurora: {
       name:'Prinzessin Aurora', preis:700, held:true, taste:'h', farbe:'#6b4fd1',
       kurz:'Beherrscht das Polarlicht. Ihre Blitze springen von Fisch zu Fisch.',
+      kraft:{ id:'sternschnuppe', text:'Ab Stufe 5: Sternschnuppen treffen jeden Fisch und enttarnen alle.' },
       stufen:['Polarlicht-Blitze, die überspringen.', 'Reichweite +10.', 'Fähigkeit Polarlichtschleier.', 'Sieht getarnte Fische.', 'Pinguine in der Nähe: +10 % Reichweite.',
         'Blitze springen weiter, +1 Schaden.', 'Fähigkeit Himmelsfeuer.', 'Zaubert 30 % schneller.', 'Noch mehr Sprünge, +1 Schaden.', 'Himmelsfeuer viel stärker.'],
-      basis(L) {
+      basis(L, kraft) {
         const a = angriff({ art:'blitz', intervall:1.0, schaden:1, kette:3, typ:'normal', bild:'blitzAurora' });
         const s = { reichweite:145, camo:false, angriffe:[a] };
         if (L >= 2) s.reichweite += 10;
@@ -514,15 +596,17 @@
         if (L >= 8) a.intervall *= 0.7;
         if (L >= 9) { a.kette = 10; a.schaden += 1; a.riesen += 3; }
         if (L >= 10) F(s, { id:'himmelsfeuer', cd:50, schaden:120, riesen:1200 });
+        if (kraft && L >= 5) F(s, { id:'sternschnuppe', cd:L >= 9 ? 40 : 50, schaden:L >= 9 ? 12 : 4, riesen:L >= 9 ? 250 : 80 });
         return s;
       }
     },
     frosti: {
       name:'Professor Frosti', preis:600, held:true, taste:'h', farbe:'#2aa3d6',
       kurz:'Erfinder mit Eisstrahler. Bremst Fische und verdient nebenbei Geld.',
+      kraft:{ id:'eiszeit', text:'Ab Stufe 5: Eiszeit bremst alle Fische und macht Pinguine in der Nähe schneller.' },
       stufen:['Eisstrahler, der Fische bremst.', 'Durchschlag +1.', 'Fähigkeit Eisfalle.', 'Sieht getarnte Fische.', '+100 Geld pro Runde.',
         '+1 Schaden, bremst stärker.', 'Fähigkeit Kälteschock.', 'Schießt 40 % schneller.', '+300 Geld pro Runde, stärkere Eisfalle.', '+3 Schaden, längerer Kälteschock.'],
-      basis(L) {
+      basis(L, kraft) {
         const a = angriff({ intervall:0.7, schaden:1, durchschlag:2, typ:'normal', tempo:620, flug:280, groesse:5, bild:'eisstrahl', verlangsam:0.7, verlangsamDauer:1 });
         const s = { reichweite:125, camo:false, angriffe:[a] };
         if (L >= 2) a.durchschlag += 1;
@@ -534,6 +618,7 @@
         if (L >= 8) a.intervall *= 0.6;
         if (L >= 9) { s.geld.flat = 300; F(s, { id:'eisfalle', cd:35, durchschlag:400, schaden:5 }); }
         if (L >= 10) { a.schaden += 3; a.riesen += 5; F(s, { id:'kaelteschock', cd:50, dauer:5, schaden:50 }); }
+        if (kraft && L >= 5) F(s, { id:'eiszeit', cd:L >= 9 ? 50 : 60, dauer:L >= 9 ? 10 : 7, faktor:1.4, radius:240 });
         return s;
       }
     }
@@ -544,8 +629,8 @@
   PT.def = typ => PINGUINE[typ] || HELDEN[typ];
 
   // Werte eines Pinguins mit seinen Upgrades (pfade = [Stufe Pfad 1, 2, 3]) bzw. eines Helden auf Stufe L
-  PT.werteFuer = function (typ, pfade, stufe = 1) {
-    if (HELDEN[typ]) { const s = HELDEN[typ].basis(stufe); s.faehigkeiten = s.faehigkeiten || []; return s; }
+  PT.werteFuer = function (typ, pfade, stufe = 1, kraft = false) {
+    if (HELDEN[typ]) { const s = HELDEN[typ].basis(stufe, kraft); s.faehigkeiten = s.faehigkeiten || []; return s; }
     const p = PINGUINE[typ];
     const s = p.basis();
     s.faehigkeiten = [];

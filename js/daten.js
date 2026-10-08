@@ -29,7 +29,8 @@
     mega:    { name:'Megalodon',          hp:700,  tempo:22,  r:48, farbe:'#56606e', kinder:['wal', 'wal', 'wal', 'wal'], riese:true },
     rochen:  { name:'Schattenrochen',     hp:400,  tempo:170, r:26, farbe:'#2a2f3d', kinder:['koffer', 'koffer', 'koffer', 'koffer', 'koffer', 'koffer'], riese:true, immer:'camo', immun:['spitz', 'explosion'] },
     krake:   { name:'Riesenkrake',        hp:4000, tempo:18,  r:62, farbe:'#8e3fb8', kinder:['mega', 'mega', 'mega', 'mega'], riese:true },
-    krakus:  { name:'Krakus der Boss',    hp:6000, tempo:13,  r:72, farbe:'#c0392b', kinder:[], riese:true, boss:true }
+    krakus:  { name:'Krakus der Boss',    hp:6000, tempo:13,  r:72, farbe:'#c0392b', kinder:[], riese:true, boss:true },
+    orka:    { name:'Kaiser Orka',        hp:9000, tempo:19,  r:64, farbe:'#1b1d24', kinder:[], riese:true, boss:true }
   };
   for (const id of Object.keys(FISCHE)) FISCHE[id].id = id;
   // Wie viele "Schichten" ein Fisch insgesamt hat (so viele Leben kostet er, wenn er durchkommt)
@@ -40,6 +41,7 @@
   }
   Object.keys(FISCHE).forEach(rbe);
   PT.FISCHE = FISCHE;
+  PT.BOSS_REIHE = ['krakus', 'orka'];
   PT.FISCH_REIHE = ['rot', 'blau', 'gruen', 'gelb', 'rosa', 'schwarz', 'weiss', 'panzer', 'zebra', 'regen', 'koffer', 'wal', 'rochen', 'mega', 'krake'];
   // Gepanzert gibt es nur für zähe Fische (wie im Vorbild)
   PT.kannGepanzert = typ => typ === 'panzer' || FISCHE[typ].hp > 1;
@@ -80,9 +82,10 @@
     halb:       { name:'Halbes Geld', symbol:'🪙', text:'Alle Einnahmen nur zur Hälfte.' },
     flut:       { name:'Fischflut', symbol:'🌊', text:'Keine Pausen: Jede Runde kommt sofort nach der letzten.' },
     boss:       { name:'Boss-Jagd', symbol:'🐙', text:'Krakus der Boss taucht in Runde 20 und 40 auf. Lässt du ihn durch, ist es vorbei.', runden:40 },
+    orka:       { name:'Orka-Angriff', symbol:'🐋', text:'Kaiser Orka kommt in Runde 25 und 50. Seine Flutwellen betäuben Pinguine am Ufer. Lässt du ihn durch, ist es vorbei.', runden:50 },
     sandkasten: { name:'Sandkasten', symbol:'🏖️', text:'Unendlich Geld und Leben. Schick die Fische selbst los und probier alles aus.' }
   };
-  PT.MODI_REIHE = ['standard', 'grund', 'umgekehrt', 'halb', 'flut', 'boss', 'sandkasten'];
+  PT.MODI_REIHE = ['standard', 'grund', 'umgekehrt', 'halb', 'flut', 'boss', 'orka', 'sandkasten'];
 
   /* ---------- Karten ----------
      wege: ein oder mehrere Kanäle (Eckpunkte, werden abgerundet). Endet ein Kanal mitten auf der Karte,
@@ -132,6 +135,22 @@
       wasser:[[860, 60, 26]],
       deko:'nacht'
     },
+    kreuz: {
+      name:'Eiskreuz', stufe:'Mittel', thema:'tag',
+      text:'Der Kanal kreuzt sich selbst. Wer an der Kreuzung steht, trifft die Fische zweimal.',
+      wege:[[[-40, 320], [300, 320], [300, 90], [700, 90], [700, 550], [480, 550], [480, 320], [1040, 320]]],
+      hindernisse:[[150, 500, 40], [880, 140, 34], [580, 205, 30], [880, 500, 30], [150, 140, 26], [590, 435, 26]],
+      wasser:[[380, 450, 34], [860, 230, 26]],
+      deko:'hafen'
+    },
+    inseln: {
+      name:'Treibeis-Inseln', stufe:'Profi', thema:'daemmerung',
+      text:'Ein kurzer Kanal zwischen Treibeis und vielen Wasserlöchern. Hier zählen die Boote.',
+      wege:[[[500, -40], [500, 190], [230, 190], [230, 460], [760, 460], [760, 250], [1040, 250]]],
+      hindernisse:[[650, 115, 36], [890, 380, 30], [100, 300, 30], [610, 320, 28], [320, 590, 28]],
+      wasser:[[120, 90, 40], [880, 120, 44], [520, 580, 40], [400, 325, 34], [920, 560, 30]],
+      deko:'treibeis'
+    },
     erebus: {
       name:'Erebus-Krater', stufe:'Mittel', thema:'vulkan',
       text:'Am Vulkan im ewigen Eis: Schmelzwasser, Lavaspalten und wenig Platz.',
@@ -141,7 +160,7 @@
       deko:'vulkan'
     }
   };
-  PT.KARTEN_REIHE = ['scholle', 'bucht', 'spalte', 'erebus', 'nacht', 'doppel'];
+  PT.KARTEN_REIHE = ['scholle', 'bucht', 'kreuz', 'spalte', 'erebus', 'nacht', 'doppel', 'inseln'];
   PT.WEG_BREITE = 40;
 
   /* ---------- Runden ----------
@@ -238,8 +257,20 @@
       return { anzahl:+anzahl, typ, abstand:+abstand, start:+start, camo:z.includes('c'), nach:z.includes('r'), fest:z.includes('f') };
     });
   }
+  /* ---------- Bosse ----------
+     runden: in welcher Runde welche Bossstufe kommt (je Spielmodus). hp je Stufe. welle: Verstärkung bei 75, 50 und 25 %.
+     betaeuben: Flutwelle, die Pinguine in diesem Umkreis (Sekunden) betäubt. belohnung: Geld je Stufe. */
+  PT.BOSSE = {
+    krakus: { modus:'boss', runden:{ 20:1, 40:2 }, hp:[0, 450, 5000], belohnung:1500, symbol:'🐙',
+      welle:[[['rosa', 6], ['zebra', 1]], [['regen', 4], ['koffer', 1]]] },
+    orka:   { modus:'orka', runden:{ 25:1, 50:2 }, hp:[0, 900, 9000], belohnung:2000, symbol:'🐋',
+      welle:[[['regen', 3], ['koffer', 1]], [['koffer', 4], ['wal', 1]]], betaeuben:{ radius:200, dauer:[0, 2.5, 3.5] } }
+  };
+  PT.BOSS_HP = PT.BOSSE.krakus.hp;
+  PT.bossFuer = modus => PT.BOSS_REIHE.find(id => PT.BOSSE[id].modus === modus) || null;
+
   // Gruppen einer Runde; nach Runde 80 geht es endlos mit immer zäheren Riesen weiter.
-  // Boss-Jagd: In Runde 20 und 40 kommt Krakus (Stufe 1 und 2) mit Begleitung.
+  // Boss-Jagd: In Runde 20 und 40 kommt Krakus (Stufe 1 und 2) mit Begleitung, beim Orka-Angriff Kaiser Orka in 25 und 50.
   PT.runde = function (n, modus) {
     let text = R[n], zaeh = 1;
     if (!text) {
@@ -248,9 +279,11 @@
       text = `${4 + Math.floor(k / 2)} krake ${Math.max(0.6, 2 - k * 0.04).toFixed(2)} 0 f|${20 + 2 * k} rochen 0.4 3|${20 + k} mega 0.8 5`;
     }
     const r = { zaeh, gruppen:gruppenLesen(text) };
-    if (modus === 'boss' && (n === 20 || n === 40)) {
-      r.boss = n === 20 ? 1 : 2;
-      r.gruppen.unshift({ anzahl:1, typ:'krakus', abstand:1, start:0 });
+    const boss = PT.bossFuer(modus);
+    if (boss && PT.BOSSE[boss].runden[n]) {
+      r.boss = PT.BOSSE[boss].runden[n];
+      r.bossTyp = boss;
+      r.gruppen.unshift({ anzahl:1, typ:boss, abstand:1, start:0 });
     }
     return r;
   };
@@ -259,6 +292,14 @@
   // Erfahrung für Helden am Ende einer Runde
   PT.heldenXp = n => 40 + 20 * n;
   PT.HELDEN_STUFEN = [0, 0, 100, 300, 700, 1300, 2200, 3500, 5300, 8000, 12000];
+
+  /* ---------- Koop ----------
+     Bis zu vier Spieler auf einer Karte. Geld geteilt (eine Kasse) oder getrennt (jeder hat seine eigene,
+     Einnahmen aus Fischen und Rundenbonus werden aufgeteilt). Startgeld gibt es pro Spieler. */
+  PT.KOOP_MAX = 4;
+  PT.KOOP_FARBEN = ['#f6c343', '#2f7fe0', '#e2463b', '#35b04a'];
+  PT.KOOP_GELD = { geteilt:{ name:'Geteiltes Geld', text:'Eine Kasse für alle. Jeder darf alles kaufen und aufrüsten.' },
+    getrennt:{ name:'Getrenntes Geld', text:'Jeder hat seine eigene Kasse und rüstet nur seine eigenen Pinguine auf.' } };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = PT;
 })(typeof window !== 'undefined' ? window : globalThis);

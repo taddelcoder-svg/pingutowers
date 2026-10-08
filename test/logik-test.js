@@ -76,8 +76,8 @@ for (const modus of PT.MODI_REIHE) for (const karte of PT.KARTEN_REIHE) {
     if (s.bauen(typ, p[0] + Math.cos(i) * 52, p[1] + Math.sin(i) * 52)) gebaut++;
   }
   for (const t of s.tuerme) { s.upgraden(t, 0); s.upgraden(t, 0); s.upgraden(t, 2); }
-  if (modus === 'sandkasten') { s.sandFische('krakus', 1); s.sandFische('krake', 1); }
-  const ziel = modus === 'boss' ? 21 : 6;
+  if (modus === 'sandkasten') { s.sandFische('krakus', 1); s.sandFische('orka', 1); s.sandFische('krake', 1); }
+  const ziel = modus === 'boss' ? 21 : modus === 'orka' ? 26 : 6;
   let schritte = 0;
   while (!s.vorbei && s.runde < ziel && schritte < 60 * 60 * 30) {
     if (!s.laeuft) { s.geld = Math.max(s.geld, 1e6); s.rundeStarten(); }
@@ -92,6 +92,50 @@ for (const modus of PT.MODI_REIHE) for (const karte of PT.KARTEN_REIHE) {
   pruefe(s2.tuerme.length === s.tuerme.length && s2.modus === s.modus && s2.runde === s.runde, `${modus}/${karte}: Laden`);
 }
 console.log('Modi und Karten getestet');
+
+// Meisterkräfte der Helden (Pingu-Pass) ab Stufe 5
+for (const held of PT.HELDEN_REIHE) {
+  const s = new PT.Spiel({ karte:'scholle', modus:'sandkasten', held, kraft:true });
+  let t = null;
+  for (let i = 0; i < 3000 && !t; i++) { const p = s.weg.pts[(i * 53) % s.weg.pts.length]; t = s.bauen(held, p[0] + Math.cos(i) * 55, p[1] + Math.sin(i) * 55); }
+  for (let st = 1; st < 5; st++) s.heldenStufeKaufen(t);
+  const kraft = PT.HELDEN[held].kraft.id;
+  pruefe(s.faehigkeitenListe().some(f => f.id === kraft), `Meisterkraft ${kraft} fehlt`);
+  for (const f of mischung) s.sandFische(f, 3, {});
+  s.sandFische('orka', 1);
+  for (let i = 0; i < 60 * 4; i++) { s.schritt(1 / 60); if (i === 60) { t.fcd[kraft] = 0; pruefe(s.faehigkeitAusloesen(kraft), `Meisterkraft ${kraft} auslösen`); } }
+  nanFrei(s, `Meisterkraft ${held}`);
+  const ohne = new PT.Spiel({ karte:'scholle', modus:'sandkasten', held });
+  const t2 = ohne.bauen(held, t.x, t.y);
+  for (let st = 1; st < 9; st++) ohne.heldenStufeKaufen(t2);
+  pruefe(!ohne.faehigkeitenListe().some(f => f.id === kraft), `Meisterkraft ${kraft} ohne Pass`);
+}
+
+// Kaiser Orka: Flutwelle betäubt Pinguine in der Nähe
+{
+  const s = new PT.Spiel({ karte:'scholle', modus:'sandkasten' });
+  const weg = s.weg;
+  s.sandFische('orka', 1);
+  for (let i = 0; i < 60 * 4; i++) s.schritt(1 / 60);
+  const orka = s.fische[0];
+  let t = null;
+  for (let i = 0; i < 400 && !t; i++) t = s.bauen('zapfen', orka.x + Math.cos(i) * (60 + i / 4), orka.y + Math.sin(i) * (60 + i / 4));
+  pruefe(t, 'Zapfen neben Orka');
+  orka.hp = orka.hpMax * 0.7;
+  s.bossPruefen(orka);
+  pruefe(s.ereignisse.some(e => e.art === 'flutwelle'), 'keine Flutwelle');
+  pruefe(t && t.betaeubt > 0, 'Pinguin nicht betäubt');
+  pruefe(weg && orka.phase === 1, 'Orka-Phase');
+}
+
+// Pingu-Pass
+{
+  require('../js/pass.js');
+  pruefe(PT.passStufe(0).stufe === 1 && PT.passStufe(200).stufe === 2 && PT.passStufe(1e9).stufe === PT.PASS_MAX, 'Pass-Stufen');
+  pruefe(PT.skinFrei('standard', 1) && !PT.skinFrei('gold', 24) && PT.skinFrei('gold', 25), 'Looks freischalten');
+  pruefe(PT.kraftFrei('kiel', 3) && !PT.kraftFrei('frosti', 10), 'Meisterkräfte freischalten');
+  for (const [, b] of Object.entries(PT.PASS_BELOHNUNG)) pruefe(b.skin ? PT.SKINS[b.skin] : PT.HELDEN[b.kraft], 'Belohnung unbekannt');
+}
 
 // Nachwachsen: ein angeschossener nachwachsender Fisch wird wieder größer
 {
