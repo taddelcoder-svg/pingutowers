@@ -182,6 +182,55 @@
   .olymp-box h2 { margin-top: 0; }
   .olymp-box ul { margin: 8px 0 0; padding-left: 20px; line-height: 1.6; }
 
+  /* Pingu-Pass */
+  .pass { margin-top: 18px; background: var(--karte); border: 3px solid var(--rand); border-radius: 16px; padding: 12px 16px; box-shadow: 5px 5px 0 var(--eis-2); }
+  .pass-kopf { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .pass-kopf b { font-size: 1.15rem; }
+  .pass-kopf small, .pass p { color: var(--tinte-weich); }
+  .pass p { margin: 6px 0 0; }
+  .pass .xp { background: var(--eis-2); }
+  .pass details summary { cursor: pointer; font-weight: 800; margin-top: 8px; }
+  .looks { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 10px; }
+  .look { display: flex; flex-direction: column; align-items: center; gap: 2px; background: var(--eis); border: 3px solid transparent; border-radius: 12px; padding: 4px 4px 8px; }
+  .look img { width: 72px; height: 72px; }
+  .look b { font-size: .85rem; line-height: 1.1; text-align: center; }
+  .look small { font-size: .75rem; color: var(--tinte-weich); }
+  .look[aria-pressed="true"] { border-color: var(--gold); }
+  .look:disabled { cursor: default; }
+  .look:disabled img { filter: grayscale(1) brightness(.6); opacity: .5; }
+  .kraefte { list-style: none; margin: 10px 0 0; padding: 0; line-height: 1.5; color: var(--tinte-weich); }
+  .kraefte li.da { color: var(--tinte); }
+  .chip.kraft { background: var(--gold); color: #13315c; }
+  .kraft-wahl { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-weight: 700; }
+  .kraft-wahl input { width: 20px; height: 20px; accent-color: var(--gold); }
+  .kraft-wahl small { font-weight: 500; color: var(--tinte-weich); }
+
+  /* Allein / Koop */
+  .reiter { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+  .reiter button { flex: 1 1 200px; border: 3px solid var(--rand); border-radius: 14px; padding: 12px 16px; font-weight: 800; font-size: 1.15rem; background: var(--karte); }
+  .reiter button[aria-pressed="true"] { background: var(--tinte); color: var(--karte); }
+  .koop-box { margin-top: 16px; background: var(--karte); border: 3px solid var(--rand); border-radius: 16px; padding: 14px 16px; }
+  .koop-box label { display: flex; flex-direction: column; gap: 4px; font-weight: 700; max-width: 320px; }
+  .koop-box input { font: inherit; font-size: 1.1rem; padding: 8px 12px; border: 2px solid var(--rand); border-radius: 10px; background: var(--eis); color: var(--tinte); }
+  .koop-reihe { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .koop-reihe input { width: 7.5em; text-transform: uppercase; letter-spacing: .15em; font-weight: 800; }
+  .koop-reihe span { color: var(--tinte-weich); }
+  .koop-fehler { color: var(--rot); font-weight: 700; min-height: 1.2em; margin: 8px 0 0; }
+  .raum-code { font-size: 1.1rem; }
+  .raum-code b { font-size: 2rem; letter-spacing: .18em; margin-left: 8px; color: var(--blau); }
+  .mitglieder { list-style: none; padding: 0; margin: 10px 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+  .mitglieder li { background: var(--eis); border-radius: 12px; padding: 8px 12px; border-left: 6px solid var(--f); }
+  .mitglieder li.weg { opacity: .5; }
+  .mitglieder small { display: block; color: var(--tinte-weich); }
+  .mitspieler { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mitspieler .sp { display: flex; align-items: center; gap: 5px; font-size: .85rem; font-weight: 700; padding: 3px 8px; border-radius: 8px; background: var(--panel-2); }
+  .mitspieler .sp i, .besitzer i { width: 10px; height: 10px; border-radius: 50%; background: var(--f); display: inline-block; }
+  .mitspieler .sp.ich { outline: 2px solid var(--f); }
+  .mitspieler .sp.weg { opacity: .45; }
+  .mitspieler .sp b { color: var(--gold); }
+  .besitzer { display: flex !important; align-items: center; gap: 5px; }
+  .hinweis { font-size: .85rem; color: var(--panel-leise); margin: 10px 0 0; line-height: 1.4; }
+
   /* ---------- Spiel ---------- */
   #spiel {
     position: fixed; inset: 0;
@@ -331,6 +380,7 @@
     .pingu-kauf b { font-size: .68rem; }
     .wert { font-size: 1rem; padding: 3px 8px; }
     #start { min-width: 0; }
+    .mitspieler .sp { font-size: .75rem; padding: 2px 6px; }
     .auto span, .modus-anzeige { display: none; }
     .info-kurz { display: none; }
     .fk { width: 44px; height: 44px; font-size: 1.3rem; }
@@ -352,8 +402,44 @@
         <h1>Pingu <span>Towers</span></h1>
       </div>
     </div>
-    <p class="unter">Die Fische wollen durch euren Eiskanal! Stell Pinguine ans Ufer, rüste sie bis Stufe 5 auf, ruf einen Helden und lass keinen Fisch durch – vom kleinen Rotbarsch bis zu Krakus dem Boss.</p>
+    <p class="unter">Die Fische wollen durch euren Eiskanal! Stell Pinguine ans Ufer, rüste sie bis Stufe 5 auf, ruf einen Helden und lass keinen Fisch durch – vom kleinen Rotbarsch bis zu Kaiser Orka. Allein oder zu viert im Koop.</p>
     <p class="erfolge" id="erfolge"></p>
+
+    <div class="pass" id="passBox">
+      <div class="pass-kopf"><b id="passStufe">🎖️ Pingu-Pass</b><small id="passXp"></small></div>
+      <div class="xp"><i id="passBalken" style="width:0"></i></div>
+      <p id="passNaechst"></p>
+      <details>
+        <summary>Looks und Meisterkräfte</summary>
+        <p>Jede geschaffte Runde, jeder Boss und jeder Sieg bringt Erfahrung. Mit neuen Stufen schaltest du Looks für deine Pinguine und Meisterkräfte für die Helden frei.</p>
+        <div class="looks" id="looks"></div>
+        <ul class="kraefte" id="kraeftePass"></ul>
+      </details>
+    </div>
+
+    <div class="reiter" id="reiterReihe" role="group" aria-label="Spielart">
+      <button id="reiterAllein" aria-pressed="true">🐧 Allein spielen</button>
+      <button id="reiterKoop" aria-pressed="false">👥 Zusammen spielen</button>
+    </div>
+    <div class="koop-box" id="koopBox" hidden>
+      <div id="koopVerbinden">
+        <label>Dein Name <input id="koopName" maxlength="16" autocomplete="nickname" placeholder="z. B. Taddel"></label>
+        <div class="koop-reihe">
+          <button class="knopf haupt" id="koopNeu">Raum erstellen</button>
+          <span>oder Code eingeben:</span>
+          <input id="koopCode" maxlength="4" placeholder="CODE" aria-label="Raum-Code" autocomplete="off">
+          <button class="knopf" id="koopRein">Beitreten</button>
+        </div>
+        <p style="color:var(--tinte-weich);margin:10px 0 0">Bis zu 4 Spieler verteidigen dieselbe Karte. Jeder setzt seine eigenen Pinguine und hat seinen eigenen Helden.</p>
+      </div>
+      <div id="koopRaum" hidden>
+        <div class="raum-code">Raum-Code <b id="raumCode"></b></div>
+        <ul class="mitglieder" id="mitglieder"></ul>
+        <p id="koopHinweis" style="color:var(--tinte-weich);margin:0"></p>
+        <button class="knopf" id="koopRaus" style="margin-top:12px">Raum verlassen</button>
+      </div>
+      <p class="koop-fehler" id="koopFehler" role="status"></p>
+    </div>
 
     <div id="olympBox" class="olymp-box" hidden>
       <h2>🏅 <span id="olympTitel">Olympiade</span></h2>
@@ -375,14 +461,20 @@
 
       <h2>Spielmodus</h2>
       <div class="modi" id="modi"></div>
+
+      <div id="geldBereich" hidden>
+        <h2>Geld im Koop</h2>
+        <div class="stufen" id="geldModi"></div>
+      </div>
     </div>
 
     <div id="heldBereich">
       <h2>Held <small>Steigt jede Runde auf, bis Stufe 10</small></h2>
       <div class="helden" id="helden"></div>
+      <label class="kraft-wahl" id="kraftReihe" hidden><input type="checkbox" id="kraftAn" checked> ✨ Meisterkraft benutzen <small id="kraftText"></small></label>
     </div>
 
-    <div class="los-reihe">
+    <div class="los-reihe" id="losReihe">
       <button class="knopf haupt" id="los">Los geht's!</button>
     </div>
 
@@ -394,6 +486,7 @@
         <li>Tippe einen Pinguin an, um ihn aufzurüsten. Jeder hat drei Pfade mit fünf Stufen – höchstens zwei Pfade, und nur einer über Stufe 2. Stufe 5 gibt es pro Pinguinart und Pfad nur einmal.</li>
         <li>Manche Upgrades und Helden bringen <b>Fähigkeiten</b>: Sie erscheinen unten links auf der Karte und laden sich während der Runden wieder auf.</li>
         <li>Getroffene Fische werden zum nächstkleineren Fisch. Kommt einer durch, kostet das so viele Leben, wie er noch Schichten hat.</li>
+        <li><b>Zusammen spielen:</b> Einer erstellt einen Raum und sagt den anderen den Code. Der Gastgeber wählt Karte, Modus und ob ihr euch das Geld teilt oder jeder seine eigene Kasse hat. Pause, Tempo und Auto gelten für alle.</li>
         <li>Getarnte Fische (halb durchsichtig) sehen nur Pinguine mit Nachtsicht, Radar & Co. Fische mit grünen Algen wachsen wieder nach, Fische mit Helm sind doppelt so zäh.</li>
         <li>Zoomen mit Mausrad, zwei Fingern oder den Knöpfen rechts unten; mit der rechten Maustaste oder einem Finger ziehen verschiebt die Karte.</li>
         <li>Tasten: Buchstaben am Pinguin wählen ihn aus (<b>Q W E R …</b>, Held <b>H</b>), <b>1–9</b> Fähigkeiten, <b>Leertaste</b> Runde/Tempo, <b>, . -</b> Upgrades, <b>Entf</b> verkaufen, <b>Tab</b> Ziel wechseln, <b>Esc</b> abbrechen.</li>
@@ -413,6 +506,7 @@
     <div class="wert" title="Geld">💰 <span id="geld">650</span></div>
     <div class="wert" title="Runde">🌊 <span id="runde">1</span><small>/<span id="rundenZiel">40</span></small></div>
     <span class="modus-anzeige" id="modusAnzeige"></span>
+    <div class="mitspieler" id="mitspieler" hidden></div>
     <div class="luecke"></div>
     <label class="auto" title="Nächste Runde automatisch starten"><input type="checkbox" id="auto"><span>Auto</span></label>
     <button class="lknopf" id="tonKnopf" aria-label="Ton an oder aus">🔊</button>
@@ -478,6 +572,7 @@
 <script src="js/daten.js"></script>
 <script src="js/pinguine.js"></script>
 <script src="js/logik.js"></script>
+<script src="js/pass.js"></script>
 <script src="js/modelle.js"></script>
 <script src="js/welt3d.js"></script>
 <script src="js/ton.js"></script>

@@ -6,9 +6,12 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/logik-test.js && node test/sim.js"
+    "test": "node test/logik-test.js && node test/koop-test.js && node test/sim.js"
   },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
   }
 }
