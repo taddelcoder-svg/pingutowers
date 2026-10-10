@@ -1,5 +1,5 @@
 'use strict';
-// Pingu Towers – 3D-Darstellung mit three.js (r128). Schräge Kamera von oben wie im Vorbild,
+// Pinguin Türmchen – 3D-Darstellung mit three.js (r128). Schräge Kamera von oben wie im Vorbild,
 // Eiskanäle mit fließendem Wasser, Pinguine aus Grundformen (modelle.js), Fische als Instanzen
 // (wenige Draw-Calls, Schwanzschlag im Shader). Die Logik rechnet auf der Ebene: x → three.x, y → three.z.
 (function () {
@@ -710,7 +710,7 @@
         }
       }
     }
-    // Aussehen eines Pinguins: Look (Pingu-Pass) und im Koop die Farbe seines Besitzers. Setzt die Oberfläche.
+    // Aussehen eines Pinguins: Look (Pinguin-Pass) und im Koop die Farbe seines Besitzers. Setzt die Oberfläche.
     aussehen(t) { return this.aussehenFuer ? this.aussehenFuer(t) || {} : {}; }
     // alle Pinguine neu bauen (neuer Look oder Spielstand vom Server übernommen)
     allesNeu() { for (const id of [...this.pinguine.keys(), ...this.flieger.keys(), ...this.eulen.keys()]) this.pinguinEntfernen(id); }
@@ -1092,7 +1092,7 @@
     }
 
     /* ---------- Vorschaubilder für Laden und Lexikon ---------- */
-    // skin: Look für die Pinguine; looks: diese Looks zusätzlich am Zapfen-Pingu zeigen (Pingu-Pass)
+    // skin: Look für die Pinguine; looks: diese Looks zusätzlich am Zapfen-Pinguin zeigen (Pinguin-Pass)
     static bilder(typen, fische, skin = null, looks = []) {
       const groesse = 192;
       const c = document.createElement('canvas');

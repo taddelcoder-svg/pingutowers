@@ -1,4 +1,4 @@
-# Pingu Towers – Pinguine gegen Fische
+# Pinguin Türmchen – Pinguine gegen Fische
 
 3D-Tower-Defense im Browser (three.js), angelehnt an Bloons TD 6: Statt Affen verteidigen Pinguine
 einen Eiskanal, statt Ballons schwimmen Fische hindurch. Getroffene Fische werden zum nächstkleineren
@@ -17,14 +17,14 @@ Fisch – vom Rotbarsch bis zur Riesenkrake, zu Krakus und Kaiser Orka. Allein o
   Flutwellen betäuben Pinguine am Ufer) und Sandkasten (unendlich Geld, Fische selbst losschicken).
 - **15 Pinguine** in vier Gruppen, je 3 Upgrade-Pfade mit 5 Stufen (höchstens 5-2-0, und jede
   Stufe 5 nur einmal pro Pinguinart und Pfad):
-  - Primär: Zapfen-, Stachel-, Schneeball- und Frost-Pingu
-  - Militär: Harpunen-Pingu, Boot-Pingu (nur in Wasserlöchern), Albatros-Pilot (fliegt Acht, Oval
+  - Primär: Zapfen-, Stachel-, Schneeball- und Frost-Pinguin
+  - Militär: Harpunen-Pinguin, Boot-Pinguin (nur in Wasserlöchern), Albatros-Pilot (fliegt Acht, Oval
     oder Kreis), Schneemörser (Zielpunkt frei wählbar)
-  - Magie: Polarlicht-Pingu, Ninja-Pingu, Laser-Pingu (Laserstrahlen, Roboarm, Orbitalschlag)
-  - Unterstützung: Fischmarkt, Häuptlings-Pingu, Disco-Pingu (Schallwellen bremsen, Party-Buffs, Geld),
+  - Magie: Polarlicht-Pinguin, Ninja-Pinguin, Laser-Pinguin (Laserstrahlen, Roboarm, Orbitalschlag)
+  - Unterstützung: Fischmarkt, Häuptlings-Pinguin, Disco-Pinguin (Schallwellen bremsen, Party-Buffs, Geld),
     Eisstachel-Fabrik (legt Stachelhaufen und Minen)
 - **3 Helden** (Kapitän Kiel, Prinzessin Aurora, Professor Frosti): steigen am Ende jeder Runde auf,
-  Stufe 1–10, Stufen lassen sich auch kaufen; Fähigkeiten auf Stufe 3 und 7. Mit dem Pingu-Pass kommt
+  Stufe 1–10, Stufen lassen sich auch kaufen; Fähigkeiten auf Stufe 3 und 7. Mit dem Pinguin-Pass kommt
   je eine Meisterkraft ab Stufe 5 dazu (Ankerwurf, Sternschnuppen, Eiszeit).
 - **17 Fähigkeiten** (Turbo, Walhai-Rakete, Schneesturm, Geldregen, Schlachtruf, Sabotage,
   Bombenteppich, Stachelsturm, Großer Knall, Walfang-Haken, Himmelsblitz und die Heldenfähigkeiten)
@@ -39,7 +39,7 @@ Fisch – vom Rotbarsch bis zur Riesenkrake, zu Krakus und Kaiser Orka. Allein o
   rüstet nur eigene Pinguine auf). Jeder hat seinen eigenen Helden; Pause, Tempo und Auto gelten für alle.
   Der Server rechnet das Spiel mit und gibt den Takt vor, die Browser rechnen Takt für Takt nach und
   bekommen bei Abweichung den Spielstand neu. Wer die Verbindung verliert, kommt nach dem Neuladen zurück.
-- **Pingu-Pass:** Erfahrung für Runden, Bosse und Siege, Stufe 1–30. Schaltet 9 Looks für die
+- **Pinguin-Pass:** Erfahrung für Runden, Bosse und Siege, Stufe 1–30. Schaltet 9 Looks für die
   eigenen Pinguine frei (Kaiserpinguin, Sonnenbrille, Schoko, Zuckerwatte, Eiskristall, Pirat, Galaxie,
   Gold, Diamant) und die Meisterkräfte der Helden. Im Browser gespeichert.
 - Medaillen pro Karte, Stufe und Modus, Kamera-Zoom (Mausrad, zwei Finger, Knöpfe), Tempo 1×/2×/3×,
@@ -92,7 +92,7 @@ js/
   daten.js         Fische, Karten, Stufen, Spielmodi, Runden (auch im Server genutzt)
   pinguine.js      Pinguine mit allen Upgrades, Fähigkeiten, Helden
   logik.js         Spiellogik ohne Grafik (Kanäle, Ziele, Schaden, Fähigkeiten, Bosse, Befehle, Koop-Kassen, Speichern)
-  pass.js          Pingu-Pass: Stufen, Looks, Meisterkräfte
+  pass.js          Pinguin-Pass: Stufen, Looks, Meisterkräfte
   modelle.js       3D-Modelle: Fische, Pinguine, Helden, Albatros, Geschosse
   welt3d.js        Szene: Scholle, Kanäle, Wasserlöcher, Themen, Kamera mit Zoom, Effekte
   ton.js           Geräusche (Web Audio, keine Dateien)

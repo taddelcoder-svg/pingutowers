@@ -93,7 +93,7 @@ for (const modus of PT.MODI_REIHE) for (const karte of PT.KARTEN_REIHE) {
 }
 console.log('Modi und Karten getestet');
 
-// Meisterkräfte der Helden (Pingu-Pass) ab Stufe 5
+// Meisterkräfte der Helden (Pinguin-Pass) ab Stufe 5
 for (const held of PT.HELDEN_REIHE) {
   const s = new PT.Spiel({ karte:'scholle', modus:'sandkasten', held, kraft:true });
   let t = null;
@@ -128,7 +128,7 @@ for (const held of PT.HELDEN_REIHE) {
   pruefe(weg && orka.phase === 1, 'Orka-Phase');
 }
 
-// Pingu-Pass
+// Pinguin-Pass
 {
   require('../js/pass.js');
   pruefe(PT.passStufe(0).stufe === 1 && PT.passStufe(200).stufe === 2 && PT.passStufe(1e9).stufe === PT.PASS_MAX, 'Pass-Stufen');

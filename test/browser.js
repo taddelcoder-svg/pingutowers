@@ -1,6 +1,6 @@
 'use strict';
 // Rauchtest im echten Browser (Server muss laufen: npm start).
-// Menü mit Pingu-Pass, alle Karten mit allen Pinguinen auf Stufe 5, Fähigkeiten, Fische aus der Nähe,
+// Menü mit Pinguin-Pass, alle Karten mit allen Pinguinen auf Stufe 5, Fähigkeiten, Fische aus der Nähe,
 // Orka-Angriff, Koop mit zwei Browsern, Sandkasten, Handy.
 // node test/browser.js [ausgabeordner]
 const { chromium } = require('playwright');
@@ -25,7 +25,7 @@ const URL = process.env.URL || 'http://localhost:10700/?test=1';
   {
     const page = await seite('menue', null);
     await page.screenshot({ path:`${aus}/menue.png`, fullPage:true });
-    // Pingu-Pass auf Stufe 21 mit Galaxie-Look
+    // Pinguin-Pass auf Stufe 21 mit Galaxie-Look
     const st = await page.evaluate(() => window.__pt.pass(9000, 'galaxie'));
     console.log('Pass', JSON.stringify(st));
     await page.click('#passBox summary');

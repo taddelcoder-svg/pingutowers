@@ -1,5 +1,5 @@
 'use strict';
-// Pingu Towers – Pingu-Pass: Erfahrung über alle Spiele, Stufen 1–30, freischaltbare Pinguin-Looks (Skins)
+// Pinguin Türmchen – Pinguin-Pass: Erfahrung über alle Spiele, Stufen 1–30, freischaltbare Pinguin-Looks (Skins)
 // und Meisterkräfte für die Helden. Gespeichert wird im Browser (oberflaeche.js), hier stehen nur die Regeln.
 (function (wurzel) {
   const PT = wurzel.PT || (wurzel.PT = {});
@@ -11,10 +11,10 @@
     standard: { name:'Klassisch', rumpf:0x1d2230, bauch:0xf7f9fc },
     kaiser:   { name:'Kaiserpinguin', rumpf:0x2a3140, bauch:0xfff3d6, extra:'wangen' },
     brille:   { name:'Sonnenbrille', rumpf:0x1d2230, bauch:0xf7f9fc, extra:'brille' },
-    schoko:   { name:'Schoko-Pingu', rumpf:0x5a3420, bauch:0xf3e2c3 },
+    schoko:   { name:'Schoko-Pinguin', rumpf:0x5a3420, bauch:0xf3e2c3 },
     rosa:     { name:'Zuckerwatte', rumpf:0xd9578f, bauch:0xffe6f0 },
     eis:      { name:'Eiskristall', rumpf:0x4fb8f0, bauch:0xeaf8ff, glanz:true },
-    pirat:    { name:'Piraten-Pingu', rumpf:0x23262e, bauch:0xf7f9fc, extra:'augenklappe' },
+    pirat:    { name:'Piraten-Pinguin', rumpf:0x23262e, bauch:0xf7f9fc, extra:'augenklappe' },
     galaxie:  { name:'Galaxie', rumpf:0x2b1d6b, bauch:0xb49bff, extra:'glitzer', leuchten:0x1a0f44 },
     gold:     { name:'Goldpinguin', rumpf:0xe7b62c, bauch:0xfff2c4, glanz:true },
     diamant:  { name:'Diamant', rumpf:0x9ff3ff, bauch:0xffffff, glanz:true, extra:'glitzer', leuchten:0x2a6a80 }

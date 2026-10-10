@@ -1,5 +1,5 @@
 'use strict';
-// Pingu Towers – Geräusche mit Web Audio, ohne Dateien.
+// Pinguin Türmchen – Geräusche mit Web Audio, ohne Dateien.
 (function () {
   let ctx = null, haupt = null, an = true;
   const zuletzt = {};

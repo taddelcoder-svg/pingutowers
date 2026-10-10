@@ -1,5 +1,5 @@
 'use strict';
-// Pingu Towers – alle Pinguine mit ihren Upgrade-Pfaden, die Fähigkeiten und die Helden.
+// Pinguin Türmchen – alle Pinguine mit ihren Upgrade-Pfaden, die Fähigkeiten und die Helden.
 // Regel wie im Vorbild: höchstens zwei Pfade, nur einer über Stufe 2 (also z. B. 5-2-0),
 // und jede Stufe 5 gibt es pro Pinguinart und Pfad nur einmal auf der Karte.
 (function (wurzel) {
@@ -65,7 +65,7 @@
   const PINGUINE = {
     /* ===== Primär ===== */
     zapfen: {
-      name:'Zapfen-Pingu', preis:200, gruppe:'Primär', taste:'q', kurz:'Wirft spitze Eiszapfen. Günstig und vielseitig.',
+      name:'Zapfen-Pinguin', preis:200, gruppe:'Primär', taste:'q', kurz:'Wirft spitze Eiszapfen. Günstig und vielseitig.',
       basis:() => ({ reichweite:125, camo:false, angriffe:[angriff({ intervall:0.95, schaden:1, durchschlag:2, tempo:560, flug:330, bild:'zapfen' })] }),
       pfade:[
         [
@@ -73,7 +73,7 @@
           { name:'Eisspeere', preis:220, text:'Durchschlag +2', fx:s => { A(s).durchschlag += 2; } },
           { name:'Eiskugel-Schleuder', preis:550, text:'Rollt eine riesige Eiskugel, die 18 Fische zerquetscht – auch Panzerwelse.', fx:s => {
             const a = A(s); Object.assign(a, { durchschlag:18 + (a.durchschlag - 5), typ:'normal', tempo:300, flug:520, groesse:13, bild:'kugel', intervall:a.intervall * 1.2 }); } },
-          { name:'Lawinen-Pingu', preis:1900, text:'Riesige Lawinenkugeln: 3 Schaden, 50 Durchschlag.', fx:s => {
+          { name:'Lawinen-Pinguin', preis:1900, text:'Riesige Lawinenkugeln: 3 Schaden, 50 Durchschlag.', fx:s => {
             const a = A(s); Object.assign(a, { durchschlag:a.durchschlag + 32, schaden:3, groesse:20, bild:'lawine', flug:650, riesen:4 }); } },
           { name:'Gletscher-Walze', preis:14000, text:'Ein rollender Gletscher: 8 Schaden, 200 Durchschlag, zerfällt in sechs Lawinen.', fx:s => {
             const a = A(s); Object.assign(a, { durchschlag:a.durchschlag + 150, schaden:8, groesse:28, bild:'gletscher', flug:780, riesen:16, splitter:6, splitterArt:'lawine' }); } }
@@ -101,7 +101,7 @@
     },
 
     rundum: {
-      name:'Stachel-Pingu', preis:280, gruppe:'Primär', taste:'w', kurz:'Schießt Eissplitter in alle Richtungen. Stark an Kurven.',
+      name:'Stachel-Pinguin', preis:280, gruppe:'Primär', taste:'w', kurz:'Schießt Eissplitter in alle Richtungen. Stark an Kurven.',
       basis:() => ({ reichweite:80, camo:false, angriffe:[angriff({ art:'rundum', intervall:1.3, schaden:1, durchschlag:1, anzahl:8, tempo:420, flug:88, groesse:4, bild:'splitter' })] }),
       pfade:[
         [
@@ -134,7 +134,7 @@
     },
 
     schneeball: {
-      name:'Schneeball-Pingu', preis:525, gruppe:'Primär', taste:'e', kurz:'Wirft explodierende Schneebälle. Nichts gegen Anglerfische!',
+      name:'Schneeball-Pinguin', preis:525, gruppe:'Primär', taste:'e', kurz:'Wirft explodierende Schneebälle. Nichts gegen Anglerfische!',
       basis:() => ({ reichweite:140, camo:false, angriffe:[angriff({ intervall:1.5, schaden:1, typ:'explosion', tempo:400, flug:300, groesse:8, bild:'schneeball', splash:38, splashDurchschlag:14 })] }),
       pfade:[
         [
@@ -166,7 +166,7 @@
     },
 
     frost: {
-      name:'Frost-Pingu', preis:500, gruppe:'Primär', taste:'r', kurz:'Friert alle Fische um sich herum ein. Eisfische lachen darüber.',
+      name:'Frost-Pinguin', preis:500, gruppe:'Primär', taste:'r', kurz:'Friert alle Fische um sich herum ein. Eisfische lachen darüber.',
       basis:() => ({ reichweite:70, camo:false, angriffe:[angriff({ art:'frost', intervall:2.2, schaden:1, durchschlag:40, typ:'kaelte', frost:1.0, bild:'frost' })] }),
       pfade:[
         [
@@ -200,14 +200,14 @@
 
     /* ===== Militär ===== */
     harpune: {
-      name:'Harpunen-Pingu', preis:350, gruppe:'Militär', taste:'t', kurz:'Trifft jeden Fisch auf der ganzen Karte sofort.',
+      name:'Harpunen-Pinguin', preis:350, gruppe:'Militär', taste:'t', kurz:'Trifft jeden Fisch auf der ganzen Karte sofort.',
       basis:() => ({ reichweite:9999, camo:false, angriffe:[angriff({ art:'sofort', intervall:1.6, schaden:2, durchschlag:1, typ:'spitz', bild:'harpune' })] }),
       pfade:[
         [
           { name:'Große Harpune', preis:350, text:'4 Schaden pro Treffer.', fx:s => { A(s).schaden = 4; } },
           { name:'Walfänger-Harpune', preis:1300, text:'7 Schaden, durchbohrt auch Panzerwelse.', fx:s => { const a = A(s); a.schaden = 7; a.typ = 'normal'; } },
           { name:'Tiefsee-Harpune', preis:3000, text:'18 Schaden pro Treffer.', fx:s => { A(s).schaden = 18; } },
-          { name:'Kapitän Pingu', preis:6500, text:'30 Schaden, +30 gegen Riesen.', fx:s => { const a = A(s); a.schaden = 30; a.riesen += 30; a.bild = 'harpuneGold'; } },
+          { name:'Kapitän Pinguin', preis:6500, text:'30 Schaden, +30 gegen Riesen.', fx:s => { const a = A(s); a.schaden = 30; a.riesen += 30; a.bild = 'harpuneGold'; } },
           { name:'Ahabs Rache', preis:30000, text:'100 Schaden, +200 gegen Riesen.', fx:s => { const a = A(s); a.schaden = 100; a.riesen += 170; a.bild = 'harpuneGold'; } }
         ],
         [
@@ -229,7 +229,7 @@
     },
 
     boot: {
-      name:'Boot-Pingu', preis:500, gruppe:'Militär', taste:'s', wasser:true, kurz:'Fährt nur in Wasserlöchern. Harpunen nach vorn und hinten.',
+      name:'Boot-Pinguin', preis:500, gruppe:'Militär', taste:'s', wasser:true, kurz:'Fährt nur in Wasserlöchern. Harpunen nach vorn und hinten.',
       basis:() => ({ reichweite:150, camo:false, angriffe:[
         angriff({ intervall:1.0, schaden:1, durchschlag:4, tempo:600, flug:300, bild:'harpuneKlein' }),
         angriff({ id:'hinten', intervall:1.0, schaden:1, durchschlag:4, tempo:600, flug:300, bild:'harpuneKlein', hinten:true })
@@ -285,7 +285,7 @@
         [
           { name:'Leichter Sattel', preis:200, text:'Fliegt schneller.', fx:s => { s.flieger.tempo += 50; } },
           { name:'Nachtsicht-Brille', preis:400, text:'Sieht getarnte Fische.', fx:s => { s.camo = true; } },
-          { name:'Bordschütze', preis:1800, text:'Ein zweiter Pingu schießt Dauerfeuer nach vorn.', fx:s => {
+          { name:'Bordschütze', preis:1800, text:'Ein zweiter Pinguin schießt Dauerfeuer nach vorn.', fx:s => {
             s.angriffe.push(angriff({ id:'mg', intervall:0.12, schaden:2, durchschlag:2, tempo:700, flug:200, groesse:4, bild:'eisstrahl', reichweite:180 })); } },
           { name:'Riesenjäger', preis:7000, text:'Bordschütze +2 Schaden, +6 gegen Riesen.', fx:s => { const b = A(s, 'mg'); if (b) { b.schaden += 2; b.riesen += 6; } } },
           { name:'Himmelswächter', preis:30000, text:'Bordschütze +8 Schaden, +20 gegen Riesen, doppelt so schnell.', fx:s => { const b = A(s, 'mg'); if (b) { b.schaden += 8; b.riesen += 20; b.intervall *= 0.5; b.durchschlag += 3; } } }
@@ -323,7 +323,7 @@
 
     /* ===== Magie ===== */
     polar: {
-      name:'Polarlicht-Pingu', preis:375, gruppe:'Magie', taste:'z', kurz:'Zaubert Polarlicht-Blitze. Trifft alle Fischarten.',
+      name:'Polarlicht-Pinguin', preis:375, gruppe:'Magie', taste:'z', kurz:'Zaubert Polarlicht-Blitze. Trifft alle Fischarten.',
       basis:() => ({ reichweite:130, camo:false, angriffe:[angriff({ intervall:1.1, schaden:1, durchschlag:3, typ:'normal', tempo:460, flug:260, groesse:6, bild:'magie' })] }),
       pfade:[
         [
@@ -356,7 +356,7 @@
     },
 
     ninja: {
-      name:'Ninja-Pingu', preis:400, gruppe:'Magie', taste:'n', kurz:'Wirft schnell Wurfsterne und sieht von Anfang an getarnte Fische.',
+      name:'Ninja-Pinguin', preis:400, gruppe:'Magie', taste:'n', kurz:'Wirft schnell Wurfsterne und sieht von Anfang an getarnte Fische.',
       basis:() => ({ reichweite:120, camo:true, angriffe:[angriff({ intervall:0.62, schaden:1, durchschlag:2, tempo:720, flug:260, groesse:5, bild:'stern' })] }),
       pfade:[
         [
@@ -388,7 +388,7 @@
 
 
     laser: {
-      name:'Laser-Pingu', preis:2500, gruppe:'Magie', taste:'l', kurz:'Ein Super-Pinguin mit Laserblick. Teuer, aber schießt ohne Pause.',
+      name:'Laser-Pinguin', preis:2500, gruppe:'Magie', taste:'l', kurz:'Ein Super-Pinguin mit Laserblick. Teuer, aber schießt ohne Pause.',
       basis:() => ({ reichweite:165, camo:false, angriffe:[angriff({ intervall:0.11, schaden:1, durchschlag:1, typ:'normal', tempo:900, flug:300, groesse:4, bild:'laser' })] }),
       pfade:[
         [
@@ -396,17 +396,17 @@
           { name:'Plasmasalven', preis:2600, text:'Doppelt so schnell, +1 Schaden.', fx:s => { const a = A(s); a.intervall *= 0.5; a.schaden += 1; a.bild = 'plasma'; } },
           { name:'Polarstrahl', preis:9500, text:'Mächtige Strahlen: +3 Schaden, Durchschlag +6, +6 gegen Riesen.', fx:s => {
             const a = A(s); a.schaden += 3; a.durchschlag += 6; a.riesen += 6; a.groesse = 7; a.bild = 'laserGross'; } },
-          { name:'Sonnenstrahl-Pingu', preis:26000, text:'Zwei Strahlen, +6 Schaden, +25 gegen Riesen.', fx:s => {
+          { name:'Sonnenstrahl-Pinguin', preis:26000, text:'Zwei Strahlen, +6 Schaden, +25 gegen Riesen.', fx:s => {
             const a = A(s); a.anzahl = 2; a.streuung = 0.08; a.schaden += 6; a.riesen += 25; a.durchschlag += 6; } },
-          { name:'Nordstern-Pingu', preis:72000, text:'Ein Stern auf zwei Flossen: drei Strahlen, +20 Schaden, +120 gegen Riesen, riesige Reichweite.', fx:s => {
+          { name:'Nordstern-Pinguin', preis:72000, text:'Ein Stern auf zwei Flossen: drei Strahlen, +20 Schaden, +120 gegen Riesen, riesige Reichweite.', fx:s => {
             const a = A(s); a.anzahl = 3; a.schaden += 20; a.riesen += 120; a.durchschlag += 10; s.reichweite += 60; a.flug += 80; a.bild = 'sonnenstrahl'; } }
         ],
         [
           { name:'Roboarm', preis:1500, text:'Ein zweiter Arm schießt nach hinten.', fx:s => {
             s.angriffe.push(angriff({ ...A(s), id:'arm', hinten:true })); } },
           { name:'Turbo-Prozessor', preis:1800, text:'Beide Arme schießen 25 % schneller.', fx:s => { for (const a of s.angriffe) a.intervall *= 0.75; } },
-          { name:'Robo-Pingu', preis:7500, text:'+2 Schaden auf beiden Armen, sieht getarnte Fische.', fx:s => { s.camo = true; for (const a of s.angriffe) { a.schaden += 2; a.bild = 'plasma'; } } },
-          { name:'Mecha-Pingu', preis:28000, text:'+5 Schaden, +15 gegen Riesen. Fähigkeit Orbital-Laser.', fx:s => {
+          { name:'Robo-Pinguin', preis:7500, text:'+2 Schaden auf beiden Armen, sieht getarnte Fische.', fx:s => { s.camo = true; for (const a of s.angriffe) { a.schaden += 2; a.bild = 'plasma'; } } },
+          { name:'Mecha-Pinguin', preis:28000, text:'+5 Schaden, +15 gegen Riesen. Fähigkeit Orbital-Laser.', fx:s => {
             for (const a of s.angriffe) { a.schaden += 5; a.riesen += 15; a.durchschlag += 3; }
             F(s, { id:'orbital', cd:45, schaden:3000, anzahl:3 }); } },
           { name:'Giga-Mecha', preis:85000, text:'Vier Arme, +15 Schaden, Orbital-Laser viel stärker.', fx:s => {
@@ -449,21 +449,21 @@
           { name:'Stammkunden', preis:400, text:'+40 Geld am Ende jeder Runde.', fx:s => { s.geld.flat += 40; } },
           { name:'Großhandel', preis:1200, text:'+120 Geld am Ende jeder Runde.', fx:s => { s.geld.flat += 80; } },
           { name:'Fischauktion', preis:4200, text:'+500 Geld am Ende jeder Runde.', fx:s => { s.geld.flat += 380; } },
-          { name:'Pingu-Bank', preis:9500, text:'+1800 Geld am Ende jeder Runde.', fx:s => { s.geld.flat += 1300; } },
-          { name:'Pingu-Zentralbank', preis:26000, text:'+6500 Geld am Ende jeder Runde.', fx:s => { s.geld.flat += 4700; } }
+          { name:'Pinguin-Bank', preis:9500, text:'+1800 Geld am Ende jeder Runde.', fx:s => { s.geld.flat += 1300; } },
+          { name:'Pinguin-Zentralbank', preis:26000, text:'+6500 Geld am Ende jeder Runde.', fx:s => { s.geld.flat += 4700; } }
         ]
       ]
     },
 
     haeuptling: {
-      name:'Häuptlings-Pingu', preis:1100, gruppe:'Unterstützung', taste:'i', kurz:'Stärkt alle Pinguine in seiner Nähe: mehr Reichweite.', greift:false,
+      name:'Häuptlings-Pinguin', preis:1100, gruppe:'Unterstützung', taste:'i', kurz:'Stärkt alle Pinguine in seiner Nähe: mehr Reichweite.', greift:false,
       basis:() => ({ reichweite:115, camo:false, angriffe:[], buff:{ reichweite:0.1, camo:false, tempo:1, schaden:0, durchschlag:0, rabatt:0 } }),
       pfade:[
         [
           { name:'Große Trommel', preis:400, text:'Größerer Wirkungskreis.', fx:s => { s.reichweite += 35; } },
           { name:'Kriegstrommel', preis:1500, text:'Pinguine in der Nähe greifen 15 % schneller an.', fx:s => { s.buff.tempo = 0.85; } },
           { name:'Jubelchor', preis:3200, text:'Pinguine in der Nähe: +1 Durchschlag.', fx:s => { s.buff.durchschlag += 1; } },
-          { name:'Pingu-König', preis:8000, text:'+1 Schaden, +2 Durchschlag, noch schneller. Fähigkeit Schlachtruf.', fx:s => {
+          { name:'Pinguin-König', preis:8000, text:'+1 Schaden, +2 Durchschlag, noch schneller. Fähigkeit Schlachtruf.', fx:s => {
             s.buff.schaden += 1; s.buff.durchschlag += 1; s.buff.tempo = 0.75; s.reichweite += 20; F(s, { id:'schlachtruf', cd:45, dauer:10, faktor:2 }); } },
           { name:'Ewiger Herrscher', preis:26000, text:'Pinguine in der Nähe: +2 Schaden, +3 Durchschlag, viel schneller.', fx:s => {
             s.buff.schaden += 1; s.buff.durchschlag += 1; s.buff.tempo = 0.62; s.reichweite += 30; F(s, { id:'schlachtruf', cd:35, dauer:12, faktor:2 }); } }
@@ -486,7 +486,7 @@
     },
 
     disco: {
-      name:'Disco-Pingu', preis:650, gruppe:'Unterstützung', taste:'d', kurz:'Seine Musik bremst die Fische, und Pinguine in der Nähe feiern mit.', greift:false,
+      name:'Disco-Pinguin', preis:650, gruppe:'Unterstützung', taste:'d', kurz:'Seine Musik bremst die Fische, und Pinguine in der Nähe feiern mit.', greift:false,
       basis:() => ({ reichweite:110, camo:false, angriffe:[angriff({ art:'ring', intervall:1.6, schaden:0, durchschlag:25, typ:'normal', bild:'schall', verlangsam:0.7, verlangsamDauer:1.2 })] }),
       pfade:[
         [
@@ -553,7 +553,7 @@
 
   /* ---------- Helden ----------
      Ein Held pro Spiel (im Koop einer pro Spieler). Er steigt am Ende jeder Runde auf (Stufe 1–10) und bekommt dabei
-     neue Kräfte und auf Stufe 3 und 7 je eine Fähigkeit. Die Meisterkraft (im Pingu-Pass freigeschaltet)
+     neue Kräfte und auf Stufe 3 und 7 je eine Fähigkeit. Die Meisterkraft (im Pinguin-Pass freigeschaltet)
      bringt ab Stufe 5 eine dritte Fähigkeit. */
   const HELDEN = {
     kiel: {

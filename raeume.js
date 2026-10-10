@@ -1,5 +1,5 @@
 'use strict';
-/* Pingu Towers – Koop-Räume auf dem Server.
+/* Pinguin Türmchen – Koop-Räume auf dem Server.
    Bis zu vier Spieler verteidigen dieselbe Karte. Der Server rechnet das Spiel mit (js/logik.js) und gibt
    den Takt vor: Er sammelt die Befehle der Spieler, ordnet jeden einem Takt zu und schickt alle 50 ms
    "bis Takt n, mit diesen Befehlen" an die Browser. Die Browser rechnen dasselbe Spiel Takt für Takt nach

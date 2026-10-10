@@ -1,5 +1,5 @@
 'use strict';
-// Pingu Towers – Spiellogik. Rechnet auf der flachen Karte (x nach rechts, y nach unten, 1000 × 640),
+// Pinguin Türmchen – Spiellogik. Rechnet auf der flachen Karte (x nach rechts, y nach unten, 1000 × 640),
 // kennt keine Grafik. Was passiert (Schüsse, Treffer, Platzer, Geld …), landet in spiel.ereignisse
 // und wird von der 3D-Darstellung abgeholt. Läuft auch in Node (test/sim.js).
 (function (wurzel) {
@@ -88,7 +88,7 @@
 
   class Spiel {
     // spieler (nur Koop): [{ id, name, held, kraft }], geldModus 'geteilt' oder 'getrennt'.
-    // kraft: Meisterkraft des Helden (Pingu-Pass) im Einzelspiel.
+    // kraft: Meisterkraft des Helden (Pinguin-Pass) im Einzelspiel.
     constructor({ karte = 'scholle', stufe = 'mittel', runden = null, modus = 'standard', held = null, seed = 12345, kraft = false, spieler = null, geldModus = 'geteilt' } = {}) {
       this.karte = PT.KARTEN[karte] ? karte : 'scholle';
       this.stufe = PT.STUFEN[stufe] ? stufe : 'mittel';
@@ -112,7 +112,7 @@
       if (this.koop) {
         this.held = null;
         this.spieler = spieler.slice(0, PT.KOOP_MAX).map((x, i) => ({
-          id:String(x.id), name:String(x.name || 'Pingu').slice(0, 16), farbe:i,
+          id:String(x.id), name:String(x.name || 'Pinguin').slice(0, 16), farbe:i,
           held:x.held && PT.HELDEN[x.held] && !md.ohneHeld ? x.held : null, kraft:!!x.kraft,
           geld:this.geldModus === 'getrennt' ? this.geld : 0
         }));

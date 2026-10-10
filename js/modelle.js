@@ -1,5 +1,5 @@
 'use strict';
-// Pingu Towers – 3D-Modelle aus Grundformen: Fische (als verschmolzene Geometrie für Instanzen),
+// Pinguin Türmchen – 3D-Modelle aus Grundformen: Fische (als verschmolzene Geometrie für Instanzen),
 // Pinguine und Helden (als Gruppen, die mit den Upgrades wachsen) und Geschosse.
 (function () {
   const PT = window.PT;
@@ -192,7 +192,7 @@
   const SCHWARZ = 0x1d2230, WEISS = 0xf7f9fc, ORANGE = 0xff9a1a;
   const PFAD_FARBEN = [0xe2463b, 0x2f7fe0, 0x35b04a];
 
-  // Aussehen (Pingu-Pass-Look), solange ein Pinguin gebaut wird; null = klassisch
+  // Aussehen (Pinguin-Pass-Look), solange ein Pinguin gebaut wird; null = klassisch
   let look = null;
   function pinguinKoerper(g, teile, s = 1, rumpfFarbe = SCHWARZ) {
     const L = rumpfFarbe === SCHWARZ ? look : null;
@@ -534,7 +534,7 @@
 
   const MODELL_GROESSE = 1.3;
   // Ein Pinguin (oder Held) mit Sockel, Stufenpunkten und bei Stufe 5 einer goldenen Aura.
-  // aussehen: { skin (Pingu-Pass-Look), farbe (Spielerfarbe im Koop, färbt den Sockel) }
+  // aussehen: { skin (Pinguin-Pass-Look), farbe (Spielerfarbe im Koop, färbt den Sockel) }
   function pinguinBauen(typ, pfade, stufe = 1, aussehen = {}) {
     const g = new T.Group();
     const teile = {};

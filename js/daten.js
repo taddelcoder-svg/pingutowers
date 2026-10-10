@@ -1,5 +1,5 @@
 'use strict';
-// Pingu Towers – Spieldaten: Fische, Karten, Schwierigkeit, Spielmodi und Runden.
+// Pinguin Türmchen – Spieldaten: Fische, Karten, Schwierigkeit, Spielmodi und Runden.
 // Die Pinguine und Helden stehen in pinguine.js. Läuft im Browser (window.PT) und in Node
 // (Server und Balance-Test).
 (function (wurzel) {
@@ -77,7 +77,7 @@
   /* ---------- Spielmodi ---------- */
   PT.MODI = {
     standard:   { name:'Standard', symbol:'🐧', text:'Alle Pinguine, alle Helden, ganz normal.' },
-    grund:      { name:'Nur Grundpinguine', symbol:'🧊', text:'Nur Zapfen-, Stachel-, Schneeball- und Frost-Pingu. Kein Held.', erlaubt:['zapfen', 'rundum', 'schneeball', 'frost'], ohneHeld:true },
+    grund:      { name:'Nur Grundpinguine', symbol:'🧊', text:'Nur Zapfen-, Stachel-, Schneeball- und Frost-Pinguin. Kein Held.', erlaubt:['zapfen', 'rundum', 'schneeball', 'frost'], ohneHeld:true },
     umgekehrt:  { name:'Umgekehrt', symbol:'🔄', text:'Die Fische schwimmen den Kanal andersherum.' },
     halb:       { name:'Halbes Geld', symbol:'🪙', text:'Alle Einnahmen nur zur Hälfte.' },
     flut:       { name:'Fischflut', symbol:'🌊', text:'Keine Pausen: Jede Runde kommt sofort nach der letzten.' },

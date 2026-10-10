@@ -1,5 +1,5 @@
 'use strict';
-// Pingu Towers – Server: liefert das Spiel aus. Allein wird komplett im Browser gespielt, im Koop rechnet
+// Pinguin Türmchen – Server: liefert das Spiel aus. Allein wird komplett im Browser gespielt, im Koop rechnet
 // der Server mit und gibt den Takt vor (raeume.js, WebSocket unter /ws).
 // Als Disziplin der Olympiade kommt man per Ticket (?olymp=…) herein; der Browser meldet
 // sich über /api/olymp, und der Server gibt das Ergebnis signiert an die Olympiade weiter (olymp.js).
@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
 const { raeume } = require('./raeume');
-const zugang = require('./zugang')({ titel:'Pingu Towers', offen:['/api/olymp'] });
+const zugang = require('./zugang')({ titel:'Pinguin Türmchen', offen:['/api/olymp'] });
 const olymp = require('./olymp')({ spiel:'pingutowers' });
 const PT = require('./js/daten.js');
 
@@ -150,5 +150,5 @@ setInterval(() => {
 setInterval(() => R.takt(), 50).unref();
 setInterval(() => R.aufraeumenAlt(), 60_000).unref();
 
-server.listen(PORT, () => console.log(`Pingu Towers läuft auf http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Pinguin Türmchen läuft auf http://localhost:${PORT}`));
 for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => server.close(() => process.exit(0)));

@@ -1,6 +1,6 @@
 'use strict';
-// Pingu Towers – Menü, Seitenleiste, Fähigkeiten, Eingabe (auch Zoom), Hauptschleife, Speicherstand,
-// Medaillen, Olympiade, Pingu-Pass und Koop (Verbindung zum Server, Takt für Takt nachrechnen).
+// Pinguin Türmchen – Menü, Seitenleiste, Fähigkeiten, Eingabe (auch Zoom), Hauptschleife, Speicherstand,
+// Medaillen, Olympiade, Pinguin-Pass und Koop (Verbindung zum Server, Takt für Takt nachrechnen).
 (function () {
   const PT = window.PT;
   const $ = s => document.querySelector(s);
@@ -24,7 +24,7 @@
   let olymp = null;   // { ticket, info, einst } wenn als Olympia-Disziplin gespielt wird
   const medaillen = speicher.lesen('pt-medaillen') || {};
 
-  /* ---------- Pingu-Pass ---------- */
+  /* ---------- Pinguin-Pass ---------- */
   const pass = Object.assign({ xp:0, skin:'standard' }, speicher.lesen('pt-pass') || {});
   const passStufe = () => PT.passStufe(pass.xp).stufe;
   if (!PT.SKINS[pass.skin] || !PT.skinFrei(pass.skin, passStufe())) pass.skin = 'standard';
@@ -38,7 +38,7 @@
     const nach = passStufe();
     for (let st = vor + 1; st <= nach; st++) {
       const b = PT.PASS_BELOHNUNG[st];
-      banner(`🎖️ Pingu-Pass Stufe ${st}!`, b ? belohnungText(b) : 'Weiter so!', 3);
+      banner(`🎖️ Pinguin-Pass Stufe ${st}!`, b ? belohnungText(b) : 'Weiter so!', 3);
       PT.Ton.upgrade();
     }
   }
@@ -46,7 +46,7 @@
   const kraftAktiv = held => !olymp && wahl.kraft !== false && !!held && PT.kraftFrei(held, passStufe());
   function passBauen() {
     const info = PT.passStufe(pass.xp);
-    $('#passStufe').textContent = `🎖️ Pingu-Pass · Stufe ${info.stufe}${info.stufe >= PT.PASS_MAX ? ' (Maximum)' : ''}`;
+    $('#passStufe').textContent = `🎖️ Pinguin-Pass · Stufe ${info.stufe}${info.stufe >= PT.PASS_MAX ? ' (Maximum)' : ''}`;
     $('#passXp').textContent = info.bedarf ? `${zahl(info.rest)} / ${zahl(info.bedarf)} Erfahrung` : `${zahl(pass.xp)} Erfahrung`;
     $('#passBalken').style.width = (info.bedarf ? Math.round(info.rest / info.bedarf * 100) : 100) + '%';
     const naechste = Object.keys(PT.PASS_BELOHNUNG).map(Number).find(st => st > info.stufe);
