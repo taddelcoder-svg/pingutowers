@@ -10,14 +10,206 @@
   const X = x => x - W / 2, Z = y => y - H / 2;
   const WASSER_Y = 3.5;
   const FLUGHOEHE = 78;
+  // Geschosse, die leuchten: Farbe des weichen Halos und dessen Größe
+  const GLOW = {
+    zapfenGold:[0xffd54a, 22], zapfenBlau:[0x5ec8ff, 22], zapfenPlasma:[0xff5ec8, 30], eisstrahl:[0x7ff0ff, 26], eisstrahlGross:[0xb8fbff, 42],
+    laser:[0xff4a3a, 30], laserBlau:[0x5ec8ff, 30], plasma:[0x7dffb2, 32], laserGross:[0xffd54a, 44], sonnenstrahl:[0xfff7d6, 60],
+    magie:[0xc3b0ff, 40], magieGross:[0x7dffb2, 50], eule:[0xe6f6ff, 44], blitzbombe:[0xfff27a, 40], rakete:[0xffa060, 34], sternGold:[0xffd54a, 26],
+    splitterGold:[0xffd54a, 20], splitterBlau:[0x6ad0ff, 20], pfeilGold:[0xffd54a, 22], gletscher:[0xa8e4ff, 26]
+  };
+  const SPUR = { zapfen:0xdff4ff, zapfenGold:0xffd54a, zapfenBlau:0x9fe4ff, splitter:0xdff4ff, schneeball:0xffffff, schneeballGross:0xffffff, schneeballBlau:0xa8dcff, kugel:0xdff4ff, lawine:0xffffff, gletscher:0xa8e4ff, rakete:0xffb37a, harpune:0xdfe8ff, pfeil:0xdff4ff, stern:0xdfe8ff };
 
   /* ---------- Themen und Boden ---------- */
   const THEMEN = {
-    tag:        { himmel:0xcfe9f7, boden:['#d9eaf3', '#bcd6e6'], licht:0.8, halb:0.5, nebel:0xcfe9f7, fluss:0x4cc3f0, schnee:0.4, meer:0x1c5d8c },
-    daemmerung: { himmel:0xf2c9c0, boden:['#eedde3', '#cdc4e2'], licht:0.8, halb:0.5, nebel:0xe7d2dc, fluss:0x55b6e6, schnee:0.6, meer:0x3b5d8f },
-    nacht:      { himmel:0x0b1630, boden:['#b8c9e2', '#8ea3c6'], licht:0.55, halb:0.55, nebel:0x0e1c3a, fluss:0x3a9fd6, schnee:0.8, meer:0x0a1d3a },
-    vulkan:     { himmel:0x2a1a1c, boden:['#857e8a', '#5f5866'], licht:0.75, halb:0.45, nebel:0x2a1a1c, fluss:0x3fb0e0, schnee:0.25, meer:0x16202e, lava:true }
+    tag:        { himmel:0xcfe9f7, boden:['#dcecf4', '#b9d5e6'], licht:0.8, halb:0.5, nebel:0xcfe9f7, fluss:0x4cc3f0, schnee:0.4, meer:0x1a5f90, flach:'#7fe0ee', himmelsLicht:0xeaf6ff, bodenLicht:0x7f9fb8, sonne:0xffffff, fuell:0x9fc8ff },
+    daemmerung: { himmel:0xf2c9c0, boden:['#f0dfe6', '#cdc4e2'], licht:0.8, halb:0.5, nebel:0xe7d2dc, fluss:0x55b6e6, schnee:0.6, meer:0x3b5d8f, flach:'#e2b0d8', himmelsLicht:0xffe3d6, bodenLicht:0x7a86b8, sonne:0xffd0b0, fuell:0x8f9fff },
+    nacht:      { himmel:0x0b1630, boden:['#a2b5d8', '#7a91ba'], licht:0.46, halb:0.5, nebel:0x0e1c3a, fluss:0x3a9fd6, schnee:0.8, meer:0x0a2142, flach:'#2fb8a8', himmelsLicht:0x9fb4ff, bodenLicht:0x3f4f80, sonne:0xc9d8ff, fuell:0x5ee8c0 },
+    vulkan:     { himmel:0x2a1a1c, boden:['#857e8a', '#5f5866'], licht:0.75, halb:0.45, nebel:0x2a1a1c, fluss:0x3fb0e0, schnee:0.25, meer:0x16202e, lava:true, flach:'#d8643a', himmelsLicht:0xffe0cc, bodenLicht:0x5a3a3a, sonne:0xffe2cc, fuell:0xff8a4a }
   };
+
+  /* ---------- Kleine Canvas-Texturen für Glanz, Schaum und Wolkenschatten ---------- */
+  function leinwand(w, h, malen) {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    malen(c.getContext('2d'), w, h);
+    return c;
+  }
+  let _ringTex = null, _schaumTex = null, _glitzTex = null;
+  // weicher Ring mit hellem Rand: für Druckwellen, Eis- und Wasserwellen
+  function ringTextur() {
+    return _ringTex || (_ringTex = new T.CanvasTexture(leinwand(128, 128, (x, w) => {
+      const g = x.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);
+      g.addColorStop(0, 'rgba(255,255,255,0.0)'); g.addColorStop(0.55, 'rgba(255,255,255,0.10)');
+      g.addColorStop(0.82, 'rgba(255,255,255,0.55)'); g.addColorStop(0.93, 'rgba(255,255,255,1)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = g; x.fillRect(0, 0, w, w);
+    })));
+  }
+  // Querprofil eines Strahls: weißer Kern, weiche Ränder
+  function strahlTextur() {
+    return _schaumTex || (_schaumTex = new T.CanvasTexture(leinwand(64, 8, (x, w, h) => {
+      const g = x.createLinearGradient(0, 0, w, 0);
+      g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, 'rgba(255,255,255,1)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = g; x.fillRect(0, 0, w, h);
+    })));
+  }
+  // Glitzer- und Schaumschicht für Wasser: helle Funkel, Schaum an den Ufern
+  function glitzTextur() {
+    if (_glitzTex) return _glitzTex;
+    let seed = 11;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const c = leinwand(256, 64, (x, w, h) => {
+      for (const [y0, y1] of [[0, 0.2], [1, 0.8]]) {
+        const g = x.createLinearGradient(0, y0 * h, 0, y1 * h);
+        g.addColorStop(0, 'rgba(255,255,255,0.75)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+        x.fillStyle = g; x.fillRect(0, y0 ? h * 0.8 : 0, w, h * 0.2);
+      }
+      x.lineCap = 'round';
+      for (let i = 0; i < 46; i++) {
+        const px = rnd() * w, py = 8 + rnd() * (h - 16), l = 4 + rnd() * 14;
+        x.strokeStyle = `rgba(255,255,255,${0.25 + rnd() * 0.5})`; x.lineWidth = 1 + rnd() * 1.2;
+        x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo(px + l / 2, py - 1.5, px + l, py); x.stroke();
+      }
+    });
+    _glitzTex = new T.CanvasTexture(c);
+    _glitzTex.wrapS = _glitzTex.wrapT = T.RepeatWrapping;
+    return _glitzTex;
+  }
+  // Schaum und flaches Wasser rund um die Scholle: ein großes Rechteck mit weichem Farbverlauf
+  const KUESTE = 300;
+  function kuestenTextur(thema) {
+    const w = 1024, h = Math.round(w * (H + 2 * KUESTE) / (W + 2 * KUESTE));
+    const sx = w / (W + 2 * KUESTE), sy = h / (H + 2 * KUESTE);
+    return new T.CanvasTexture(leinwand(w, h, x => {
+      x.fillStyle = '#000';
+      // Flachwasser: weich auslaufender Schein (Schattentrick, damit nur der Schein gezeichnet wird)
+      x.shadowColor = thema.flach; x.shadowOffsetX = 4000;
+      for (const [blur, mal] of [[90, 2], [34, 1]]) {
+        x.shadowBlur = blur;
+        for (let i = 0; i < mal; i++) x.fillRect(KUESTE * sx - 4000, KUESTE * sy, W * sx, H * sy);
+      }
+      x.shadowBlur = 0; x.shadowOffsetX = 0; x.shadowColor = 'transparent';
+      // Schaumlinien in wachsendem Abstand
+      x.lineWidth = 3;
+      for (const [d, a] of [[5, 0.9], [14, 0.5], [28, 0.28], [46, 0.14]]) {
+        x.strokeStyle = `rgba(255,255,255,${a})`;
+        x.strokeRect(KUESTE * sx - d, KUESTE * sy - d, W * sx + 2 * d, H * sy + 2 * d);
+      }
+    }));
+  }
+  function wolkenTextur() {
+    let seed = 5;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const t = new T.CanvasTexture(leinwand(256, 256, (x, w) => {
+      for (let i = 0; i < 16; i++) {
+        const px = rnd() * w, py = rnd() * w, r = 24 + rnd() * 46;
+        for (const dx of [-w, 0, w]) for (const dy of [-w, 0, w]) {
+          const g = x.createRadialGradient(px + dx, py + dy, 0, px + dx, py + dy, r);
+          g.addColorStop(0, 'rgba(0,0,0,0.9)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+          x.fillStyle = g; x.beginPath(); x.arc(px + dx, py + dy, r, 0, Math.PI * 2); x.fill();
+        }
+      }
+    }));
+    t.wrapS = t.wrapT = T.RepeatWrapping;
+    return t;
+  }
+
+  let _saeulenTex = null;
+  function saeulenTextur() {
+    return _saeulenTex || (_saeulenTex = new T.CanvasTexture(leinwand(4, 64, (x, w, h) => {
+      const g = x.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.6, 'rgba(255,255,255,0.55)'); g.addColorStop(1, 'rgba(255,255,255,1)');
+      x.fillStyle = g; x.fillRect(0, 0, w, h);
+    })));
+  }
+  const EBENE = new T.PlaneGeometry(2, 2); EBENE.shared = true;
+  const ROEHRE = new T.CylinderGeometry(1, 1, 1, 20, 1, true); ROEHRE.shared = true;
+  // Leuchtband entlang eines Linienzugs: je ein flaches und ein senkrechtes Band, damit der Strahl von jeder Seite leuchtet
+  function bandPfad(pts, breite) {
+    const pos = [], uv = [], idx = [], n = pts.length;
+    const richtung = i => new T.Vector3().subVectors(pts[Math.min(n - 1, i + 1)], pts[Math.max(0, i - 1)]).normalize();
+    const band = off => {
+      const basis = pos.length / 3;
+      pts.forEach((p, i) => {
+        const o = off(i);
+        pos.push(p.x - o.x, p.y - o.y, p.z - o.z, p.x + o.x, p.y + o.y, p.z + o.z);
+        uv.push(0, i / (n - 1), 1, i / (n - 1));
+      });
+      for (let i = 0; i < n - 1; i++) { const a = basis + i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    };
+    band(i => { const d = richtung(i); return new T.Vector3(-d.z, 0, d.x).normalize().multiplyScalar(breite / 2); });
+    band(() => new T.Vector3(0, breite / 2, 0));
+    const g = new T.BufferGeometry();
+    g.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    return g;
+  }
+
+  /* ---------- Leuchtpunkte: weiche, additive (oder normale) Punktsprites mit eigener Größe/Farbe je Punkt ---------- */
+  const PUNKT_VS = `attribute float aGroesse; attribute vec4 aFarbe; varying vec4 vFarbe; uniform float uSkala;
+    void main() { vFarbe = aFarbe; vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      gl_PointSize = clamp(aGroesse * uSkala / -mv.z, 0.0, 128.0); gl_Position = projectionMatrix * mv; }`;
+  const PUNKT_FS = `varying vec4 vFarbe; uniform float uHart;
+    void main() { float r = length(gl_PointCoord - 0.5) * 2.0; if (r > 1.0) discard;
+      float a = mix(pow(1.0 - r, 1.7), smoothstep(1.0, 0.7, r), uHart);
+      gl_FragColor = vec4(vFarbe.rgb, vFarbe.a * a); }`;
+  class Punkte {
+    constructor(szene, max, additiv, skala, hart = 0) {
+      this.max = max; this.n = 0; this.liste = [];
+      this.pos = new Float32Array(max * 3); this.farbe = new Float32Array(max * 4); this.gr = new Float32Array(max);
+      const geo = new T.BufferGeometry();
+      geo.setAttribute('position', new T.BufferAttribute(this.pos, 3).setUsage(T.DynamicDrawUsage));
+      geo.setAttribute('aFarbe', new T.BufferAttribute(this.farbe, 4).setUsage(T.DynamicDrawUsage));
+      geo.setAttribute('aGroesse', new T.BufferAttribute(this.gr, 1).setUsage(T.DynamicDrawUsage));
+      geo.setDrawRange(0, 0);
+      this.geo = geo;
+      this.material = new T.ShaderMaterial({
+        uniforms:{ uSkala:skala, uHart:{ value:hart } }, vertexShader:PUNKT_VS, fragmentShader:PUNKT_FS,
+        transparent:true, depthWrite:false, blending:additiv ? T.AdditiveBlending : T.NormalBlending
+      });
+      this.mesh = new T.Points(geo, this.material);
+      this.mesh.frustumCulled = false;
+      this.mesh.renderOrder = 5;
+      szene.add(this.mesh);
+    }
+    // Einmal-Teilchen mit Lebensdauer; p: { x, y, z (Welt), vx, vy, vz, g (Größe), r, gr, b, a, dauer, grav, wachs }
+    dazu(p, grenze) {
+      if (this.liste.length >= (grenze || this.max * 0.6)) return;
+      p.t = 0; this.liste.push(p);
+    }
+    // Pro Bild: Teilchen bewegen, danach Einzelpunkte (Halos) anhängen; dann Puffer hochladen
+    schreiben(dt, halos) {
+      let n = 0;
+      const P = this.pos, F = this.farbe, S = this.gr, max = this.max;
+      const l = this.liste;
+      let w = 0;
+      for (let i = 0; i < l.length; i++) {
+        const p = l[i];
+        p.t += dt;
+        if (p.t >= p.dauer) continue;
+        l[w++] = p;
+        p.vy -= (p.grav || 0) * dt;
+        p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+        if (p.boden != null && p.y < p.boden) { p.y = p.boden; p.vy *= -0.3; p.vx *= 0.7; p.vz *= 0.7; }
+        if (n >= max) continue;
+        const k = p.t / p.dauer;
+        P[n * 3] = p.x; P[n * 3 + 1] = p.y; P[n * 3 + 2] = p.z;
+        const a = p.a * (k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85);
+        F[n * 4] = p.r; F[n * 4 + 1] = p.gr; F[n * 4 + 2] = p.b; F[n * 4 + 3] = a;
+        S[n] = p.g * (1 + (p.wachs || 0) * k);
+        n++;
+      }
+      l.length = w;
+      if (halos) for (let i = 0; i + 7 < halos.length && n < max; i += 8, n++) {
+        P[n * 3] = halos[i]; P[n * 3 + 1] = halos[i + 1]; P[n * 3 + 2] = halos[i + 2];
+        S[n] = halos[i + 3];
+        F[n * 4] = halos[i + 4]; F[n * 4 + 1] = halos[i + 5]; F[n * 4 + 2] = halos[i + 6]; F[n * 4 + 3] = halos[i + 7];
+      }
+      this.n = n;
+      this.geo.setDrawRange(0, n);
+      for (const k of ['position', 'aFarbe', 'aGroesse']) this.geo.attributes[k].needsUpdate = true;
+    }
+  }
 
   function bodenTextur(karte, wege, thema) {
     const S = 2;
@@ -30,6 +222,15 @@
     x.fillStyle = gr; x.fillRect(0, 0, W, H);
     let seed = 7;
     const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    // große, weiche Farbflecken: Eis wirkt tief und ungleichmäßig statt einfarbig
+    for (let i = 0; i < 34; i++) {
+      const px = rnd() * W, py = rnd() * H, r = 60 + rnd() * 140;
+      const rg = x.createRadialGradient(px, py, 0, px, py, r);
+      const warm = rnd() > 0.5;
+      const f = thema.lava ? (warm ? '70,60,75' : '35,30,42') : (warm ? '225,243,255' : '70,130,195');
+      rg.addColorStop(0, `rgba(${f},${thema.lava ? 0.22 : warm ? 0.16 : 0.2})`); rg.addColorStop(1, `rgba(${f},0)`);
+      x.fillStyle = rg; x.fillRect(px - r, py - r, r * 2, r * 2);
+    }
     // Eisplatten (bzw. Gesteinsplatten am Vulkan) und Schneewehen
     for (let i = 0; i < 26; i++) {
       const px = rnd() * W, py = rnd() * H, r = 30 + rnd() * 70;
@@ -53,6 +254,14 @@
       x.stroke();
     }
     for (let i = 0; i < 2500; i++) { x.fillStyle = `rgba(255,255,255,${rnd() * 0.5})`; x.fillRect(rnd() * W, rnd() * H, 1.2, 1.2); }
+    // feines Rauschen: kleine Schneekörner und dunkle Eisporen
+    for (let i = 0; i < 5200; i++) { x.fillStyle = rnd() > 0.55 ? `rgba(255,255,255,${0.1 + rnd() * 0.22})` : `rgba(60,110,170,${0.08 + rnd() * 0.12})`; const q = 0.8 + rnd() * 1.8; x.fillRect(rnd() * W, rnd() * H, q, q); }
+    // Randverlauf: zur Kante hin frostig hell
+    for (const [x0, y0, x1, y1] of [[0, 0, 0, 34], [0, H, 0, H - 34], [0, 0, 34, 0], [W, 0, W - 34, 0]]) {
+      const rg = x.createLinearGradient(x0, y0, x1, y1);
+      rg.addColorStop(0, 'rgba(255,255,255,0.4)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = rg; x.fillRect(0, 0, W, H);
+    }
     // Schatten und Grund unter den Kanälen
     x.lineJoin = x.lineCap = 'round';
     const linie = (breite, farbe) => {
@@ -63,6 +272,8 @@
     };
     linie(PT.WEG_BREITE + 44, thema.lava ? 'rgba(30,20,25,0.25)' : 'rgba(90,140,180,0.18)');
     linie(PT.WEG_BREITE + 2, '#3a8fc0');
+    linie(PT.WEG_BREITE * 0.62, '#2b78ad');
+    linie(PT.WEG_BREITE * 0.3, '#1f6396');
     for (const [wx, wy, wr] of karte.wasser || []) {
       x.fillStyle = 'rgba(90,140,180,0.22)'; x.beginPath(); x.arc(wx, wy, wr + 14, 0, Math.PI * 2); x.fill();
       x.fillStyle = '#2f7fb0'; x.beginPath(); x.arc(wx, wy, wr, 0, Math.PI * 2); x.fill();
@@ -142,8 +353,8 @@
   }
 
   // Band entlang eines Wegs: profil = [[Abstand zur Mitte, Höhe], …], nur der Teil auf der Karte
-  function wegBand(weg, profil, uvLaenge) {
-    const pos = [], uv = [], idx = [];
+  function wegBand(weg, profil, uvLaenge, farben) {
+    const pos = [], uv = [], idx = [], col = [];
     const pts = weg.pts;
     const reihe = [];
     const drin = i => pts[i][0] >= -2 && pts[i][0] <= W + 2 && pts[i][1] >= -2 && pts[i][1] <= H + 2;
@@ -158,6 +369,7 @@
       profil.forEach(([off, h], k) => {
         pos.push(X(pts[i][0] + nx * off), h, Z(pts[i][1] + ny * off));
         uv.push(i * 2 / uvLaenge, k / (profil.length - 1));
+        if (farben) col.push(...farben[k]);
       });
       if (r > 0) {
         const n = profil.length;
@@ -170,6 +382,7 @@
     const g = new T.BufferGeometry();
     g.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
     g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+    if (farben) g.setAttribute('color', new T.Float32BufferAttribute(col, 3));
     g.setIndex(idx);
     g.computeVertexNormals();
     return g;
@@ -189,6 +402,9 @@
       this.kamera = new T.PerspectiveCamera(36, 1.6, 10, 6000);
       this.zeit = 0;
       this.zeitUniform = { value:0 };
+      this.punktSkala = { value:1000 };
+      this.hoch = true;
+      this.halos = [];
       this.pinguine = new Map();
       this.flieger = new Map();
       this.eulen = new Map();
@@ -210,6 +426,9 @@
     }
 
     grafik(hoch) {
+      this.hoch = hoch;
+      if (this.wolkenSchatten) this.wolkenSchatten.visible = hoch;
+      if (this.meerGlanz) this.meerGlanz.visible = hoch;
       this.renderer.shadowMap.enabled = hoch;
       this.renderer.setPixelRatio(hoch ? Math.min(window.devicePixelRatio || 1, 2) : 1);
       this.scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
@@ -234,8 +453,8 @@
 
     karteLaden(spiel) {
       this.scene = new T.Scene();
-      this.pinguine.clear(); this.flieger.clear(); this.eulen.clear();
-      this.strudel = []; this.lavaLicht = null; this.rauch = [];
+      this.pinguine.clear(); this.flieger.clear(); this.eulen.clear(); this.geschossAlt = null; this.halos = [];
+      this.strudel = []; this.lavaLicht = null; this.glutPos = null; this.rauch = [];
       this.effekte = [];
       this.texte = [];
       this.zoom = 1; this.schwenk.set(0, 0);
@@ -246,8 +465,12 @@
       sc.background = new T.Color(thema.himmel);
       sc.fog = new T.Fog(thema.nebel, 1500, 3400);
 
-      sc.add(new T.HemisphereLight(0xeaf6ff, 0x7f9fb8, thema.halb));
-      const sonne = new T.DirectionalLight(karte.thema === 'daemmerung' ? 0xffd9c2 : thema.lava ? 0xffe2cc : 0xffffff, thema.licht);
+      sc.add(new T.HemisphereLight(thema.himmelsLicht, thema.bodenLicht, thema.halb));
+      // Gegenlicht von hinten (ohne Schatten): gibt Pinguinen und Fischen eine helle Kante und mehr Volumen
+      const fuell = new T.DirectionalLight(thema.fuell, karte.thema === 'nacht' ? 0.22 : 0.14);
+      fuell.position.set(420, 300, -520);
+      sc.add(fuell);
+      const sonne = new T.DirectionalLight(thema.sonne, thema.licht);
       sonne.position.set(-350, 800, 380);
       sonne.castShadow = true;
       sonne.shadow.mapSize.set(2048, 2048);
@@ -268,29 +491,71 @@
       const aussen = new T.Mesh(new T.PlaneGeometry(8000, 8000), new T.MeshPhongMaterial({ color:thema.meer, map:this.meerTex, shininess:90, specular:0x557799 }));
       aussen.rotation.x = -Math.PI / 2; aussen.position.y = -22; aussen.receiveShadow = true;
       sc.add(aussen);
+      // Flachwasser und Schaumkante rund um die Scholle
+      const kueste = new T.Mesh(new T.PlaneGeometry(W + 2 * KUESTE, H + 2 * KUESTE), new T.MeshBasicMaterial({ map:kuestenTextur(thema), transparent:true, opacity:0.6, depthWrite:false }));
+      kueste.rotation.x = -Math.PI / 2; kueste.position.y = -21.6; kueste.renderOrder = 1;
+      sc.add(kueste); this.kueste = kueste;
+      // funkelnde Wellenschicht, langsam gegen die Strömung (bei niedriger Grafik aus)
+      this.glanzTex = glitzTextur().clone(); this.glanzTex.needsUpdate = true; this.glanzTex.repeat.set(26, 70);
+      this.meerGlanz = new T.Mesh(new T.PlaneGeometry(8000, 8000), new T.MeshBasicMaterial({ map:this.glanzTex, color:karte.thema === 'nacht' ? 0x7fffe0 : thema.lava ? 0xff9a6a : 0xdff6ff, transparent:true, opacity:karte.thema === 'nacht' ? 0.2 : 0.09, blending:T.AdditiveBlending, depthWrite:false }));
+      this.meerGlanz.rotation.x = -Math.PI / 2; this.meerGlanz.position.y = -21.5; this.meerGlanz.renderOrder = 2; this.meerGlanz.visible = this.hoch;
+      sc.add(this.meerGlanz);
+      // Polarnacht: Nordlicht spiegelt sich im Meer
+      this.nordlichtMeer = null;
+      if (karte.thema === 'nacht') {
+        const t = new T.CanvasTexture(leinwand(256, 256, (x, w) => {
+          const farben = ['60,255,160', '150,100,255', '60,200,255'];
+          for (let i = 0; i < 9; i++) {
+            const px = i / 9 * w + 10, f = farben[i % 3];
+            const g = x.createLinearGradient(px - 22, 0, px + 22, 0);
+            g.addColorStop(0, `rgba(${f},0)`); g.addColorStop(0.5, `rgba(${f},0.8)`); g.addColorStop(1, `rgba(${f},0)`);
+            x.fillStyle = g; x.fillRect(px - 22, 0, 44, w);
+          }
+          const v = x.createLinearGradient(0, 0, 0, w);
+          v.addColorStop(0, 'rgba(0,0,0,1)'); v.addColorStop(0.5, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,1)');
+          x.globalCompositeOperation = 'destination-out'; x.fillStyle = v; x.fillRect(0, 0, w, w);
+        }));
+        t.wrapS = t.wrapT = T.RepeatWrapping; t.repeat.set(5, 2);
+        this.nordlichtMeer = new T.Mesh(new T.PlaneGeometry(6000, 6000), new T.MeshBasicMaterial({ map:t, transparent:true, opacity:0.4, blending:T.AdditiveBlending, depthWrite:false }));
+        this.nordlichtMeer.rotation.x = -Math.PI / 2; this.nordlichtMeer.position.y = -21.4; this.nordlichtMeer.renderOrder = 2;
+        sc.add(this.nordlichtMeer);
+      }
+      // Wolkenschatten wandern über das Eis
+      this.wolkenTex = wolkenTextur(); this.wolkenTex.repeat.set(2.4, 1.6);
+      this.wolkenSchatten = new T.Mesh(new T.PlaneGeometry(W, H), new T.MeshBasicMaterial({ map:this.wolkenTex, color:karte.thema === 'nacht' ? 0x0a1030 : 0x203a60, transparent:true, opacity:thema.lava ? 0.12 : 0.09, depthWrite:false }));
+      this.wolkenSchatten.rotation.x = -Math.PI / 2; this.wolkenSchatten.position.y = 0.4; this.wolkenSchatten.renderOrder = 1; this.wolkenSchatten.visible = this.hoch;
+      sc.add(this.wolkenSchatten);
       const klippe = mat(thema.lava ? 0x4b4552 : 0xcfe8f5, 'phong', { shininess:40 });
       for (const [x, z, sx, sz] of [[0, -H / 2 - 5, W + 10, 10], [0, H / 2 + 5, W + 10, 10], [-W / 2 - 5, 0, 10, H], [W / 2 + 5, 0, 10, H]]) {
         const m = mesh(G.box, klippe, x, -11, z); m.scale.set(sx, 24, sz); m.receiveShadow = true; sc.add(m);
         const kante = mesh(G.box, mat(0xffffff), x, 0.6, z); kante.scale.set(sx + 1, 1.2, sz + 1); sc.add(kante);
       }
+      this.meerEis = [];
       for (let i = 0; i < 14; i++) {
         const w = i / 14 * Math.PI * 2 + 0.3, d = 640 + (i % 3) * 110;
         const e = mesh(new T.CylinderGeometry(1, 1.1, 1, 7), mat(0xeef8fd, 'lambert', { flatShading:true }), Math.cos(w) * d * 1.1, -19, Math.sin(w) * d * 0.8);
         e.scale.set(30 + (i * 17) % 50, 5, 22 + (i * 13) % 40); e.rotation.y = i; sc.add(e);
+        this.meerEis.push({ m:e, i, y0:e.position.y });
       }
 
       // Kanäle: Wasser und Eisufer
       const b = PT.WEG_BREITE / 2;
       this.wasserTex = wasserTextur();
       const wasserMat = new T.MeshPhongMaterial({ color:thema.fluss, map:this.wasserTex, transparent:true, opacity:0.82, shininess:120, specular:0xbfe6ff, emissive:0x0b3a5a });
-      const ufer = new T.MeshLambertMaterial({ color:thema.lava ? 0xd9d4dc : 0xeaf6fd });
+      const ufer = new T.MeshLambertMaterial({ color:thema.lava ? 0xd9d4dc : 0xeaf6fd, vertexColors:true });
+      const uferFarben = [[0.88, 0.95, 1], [0.97, 0.99, 1], [1, 1, 1], [0.7, 0.85, 0.97]];   // Eiskante: unten bläulich, oben weiß
+      const glitzMat = new T.MeshBasicMaterial({ map:glitzTextur(), color:thema.lava ? 0xffb090 : 0xcfeeff, transparent:true, opacity:0.3, blending:T.AdditiveBlending, depthWrite:false });
+      this.glitzMat = glitzMat;
       for (const w of spiel.wege) {
         const wasser = new T.Mesh(wegBand(w, [[-b - 1, WASSER_Y], [0, WASSER_Y], [b + 1, WASSER_Y]], 120), wasserMat);
         wasser.receiveShadow = true;
         sc.add(wasser);
+        const glitz = new T.Mesh(wegBand(w, [[-b - 1, WASSER_Y + 0.3], [0, WASSER_Y + 0.3], [b + 1, WASSER_Y + 0.3]], 70), glitzMat);
+        glitz.renderOrder = 3;
+        sc.add(glitz);
         for (const s of [-1, 1]) {
           const prof = [[s * (b + 16), 0], [s * (b + 9), 5.5], [s * (b + 3), 6.5], [s * (b - 1), 2]];
-          const m = new T.Mesh(wegBand(w, s < 0 ? prof : prof.reverse(), 100), ufer);
+          const m = new T.Mesh(wegBand(w, s < 0 ? prof : prof.reverse(), 100, s < 0 ? uferFarben : uferFarben.slice().reverse()), ufer);
           m.receiveShadow = true; m.castShadow = true;
           sc.add(m);
         }
@@ -315,7 +580,10 @@
         const s = new T.Mesh(new T.CircleGeometry(wr, 40), wasserMat);
         s.rotation.x = -Math.PI / 2; s.position.set(X(wx), WASSER_Y, Z(wy)); s.receiveShadow = true;
         sc.add(s);
-        const rand = mesh(G.torus, ufer, X(wx), 2.4, Z(wy)); rand.scale.set(wr + 3, wr + 3, 22); rand.rotation.x = Math.PI / 2; rand.receiveShadow = true;
+        const sg = new T.Mesh(new T.CircleGeometry(wr, 40), glitzMat);
+        sg.rotation.x = -Math.PI / 2; sg.position.set(X(wx), WASSER_Y + 0.3, Z(wy)); sg.renderOrder = 3;
+        sc.add(sg);
+        const rand = mesh(G.torus, mat(thema.lava ? 0xd9d4dc : 0xeaf6fd, 'lambert'), X(wx), 2.4, Z(wy)); rand.scale.set(wr + 3, wr + 3, 22); rand.rotation.x = Math.PI / 2; rand.receiveShadow = true;
         sc.add(rand);
       }
 
@@ -331,13 +599,26 @@
         }
       }
 
-      // Schneefall
-      const n = Math.round(500 * thema.schnee);
-      const sp = new Float32Array(n * 3);
-      for (let i = 0; i < n; i++) { sp[i * 3] = (Math.random() - 0.5) * 1300; sp[i * 3 + 1] = Math.random() * 500; sp[i * 3 + 2] = (Math.random() - 0.5) * 900; }
-      const sg = new T.BufferGeometry(); sg.setAttribute('position', new T.BufferAttribute(sp, 3));
-      this.schnee = new T.Points(sg, new T.PointsMaterial({ color:thema.lava ? 0xbbbbbb : 0xffffff, size:3, transparent:true, opacity:0.85, depthWrite:false }));
-      sc.add(this.schnee);
+      // Leuchtpunkt-Systeme: additiv (Funken, Glanz), normal (Staub, Rauch, Schnee)
+      this.glow = new Punkte(sc, 2600, true, this.punktSkala);
+      this.staub = new Punkte(sc, 600, false, this.punktSkala, 0);
+      // Schneefall: weiche Flocken verschiedener Größe, je nach Grafik-Stufe weniger
+      const n = Math.round(thema.schnee * (this.hoch ? 560 : 340));
+      this.schneeN = n;
+      this.schneeP = new Punkte(sc, n, false, this.punktSkala, 0.5);
+      this.schneeP.mesh.renderOrder = 6;
+      this.schneeFlocken = [];
+      for (let i = 0; i < n; i++) {
+        const k = Math.random();
+        this.schneeFlocken.push({ x:(Math.random() - 0.5) * 1500, y:Math.random() * 500, z:(Math.random() - 0.5) * 1000, g:1.8 + k * k * 3, v:16 + k * 20, ph:Math.random() * 6.28 });
+      }
+      this.schneeFarbe = thema.lava ? [0.78, 0.74, 0.74] : [1, 1, 1];
+      // Glitzerpunkte auf Eis und Meer, die einzeln funkeln
+      this.glitzer = [];
+      const gz = this.hoch ? 1 : 0.4;
+      for (let i = 0; i < 100 * gz; i++) this.glitzer.push({ x:(Math.random() - 0.5) * W, y:1.6, z:(Math.random() - 0.5) * H, ph:Math.random() * 40, sp:1.3 + Math.random() * 2.2, g:7 + Math.random() * 9 });
+      for (let i = 0; i < 90 * gz; i++) { const w = Math.random() * 6.28, d = 640 + Math.random() * 1500; this.glitzer.push({ x:Math.cos(w) * d * 1.15, y:-20.5, z:Math.sin(w) * d * 0.8, ph:Math.random() * 40, sp:0.9 + Math.random() * 1.8, g:18 + Math.random() * 20 }); }
+      this.glitzerFarbe = karte.thema === 'nacht' ? [0.6, 1, 0.9] : thema.lava ? [1, 0.6, 0.35] : karte.thema === 'daemmerung' ? [1, 0.82, 0.9] : [0.85, 0.97, 1];
 
       // Fische als Instanzen mit Schwanzschlag, getarnte Fische halb durchsichtig
       this.fischMeshes = {};
@@ -445,6 +726,7 @@
           g.add(kegel, lava, schnee);
           const l = new T.PointLight(0xff6a20, 1.4, 320, 1.5); l.position.set(0, hr * 1.4, 0); g.add(l);
           this.lavaLicht = l;
+          this.glutPos = { x:X(hx), y:hr * 0.95, z:Z(hy) };
           for (let k = 0; k < 8; k++) {
             const r = mesh(G.kugel, new T.MeshLambertMaterial({ color:0x8a8590, transparent:true, opacity:0.5, depthWrite:false }), 0, 0, 0);
             r.castShadow = false;
@@ -496,6 +778,14 @@
           berg.scale.set(1, 0.9 * hoch, 0.85);
           berg.rotation.y = i;
           g.add(berg);
+          // Eiskristalle wachsen aus dem Fuß des Bergs und glimmen leicht von innen
+          const nacht = karte.thema === 'nacht';
+          const kristall = mat(nacht ? 0x7dffe0 : 0xa8ecff, 'phong', { flatShading:true, shininess:140, specular:0xffffff, emissive:nacht ? 0x1d8a7a : 0x1a6a88, transparent:true, opacity:0.88 });
+          for (let k = 0; k < 4; k++) {
+            const w = i + k * 1.7, d = hr * (0.7 + (k % 2) * 0.12), hk = hr * (0.35 + ((k * 7 + i) % 5) * 0.09);
+            const c = mesh(G.kegel, kristall, Math.cos(w) * d, hk * 0.45, Math.sin(w) * d);
+            c.scale.set(hr * 0.12, hk, hr * 0.12); c.rotation.set(Math.sin(w) * 0.35, 0, -Math.cos(w) * 0.35); g.add(c);
+          }
           if (karte.deko === 'gletscher') { const spitze = mesh(G.kegel4, mat(0xc6e8fb, 'phong', { flatShading:true }), hr * 0.2, hr * 1.9, 0); spitze.scale.set(hr * 0.45, hr * 1.1, hr * 0.45); g.add(spitze); }
         } else {
           for (let k = 0; k < 3; k++) {
@@ -619,6 +909,69 @@
       this.geist.traverse(o => { if (o.isMesh && o.material.emissive) o.material.emissive.set(ok ? 0x000000 : 0x661010); });
     }
 
+    /* ---------- Funken, Staub und Leuchtpunkte ---------- */
+    // Funken an einem Kartenpunkt (x, y) in Höhe h: weiche additive Punkte mit Schwerkraft
+    funken(x, y, h, farbe, n, o = {}) {
+      if (!this.glow) return;
+      const c = new T.Color(farbe);
+      const anzahl = this.hoch ? n : Math.ceil(n / 2);
+      for (let i = 0; i < anzahl; i++) {
+        const w = Math.random() * Math.PI * 2, v = (o.tempo == null ? 90 : o.tempo) * (0.35 + Math.random() * 0.65);
+        this.glow.dazu({
+          x:X(x) + (Math.random() - 0.5) * (o.streu || 0), y:h, z:Z(y) + (Math.random() - 0.5) * (o.streu || 0),
+          vx:Math.cos(w) * v, vy:(o.hoch == null ? 70 : o.hoch) * (0.4 + Math.random() * 0.8), vz:Math.sin(w) * v,
+          g:(o.groesse || 7) * (0.6 + Math.random() * 0.8), r:c.r, gr:c.g, b:c.b, a:o.a == null ? 0.9 : o.a,
+          dauer:(o.dauer || 0.6) * (0.7 + Math.random() * 0.6), grav:o.grav == null ? 260 : o.grav, boden:o.boden == null ? WASSER_Y + 1 : o.boden
+        });
+      }
+    }
+    // weiche Staub- und Rauchwolken (normale Mischung, wachsen beim Verblassen)
+    staubWolke(x, y, h, farbe, n, o = {}) {
+      if (!this.staub || (!this.hoch && Math.random() < 0.5)) return;
+      const c = new T.Color(farbe);
+      for (let i = 0; i < n; i++) {
+        const w = Math.random() * Math.PI * 2, v = (o.tempo || 30) * (0.3 + Math.random() * 0.7);
+        this.staub.dazu({
+          x:X(x), y:h, z:Z(y), vx:Math.cos(w) * v, vy:(o.hoch || 14) * (0.5 + Math.random()), vz:Math.sin(w) * v,
+          g:(o.groesse || 20) * (0.7 + Math.random() * 0.6), r:c.r, gr:c.g, b:c.b, a:o.a == null ? 0.5 : o.a, dauer:(o.dauer || 0.7) * (0.8 + Math.random() * 0.5), grav:0, wachs:o.wachs == null ? 1.4 : o.wachs
+        }, 400);
+      }
+    }
+    halo(x, y, z, farbe, groesse, alpha) {
+      const c = farbe.isColor ? farbe : new T.Color(farbe);
+      this.halos.push(x, y, z, groesse, c.r, c.g, c.b, alpha);
+    }
+    glowZeichnen(spiel, dt) {
+      if (!this.glow) return;
+      const t = this.zeit, h = this.halos;
+      // Funkeln auf Eis und Meer
+      const c = this.glitzerFarbe;
+      for (const g of this.glitzer) {
+        const a = Math.pow(Math.max(0, Math.sin(t * g.sp + g.ph)), 12);
+        if (a > 0.03) h.push(g.x, g.y, g.z, g.g * (0.5 + a * 0.7), c[0], c[1], c[2], a * 0.95);
+      }
+      // Glut und Funken in der Luft: Vulkan (Asche), Polarnacht (Nordlichtstaub)
+      if (dt > 0 && (this.thema.lava || this.thema === THEMEN.nacht)) {
+        this.glutRest = (this.glutRest || 0) + dt * (this.hoch ? 14 : 6);
+        while (this.glutRest > 1) {
+          this.glutRest -= 1;
+          const lava = this.thema.lava;
+          const nahe = lava && this.glutPos && Math.random() < 0.45;
+          const wx = nahe ? this.glutPos.x + (Math.random() - 0.5) * 30 : (Math.random() - 0.5) * W;
+          const wz = nahe ? this.glutPos.z + (Math.random() - 0.5) * 30 : (Math.random() - 0.5) * H;
+          const farbe = lava ? (Math.random() < 0.7 ? new T.Color(0xff8a30) : new T.Color(0xffd070)) : new T.Color([0x5effc8, 0xb49bff, 0x7fd8ff][Math.floor(Math.random() * 3)]);
+          this.glow.dazu({ x:wx, y:lava ? (nahe ? this.glutPos.y : 4) : 6 + Math.random() * 20, z:wz, vx:(Math.random() - 0.5) * 14, vy:lava ? 26 + Math.random() * 30 : 8 + Math.random() * 12, vz:(Math.random() - 0.5) * 14,
+            g:lava ? 4 + Math.random() * 4 : 5 + Math.random() * 5, r:farbe.r, gr:farbe.g, b:farbe.b, a:lava ? 0.9 : 0.75, dauer:lava ? 2.6 : 3.4, grav:lava ? -4 : 0 });
+        }
+      }
+      this.glow.schreiben(dt, h);
+      h.length = 0;
+      this.staub.schreiben(dt, null);
+      // Schneefall-Skala nachziehen
+      const db = this.renderer.getDrawingBufferSize(this._v2 || (this._v2 = new T.Vector2()));
+      this.punktSkala.value = db.y / (2 * Math.tan(this.kamera.fov * Math.PI / 360));
+    }
+
     /* ---------- Ereignisse aus der Logik ---------- */
     ereignisse(liste) {
       const ringFarben = { ring:0xbfeaff, ringLila:0xb36bff, sonne:0xffb020, frost:0x7fd6ff, frostStark:0x5ec8ff, saeule:0x9ff3ff, netz:0xd9c49a, schall:0xff5ec8, schallGross:0xffd54a };
@@ -631,11 +984,19 @@
             const n = f.riese ? 26 : 4;
             for (let i = 0; i < n; i++) this.teilchenDazu(e.x, e.y, WASSER_Y + 4, f.farbe, f.riese ? 2.5 : 1.4, f.riese ? 160 : 90);
             for (let i = 0; i < (f.riese ? 10 : 2); i++) this.teilchenDazu(e.x, e.y, WASSER_Y + 4, 0xdff5ff, 1.6, 70);
+            this.funken(e.x, e.y, WASSER_Y + 5, 0xe6f8ff, f.riese ? 22 : 7, { tempo:f.riese ? 120 : 70, hoch:f.riese ? 140 : 100, groesse:f.riese ? 8 : 5, dauer:0.55 });
+            this.funken(e.x, e.y, WASSER_Y + 6, f.farbe, f.riese ? 8 : 3, { tempo:50, hoch:80, groesse:9, dauer:0.4, a:0.7 });
+            if (this.effekte.length < 70) this.effekte.push({ art:'welle', x:e.x, y:e.y, r:f.riese ? 46 : 20 + f.r * 0.6, t:0, dauer:f.riese ? 0.8 : 0.5, farbe:0xffffff });
             if (f.riese) this.texte.push({ x:e.x, y:e.y, h:30, text:'💥', farbe:'#fff', t:0, dauer:1, gross:28 });
             break;
           }
           case 'bossBesiegt':
             for (let i = 0; i < 120; i++) this.teilchenDazu(e.x, e.y, 20, i % 2 ? 0xc0392b : 0xffd54a, 3, 260);
+            for (const fc of [0xffd54a, 0xff5ec8, 0x5ec8ff, 0xffffff]) this.funken(e.x, e.y, 24, fc, 22, { tempo:230, hoch:220, groesse:10, dauer:1.1, grav:300 });
+            this.effekte.push({ art:'ring', x:e.x, y:e.y, r:200, t:0, dauer:0.9, farbe:0xffd54a });
+            this.effekte.push({ art:'ring', x:e.x, y:e.y, r:120, t:0, dauer:0.6, farbe:0xffffff });
+            this.effekte.push({ art:'saeule', x:e.x, y:e.y, r:26, hoehe:260, t:0, dauer:1, farbe:0xffd54a });
+            this.staubWolke(e.x, e.y, 20, 0xffffff, 10, { groesse:50, tempo:90, dauer:1 });
             this.texte.push({ x:e.x, y:e.y, h:60, text:`${PT.FISCHE[e.typ] ? PT.FISCHE[e.typ].name : 'Boss'} besiegt!`, farbe:'#ffd54a', t:0, dauer:2.5, gross:30 });
             this.wackeln = 0.8;
             break;
@@ -645,22 +1006,31 @@
             this.effekte.push({ art:'ring', x:e.x, y:e.y, r:e.r, t:0, dauer:0.8, farbe:0x5ec8ff });
             this.effekte.push({ art:'ring', x:e.x, y:e.y, r:e.r * 0.7, t:0, dauer:0.6, farbe:0xdff6ff });
             for (let i = 0; i < 40; i++) { const w = Math.random() * Math.PI * 2, d = Math.random() * e.r; this.teilchenDazu(e.x + Math.cos(w) * d, e.y + Math.sin(w) * d, 6, 0xbfeaff, 2.2, 60); }
+            this.funken(e.x, e.y, 10, 0x9fe4ff, 40, { streu:e.r, tempo:60, hoch:150, groesse:8, dauer:0.9 });
+            this.effekte.push({ art:'welle', x:e.x, y:e.y, r:e.r, t:0, dauer:0.9, farbe:0xdff6ff });
             this.texte.push({ x:e.x, y:e.y, h:70, text:'🌊 Flutwelle!', farbe:'#9fe4ff', t:0, dauer:1.6, gross:24 });
             break;
           case 'bossPhase':
             this.wackeln = 0.5;
             this.effekte.push({ art:'ring', x:e.fisch.x, y:e.fisch.y, r:160, t:0, dauer:0.6, farbe:0xc0392b });
+            this.funken(e.fisch.x, e.fisch.y, 20, 0xff5a3a, 26, { tempo:160, hoch:120, groesse:9, dauer:0.8 });
             break;
           case 'explosion': {
             const r = Math.max(12, e.r);
             const farbe = e.bild === 'schneeballBlau' ? 0xa8dcff : e.bild === 'rakete' ? 0xffb37a : e.bild === 'mine' ? 0xff6a3a : e.bild === 'rauch' ? 0x9aa3ad : e.bild === 'blitzbombe' ? 0xfff27a : 0xffffff;
             this.effekte.push({ art:'kugel', x:e.x, y:e.y, r, t:0, dauer:0.28, farbe });
             for (let i = 0; i < 6; i++) this.teilchenDazu(e.x, e.y, 10, 0xffffff, 2, r * 3);
+            this.funken(e.x, e.y, 10, farbe, Math.min(22, 8 + Math.round(r / 6)), { tempo:r * 3.2, hoch:100, groesse:6 + r * 0.05, dauer:0.55 });
+            this.funken(e.x, e.y, 12, farbe, 1, { tempo:0, hoch:0, groesse:r * 2.6, dauer:0.22, grav:0, a:0.65 });
+            if (e.bild === 'rakete' || e.bild === 'mine' || e.bild === 'rauch' || e.bild === 'schneeballBlau') this.staubWolke(e.x, e.y, 10, e.bild === 'rauch' ? 0x9aa3ad : e.bild === 'schneeballBlau' ? 0xdff4ff : 0x6a6670, 5, { groesse:Math.max(24, r * 0.7), tempo:r * 0.8, dauer:0.9 });
+            else this.staubWolke(e.x, e.y, 8, 0xf2fbff, 4, { groesse:Math.max(18, r * 0.55), tempo:r * 0.7, dauer:0.7 });
+            if (this.effekte.length < 70) this.effekte.push({ art:'ring', x:e.x, y:e.y, r:r * 1.15, t:0, dauer:0.35, farbe });
             break;
           }
           case 'ring':
             this.effekte.push({ art:'ring', x:e.x, y:e.y, r:e.r, t:0, dauer:e.bild.startsWith('frost') || e.bild === 'netz' ? 0.45 : 0.3, farbe:ringFarben[e.bild] || 0xffffff });
-            if (e.bild.startsWith('frost')) for (let i = 0; i < 12; i++) this.teilchenDazu(e.x + (Math.random() - 0.5) * e.r * 1.5, e.y + (Math.random() - 0.5) * e.r * 1.5, 8, 0xe6f8ff, 1.5, 30);
+            if (e.bild.startsWith('frost')) { for (let i = 0; i < 12; i++) this.teilchenDazu(e.x + (Math.random() - 0.5) * e.r * 1.5, e.y + (Math.random() - 0.5) * e.r * 1.5, 8, 0xe6f8ff, 1.5, 30); this.funken(e.x, e.y, 12, 0xbfeaff, 14, { streu:e.r * 1.2, tempo:30, hoch:70, groesse:7, dauer:0.9, grav:60 }); }
+            else if (e.r > 120) this.funken(e.x, e.y, 12, ringFarben[e.bild] || 0xffffff, 10, { streu:e.r, tempo:20, hoch:50, groesse:7, dauer:0.7 });
             this.animieren(e.turm, 0.2);
             break;
           case 'strahl':
@@ -674,14 +1044,22 @@
           case 'wurf':
             this.animieren(e.turm, 0.18);
             break;
+          case 'riesenTreffer':
+            this.funken(e.fisch.x, e.fisch.y, WASSER_Y + 14, 0xfff2c4, 4, { tempo:90, hoch:60, groesse:5, dauer:0.3 });
+            break;
           case 'kiste':
+            this.funken(e.turm.x, e.turm.y, 30, 0xffd54a, 8, { tempo:50, hoch:130, groesse:6, dauer:0.7 });
             this.texte.push({ x:e.turm.x, y:e.turm.y, h:50, text:'+' + e.wert, farbe:'#ffd54a', t:0, dauer:1.1 });
             break;
           case 'nachwachsen':
             for (let i = 0; i < 3; i++) this.teilchenDazu(e.x, e.y, 10, 0x35d05a, 1.4, 40);
+            this.funken(e.x, e.y, 14, 0x7dffb2, 4, { tempo:30, hoch:50, groesse:5, dauer:0.6, grav:-20 });
             break;
           case 'aufstieg':
             for (let i = 0; i < 30; i++) this.teilchenDazu(e.turm.x, e.turm.y, 20, 0xffd54a, 2, 110);
+            this.funken(e.turm.x, e.turm.y, 22, 0xffd54a, 26, { tempo:90, hoch:200, groesse:9, dauer:1.1, grav:180, streu:12 });
+            this.effekte.push({ art:'ring', x:e.turm.x, y:e.turm.y, r:70, t:0, dauer:0.7, farbe:0xffd54a });
+            this.effekte.push({ art:'saeule', x:e.turm.x, y:e.turm.y, r:18, hoehe:130, t:0, dauer:0.9, farbe:0xffe066 });
             this.texte.push({ x:e.turm.x, y:e.turm.y, h:70, text:`Stufe ${e.stufe}!`, farbe:'#ffd54a', t:0, dauer:1.8, gross:22 });
             this.pinguinEntfernen(e.turm.id);
             break;
@@ -698,10 +1076,22 @@
             break;
           case 'gebaut': case 'upgrade':
             for (let i = 0; i < 18; i++) this.teilchenDazu(e.turm.x, e.turm.y, 12, e.art === 'upgrade' ? 0xffd54a : 0xffffff, 1.8, 90);
+            if (e.art === 'upgrade') {
+              this.funken(e.turm.x, e.turm.y, 16, 0xffd54a, 16, { tempo:50, hoch:170, groesse:7, dauer:0.9, grav:150, streu:14 });
+              this.effekte.push({ art:'ring', x:e.turm.x, y:e.turm.y, r:46, t:0, dauer:0.5, farbe:0xffd54a });
+              this.effekte.push({ art:'saeule', x:e.turm.x, y:e.turm.y, r:14, hoehe:90, t:0, dauer:0.7, farbe:0xffe066 });
+            } else {
+              // Schneestaub beim Bauen
+              this.staubWolke(e.turm.x, e.turm.y, 6, 0xf2fbff, 9, { groesse:26, tempo:60, hoch:24, dauer:0.8 });
+              this.funken(e.turm.x, e.turm.y, 10, 0xdff6ff, 10, { tempo:60, hoch:90, groesse:6, dauer:0.6 });
+              this.effekte.push({ art:'ring', x:e.turm.x, y:e.turm.y, r:40, t:0, dauer:0.4, farbe:0xdff6ff });
+            }
             this.pinguinEntfernen(e.turm.id);
             break;
           case 'verkauft':
             for (let i = 0; i < 14; i++) this.teilchenDazu(e.turm.x, e.turm.y, 12, 0xffd54a, 1.8, 90);
+            this.funken(e.turm.x, e.turm.y, 16, 0xffd54a, 12, { tempo:70, hoch:140, groesse:7, dauer:0.8 });
+            this.staubWolke(e.turm.x, e.turm.y, 6, 0xf2fbff, 6, { groesse:24, tempo:50, hoch:20, dauer:0.7 });
             this.pinguinEntfernen(e.turm.id);
             break;
           case 'leck':
@@ -770,11 +1160,14 @@
       this.effekte = this.effekte.filter(e => {
         e.t += dt;
         if (!e.obj) this.effektBauen(e);
-        const k = e.t / e.dauer;
-        if (k >= 1) { sc.remove(e.obj); if (e.obj.geometry !== G.kugel) e.obj.geometry.dispose(); e.obj.material.dispose(); return false; }
-        if (e.art === 'ring') { e.obj.scale.setScalar(Math.max(1, e.r * (0.3 + 0.7 * k))); e.obj.material.opacity = 0.7 * (1 - k); }
-        else if (e.art === 'kugel') { e.obj.scale.setScalar(e.r * (0.4 + 0.6 * Math.sqrt(k))); e.obj.material.opacity = 0.75 * (1 - k); }
-        else e.obj.material.opacity = 1 - k;
+        const k = Math.min(1, e.t / e.dauer);
+        if (e.t / e.dauer >= 1) { this.effektWeg(e); return false; }
+        const f = 1 - k;
+        if (e.art === 'ring') { e.obj.scale.setScalar(Math.max(1, e.r * (0.3 + 0.7 * Math.sqrt(k)))); e.obj.material.opacity = e.deckung * f; }
+        else if (e.art === 'welle') { e.obj.scale.setScalar(Math.max(1, e.r * (0.25 + 0.75 * Math.sqrt(k)))); e.obj.material.opacity = e.deckung * f * f; }
+        else if (e.art === 'kugel') { e.obj.scale.setScalar(e.r * (0.4 + 0.6 * Math.sqrt(k))); e.obj.material.opacity = e.deckung * f; }
+        else if (e.art === 'saeule') { const hh = (e.hoehe || 120) * (0.4 + 0.6 * Math.sqrt(k)); e.obj.scale.set(e.r * (1 - k * 0.5), hh, e.r * (1 - k * 0.5)); e.obj.position.y = hh / 2; e.obj.material.opacity = e.deckung * f; }
+        else e.obj.children.forEach(m => { m.material.opacity = f; });
         return true;
       });
 
@@ -785,16 +1178,36 @@
         l.position.set(Math.cos(w) * 380, 150 + Math.sin(this.zeit + i) * 30, Math.sin(w * 1.3) * 220);
         l.intensity = 0.8 + Math.sin(this.zeit * 0.7 + i) * 0.35;
       });
-      if (this.schnee) {
-        const p = this.schnee.geometry.attributes.position;
-        for (let i = 0; i < p.count; i++) {
-          let y = p.getY(i) - dt * 22;
-          if (y < 0) y += 500;
-          p.setY(i, y);
-          p.setX(i, p.getX(i) + Math.sin(this.zeit + i) * dt * 6);
+      // Schneefall (weiche Flocken, leichter Wind)
+      if (this.schneeP) {
+        const S = this.schneeP, c = this.schneeFarbe, wind = Math.sin(this.zeit * 0.2) * 5;
+        let i = 0;
+        for (const f of this.schneeFlocken) {
+          f.y -= f.v * dt; if (f.y < 0) f.y += 500;
+          f.x += (wind + Math.sin(this.zeit * 0.9 + f.ph) * 6) * dt;
+          if (f.x > 750) f.x -= 1500; else if (f.x < -750) f.x += 1500;
+          S.pos[i * 3] = f.x; S.pos[i * 3 + 1] = f.y; S.pos[i * 3 + 2] = f.z;
+          S.gr[i] = f.g;
+          S.farbe[i * 4] = c[0]; S.farbe[i * 4 + 1] = c[1]; S.farbe[i * 4 + 2] = c[2]; S.farbe[i * 4 + 3] = 0.7 * Math.min(1, f.y / 30);
+          i++;
         }
-        p.needsUpdate = true;
+        S.geo.setDrawRange(0, i);
+        for (const k of ['position', 'aFarbe', 'aGroesse']) S.geo.attributes[k].needsUpdate = true;
       }
+      // Meer: Wellen laufen, Eisschollen schaukeln, Wolkenschatten und Nordlicht ziehen
+      if (this.meerTex) { this.meerTex.offset.x += dt * 0.02; this.meerTex.offset.y += dt * 0.012; }
+      if (this.glanzTex) { this.glanzTex.offset.x -= dt * 0.03; this.glanzTex.offset.y += dt * 0.02; }
+      if (this.wolkenTex) { this.wolkenTex.offset.x += dt * 0.012; this.wolkenTex.offset.y += dt * 0.006; }
+      if (this.glitzMat) this.glitzMat.opacity = 0.24 + Math.sin(this.zeit * 0.9) * 0.07;
+      if (this.kueste) this.kueste.material.opacity = 0.55 + Math.sin(this.zeit * 0.7) * 0.07;
+      if (this.nordlichtMeer) {
+        this.nordlichtMeer.material.map.offset.x += dt * 0.012;
+        this.nordlichtMeer.material.opacity = 0.34 + Math.sin(this.zeit * 0.5) * 0.12;
+      }
+      for (const e of this.meerEis || []) { e.m.position.y = e.y0 + Math.sin(this.zeit * 0.8 + e.i * 1.7) * 0.9; e.m.rotation.x = Math.sin(this.zeit * 0.5 + e.i) * 0.03; e.m.rotation.z = Math.cos(this.zeit * 0.6 + e.i * 2) * 0.03; }
+
+      // Leuchtpunkte: Halos von Geschossen, Funkeln, Glut und Heiligenscheine der starken Pinguine
+      this.glowZeichnen(spiel, dt);
 
       // Auswahl: Reichweite, beim Mörser das Ziel
       if (auswahl && auswahl.eff) {
@@ -840,6 +1253,9 @@
         p.innen.scale.set(s * gr, (1 + (s - 1) * 1.2 + Math.sin(this.zeit * 3 + t.id) * 0.012) * gr, s * gr);
         if (p.teile.dreher) p.teile.dreher.rotation.y += dt * 1.6;
         if (p.teile.aura) p.teile.aura.rotation.y -= dt * 0.9;
+        // weicher Heiligenschein am Boden: Stufe 5 in der Pfadfarbe, Helden golden
+        if (p.teile.aura) this.halo(X(t.x), 7, Z(t.y), PT.M3.PFAD_FARBEN[Math.max(0, t.pfade.indexOf(5))], 80 + Math.sin(this.zeit * 3 + t.id) * 9, 0.4);
+        else if (PT.HELDEN[t.typ]) this.halo(X(t.x), 7, Z(t.y), 0xffd54a, 62 + Math.sin(this.zeit * 2.4 + t.id) * 5, 0.3);
         if (p.teile.orb) p.teile.orb.scale.setScalar((p.teile.orbGroesse || 4) * (1 + Math.sin(this.zeit * 5) * 0.12));
         // Albatros fliegt über die Karte
         if (t.eff && t.eff.flieger) {
@@ -941,7 +1357,7 @@
 
     geschosseZeichnen(spiel) {
       const m4 = new T.Matrix4(), q = new T.Quaternion(), eu = new T.Euler(), v = new T.Vector3(), sk = new T.Vector3(), col = new T.Color();
-      const gz = {};
+      const gz = {}, jetzt = new Map();
       for (const k of Object.keys(this.geschossMeshes)) gz[k] = 0;
       for (const g of spiel.geschosse) {
         const k = this.geschossMeshes[g.bild] ? g.bild : 'zapfen';
@@ -957,7 +1373,23 @@
         v.set(X(g.x), y, Z(g.y));
         m4.compose(v, q, sk.setScalar(s));
         m.setMatrixAt(gz[k]++, m4);
+        // Leuchten und Schweif
+        if (this.halos.length < 8 * 700) {
+          const gl = GLOW[k];
+          if (gl) this.halo(v.x, y, v.z, gl[0], gl[1], 0.62);
+          else if (SPUR[k] && this.hoch) this.halo(X(g.x - g.vx * 0.03), y, Z(g.y - g.vy * 0.03), SPUR[k], 10 + s * 0.8, 0.3);
+        }
+        jetzt.set(g.id, [g.x, g.y, k, y]);
       }
+      // Einschlagfunken, wo ein Geschoss gerade verschwunden ist
+      let budget = 6;
+      if (this.geschossAlt) for (const [id, a] of this.geschossAlt) {
+        if (jetzt.has(id) || budget <= 0 || a[0] < 0 || a[0] > W || a[1] < 0 || a[1] > H) continue;
+        budget--;
+        const gl = GLOW[a[2]];
+        this.funken(a[0], a[1], a[3], SPUR[a[2]] || (gl && gl[0]) || 0xdff4ff, 3, { tempo:55, hoch:50, groesse:4.5, dauer:0.3 });
+      }
+      this.geschossAlt = jetzt;
       for (const [k, m] of Object.entries(this.geschossMeshes)) { m.count = gz[k]; m.instanceMatrix.needsUpdate = true; }
       // Granaten fliegen im hohen Bogen
       let gn = 0;
@@ -987,29 +1419,57 @@
     }
 
     effektBauen(e) {
+      const additiv = { transparent:true, depthWrite:false, blending:T.AdditiveBlending };
+      e.deckung = 1;
       if (e.art === 'ring') {
-        e.obj = new T.Mesh(new T.RingGeometry(0.86, 1, 48), new T.MeshBasicMaterial({ color:e.farbe, transparent:true, opacity:0.7, depthWrite:false, side:T.DoubleSide }));
+        e.obj = new T.Mesh(EBENE, new T.MeshBasicMaterial({ map:ringTextur(), color:e.farbe, opacity:0.9, side:T.DoubleSide, ...additiv }));
         e.obj.rotation.x = -Math.PI / 2;
         e.obj.position.set(X(e.x), 8, Z(e.y));
+        e.deckung = 0.9;
+      } else if (e.art === 'welle') {
+        // flache Welle auf dem Wasser (normale Mischung, weiß)
+        e.obj = new T.Mesh(EBENE, new T.MeshBasicMaterial({ map:ringTextur(), color:e.farbe, transparent:true, opacity:0.8, depthWrite:false }));
+        e.obj.rotation.x = -Math.PI / 2;
+        e.obj.position.set(X(e.x), WASSER_Y + 0.7, Z(e.y));
+        e.deckung = 0.8;
       } else if (e.art === 'kugel') {
-        e.obj = new T.Mesh(G.kugel, new T.MeshBasicMaterial({ color:e.farbe, transparent:true, opacity:0.75, depthWrite:false }));
+        e.obj = new T.Mesh(G.kugel, new T.MeshBasicMaterial({ color:e.farbe, opacity:0.75, ...additiv }));
         e.obj.position.set(X(e.x), 10, Z(e.y));
-      } else if (e.art === 'strahl') {
-        const g = new T.BufferGeometry().setFromPoints([new T.Vector3(X(e.x1), e.h1 || 22, Z(e.y1)), new T.Vector3(X(e.x2), 8, Z(e.y2))]);
-        e.obj = new T.Line(g, new T.LineBasicMaterial({ color:e.farbe, transparent:true }));
-        this.teilchenDazu(e.x2, e.y2, 8, 0xffffff, 1.5, 50);
-      } else if (e.art === 'blitz') {
-        const pts = [];
-        e.pts.forEach(([x, y], i) => {
-          if (i > 0) {
-            const [px, py] = e.pts[i - 1];
-            for (let k = 1; k < 4; k++) pts.push(new T.Vector3(X(px + (x - px) * k / 4) + (Math.random() - 0.5) * 12, 14 + Math.random() * 10, Z(py + (y - py) * k / 4) + (Math.random() - 0.5) * 12));
-          }
-          pts.push(new T.Vector3(X(x), i ? 10 : 40, Z(y)));
-        });
-        e.obj = new T.Line(new T.BufferGeometry().setFromPoints(pts), new T.LineBasicMaterial({ color:e.farbe, transparent:true }));
+        e.deckung = 0.75;
+      } else if (e.art === 'saeule') {
+        e.obj = new T.Mesh(ROEHRE, new T.MeshBasicMaterial({ map:saeulenTextur(), color:e.farbe, opacity:0.8, side:T.DoubleSide, ...additiv }));
+        e.obj.position.set(X(e.x), 0, Z(e.y));
+        e.deckung = 0.8;
+      } else if (e.art === 'strahl' || e.art === 'blitz') {
+        let pts, breit;
+        if (e.art === 'strahl') {
+          pts = [new T.Vector3(X(e.x1), e.h1 || 22, Z(e.y1)), new T.Vector3(X(e.x2), 8, Z(e.y2))];
+          breit = 5;
+          this.teilchenDazu(e.x2, e.y2, 8, 0xffffff, 1.5, 50);
+          this.funken(e.x2, e.y2, 8, e.farbe, 6, { tempo:70, hoch:60, groesse:6, dauer:0.4 });
+          this.funken(e.x1, e.y1, e.h1 || 22, e.farbe, 3, { tempo:30, hoch:20, groesse:9, dauer:0.18, grav:0 });
+        } else {
+          pts = [];
+          e.pts.forEach(([x, y], i) => {
+            if (i > 0) {
+              const [px, py] = e.pts[i - 1];
+              for (let k = 1; k < 4; k++) pts.push(new T.Vector3(X(px + (x - px) * k / 4) + (Math.random() - 0.5) * 12, 14 + Math.random() * 10, Z(py + (y - py) * k / 4) + (Math.random() - 0.5) * 12));
+            }
+            pts.push(new T.Vector3(X(x), i ? 10 : 40, Z(y)));
+          });
+          breit = 7;
+          if (e.pts.length > 1) { const l = e.pts[e.pts.length - 1]; this.funken(l[0], l[1], 12, e.farbe, 8, { tempo:90, hoch:80, groesse:7, dauer:0.45 }); }
+        }
+        e.obj = new T.Group();
+        const geoA = bandPfad(pts, breit), geoB = bandPfad(pts, breit * 0.36);
+        e.obj.add(new T.Mesh(geoA, new T.MeshBasicMaterial({ map:strahlTextur(), color:e.farbe, side:T.DoubleSide, ...additiv })));
+        e.obj.add(new T.Mesh(geoB, new T.MeshBasicMaterial({ map:strahlTextur(), color:0xffffff, side:T.DoubleSide, ...additiv })));
       }
       this.scene.add(e.obj);
+    }
+    effektWeg(e) {
+      this.scene.remove(e.obj);
+      e.obj.traverse(o => { if (o.geometry && !o.geometry.shared && o.geometry !== G.kugel) o.geometry.dispose(); if (o.material) o.material.dispose(); });
     }
 
     overlayZeichnen(spiel, dt) {

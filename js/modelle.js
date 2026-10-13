@@ -60,30 +60,53 @@
     kegel4:new T.ConeGeometry(1, 1, 4),
     zyl:new T.CylinderGeometry(1, 1, 1, 12),
     box:new T.BoxGeometry(1, 1, 1),
+    kugelMini:new T.SphereGeometry(1, 6, 4),
     ikosa:new T.IcosahedronGeometry(1, 1),
+    ikosa0:new T.IcosahedronGeometry(1, 0),
+    kuppel:new T.SphereGeometry(1, 12, 3, 0, Math.PI * 2, 0, Math.PI / 2),
     okta:new T.OctahedronGeometry(1, 0),
     torus:new T.TorusGeometry(1, 0.16, 8, 24),
     ring:new T.TorusGeometry(1, 0.06, 6, 40)
   };
 
+  // Kugel mit Helligkeitsverlauf (oben hell, unten dunkel): billiges "Ambient Occlusion" ohne Extra-Draw-Call.
+  // Wird mit Vertexfarben als Faktor auf die Materialfarbe gemalt.
+  G.kugelAO = (() => {
+    const g = new T.SphereGeometry(1, 16, 12);
+    const p = g.attributes.position, c = [];
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i), x = p.getX(i);
+      const k = 0.74 + 0.26 * Math.min(1, Math.max(0, (y + 1) / 1.7)) + Math.max(0, -x) * 0.04;
+      c.push(k, k, Math.min(1, k * 1.04));
+    }
+    g.setAttribute('color', new T.Float32BufferAttribute(c, 3));
+    return g;
+  })();
+  const glatt = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const mischen = (hexA, hexB, t) => { const c = new T.Color(hexA).lerp(new T.Color(hexB), t); return [c.r, c.g, c.b]; };
+  const mischA = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+
   /* ---------- Fische ---------- */
+  // Augen und Details: kleine Fische bekommen grobe (billige) Kugeln, Riesen feinere, damit nichts eckig wirkt
+  const kleineKugel = r => (r >= 40 ? G.kugel : r >= 24 ? G.kugelGrob : G.kugelMini);
   function krakeGeo(r, farbe, krone) {
-    const teile = [];
-    const koerper = (x, y) => y < 0 ? hell(farbe, 0.35) : (hash(Math.round(x / 4), Math.round(y / 4)) > 0.82 ? dunkel(farbe, 0.35) : rgb(farbe));
+    const teile = [], kM = kleineKugel(r);
+    const koerper = (x, y) => y < 0 ? hell(farbe, 0.35) : (hash(Math.round(x / 4), Math.round(y / 4)) > 0.82 ? dunkel(farbe, 0.35) : mischen(farbe, 0xffffff, glatt(0.2 * r, 1.1 * r, y) * 0.22));
     teile.push([G.kugel, koerper, matrix(-0.15 * r, 0.25 * r, 0, 0, 0, 0, 0.95 * r, 0.85 * r, 0.9 * r)]);
     // acht Fangarme nach hinten und zur Seite
     for (let i = 0; i < 8; i++) {
       const w = Math.PI * (0.55 + i / 7 * 0.9);
       const lang = 1.4 * r;
       const dx = Math.cos(w), dz = Math.sin(w);
-      teile.push([G.kegel, (x, y) => (y > -0.05 * r ? rgb(farbe) : hell(farbe, 0.5)),
+      teile.push([G.kegel, (x, y, z) => (y > -0.05 * r ? mischen(farbe, 0xffffff, glatt(0.6 * r, 2.4 * r, Math.hypot(x, z)) * 0.35) : hell(farbe, 0.5)),
         new T.Matrix4().compose(new T.Vector3(dx * lang * 0.55 - 0.1 * r, -0.15 * r, dz * lang * 0.55),
           new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), new T.Vector3(dx, -0.08, dz).normalize()),
           new T.Vector3(0.17 * r, lang, 0.17 * r))]);
     }
     for (const s of [-1, 1]) {
-      teile.push([G.kugelGrob, 0xfff4b8, matrix(0.55 * r, 0.45 * r, s * 0.38 * r, 0, 0, 0, 0.24 * r, 0.24 * r, 0.24 * r)]);
-      teile.push([G.kugelGrob, 0x111111, matrix(0.72 * r, 0.47 * r, s * 0.42 * r, 0, 0, 0, 0.12 * r, 0.16 * r, 0.12 * r)]);
+      teile.push([kM, 0xfff4b8, matrix(0.55 * r, 0.45 * r, s * 0.38 * r, 0, 0, 0, 0.24 * r, 0.24 * r, 0.24 * r)]);
+      teile.push([kM, 0x111111, matrix(0.72 * r, 0.47 * r, s * 0.42 * r, 0, 0, 0, 0.12 * r, 0.16 * r, 0.12 * r)]);
+      teile.push([kM, 0xffffff, matrix(0.8 * r, 0.54 * r, s * 0.4 * r, 0, 0, 0, 0.05 * r, 0.05 * r, 0.05 * r)]);
     }
     if (krone) {
       teile.push([G.zyl, 0xffd54a, matrix(-0.15 * r, 1.08 * r, 0, 0, 0, 0, 0.42 * r, 0.12 * r, 0.42 * r)]);
@@ -107,9 +130,10 @@
   }
   // Kaiser Orka: schwarz-weißer Riese mit hoher Rückenflosse und Krone
   function orkaGeo(r) {
-    const teile = [];
+    const teile = [], kM = kleineKugel(r);
     const farbe = (x, y, z) => {
-      if (y < -0.12 * r) return rgb(0xf4f6f8);                                            // weißer Bauch
+      if (y < -0.12 * r) return mischen(0xf4f6f8, 0xcfd9e6, glatt(-0.1 * r, -0.55 * r, y));   // weißer Bauch mit Schatten
+      if (y > 0.3 * r && x > -0.2 * r) return mischen(0x15171d, 0x2a3140, glatt(0.3 * r, 0.55 * r, y));   // Rücken mit Glanz
       if (x > 0.55 * r && x < 0.95 * r && y > 0.02 * r && y < 0.25 * r && Math.abs(z) > 0.3 * r) return rgb(0xf4f6f8);   // Augenfleck
       if (x < -0.3 * r && x > -0.8 * r && y > 0.32 * r) return rgb(0x8a93a3);              // Sattelfleck
       return rgb(0x15171d);
@@ -120,12 +144,22 @@
     teile.push([G.kegel, 0x15171d, matrix(-0.1 * r, 0.95 * r, 0, 0, 0, 0.18, 0.22 * r, 0.95 * r, 0.07 * r)]);
     for (const s of [-1, 1]) {
       teile.push([G.kugel, 0x15171d, matrix(0.35 * r, -0.35 * r, s * 0.55 * r, s * 0.6, 0, -0.3, 0.45 * r, 0.08 * r, 0.22 * r)]);
-      teile.push([G.kugelGrob, 0x111111, matrix(0.9 * r, 0.12 * r, s * 0.5 * r, 0, 0, 0, 0.06 * r, 0.06 * r, 0.06 * r)]);
+      teile.push([kM, 0xf4f6f8, matrix(0.84 * r, 0.2 * r, s * 0.45 * r, 0, s * 0.35, 0, 0.34 * r, 0.12 * r, 0.1 * r)]);   // weißer Augenfleck
+      teile.push([kM, 0x111111, matrix(0.98 * r, 0.2 * r, s * 0.46 * r, 0, 0, 0, 0.07 * r, 0.07 * r, 0.07 * r)]);
     }
     // Krone
     teile.push([G.zyl, 0xffd54a, matrix(0.55 * r, 0.62 * r, 0, 0, 0, 0, 0.3 * r, 0.1 * r, 0.3 * r)]);
     for (let i = 0; i < 6; i++) { const w = i / 6 * Math.PI * 2; teile.push([G.kegel4, 0xffd54a, matrix(0.55 * r + Math.cos(w) * 0.26 * r, 0.76 * r, Math.sin(w) * 0.26 * r, 0, 0, 0, 0.07 * r, 0.22 * r, 0.07 * r)]); }
     teile.push([G.okta, 0x2f7fe0, matrix(0.82 * r, 0.66 * r, 0, 0, 0, 0, 0.07 * r, 0.1 * r, 0.07 * r)]);
+    for (let i = 0; i < 6; i++) { const w = i / 6 * Math.PI * 2; teile.push([kM, i % 2 ? 0xe2463b : 0x35d0ff, matrix(0.55 * r + Math.cos(w) * 0.26 * r, 0.7 * r, Math.sin(w) * 0.26 * r, 0, 0, 0, 0.035 * r, 0.035 * r, 0.035 * r)]); }
+    teile.push([G.torus, 0xffe07a, matrix(0.55 * r, 0.64 * r, 0, Math.PI / 2, 0, 0, 0.29 * r, 0.29 * r, 0.5 * r)]);
+    // Maul mit Zähnen und rosa Zunge, Augenglanz
+    teile.push([kM, 0x3a1a22, matrix(1.3 * r, -0.12 * r, 0, 0, 0, 0, 0.18 * r, 0.04 * r, 0.34 * r)]);
+    for (let i = -3; i <= 3; i++) teile.push([G.kegel4, 0xffffff, matrix(1.33 * r, -0.07 * r, i * 0.09 * r, Math.PI, 0, 0, 0.03 * r, 0.1 * r, 0.03 * r)]);
+    for (const s of [-1, 1]) teile.push([kM, 0xffffff, matrix(1.02 * r, 0.24 * r, s * 0.46 * r, 0, 0, 0, 0.025 * r, 0.025 * r, 0.025 * r)]);
+    // goldene Kette um den Hals
+    teile.push([G.torus, 0xffd54a, matrix(0.62 * r, -0.02 * r, 0, 0, Math.PI / 2, 0, 0.56 * r, 0.52 * r, 0.5 * r)]);
+    teile.push([kM, 0xe2463b, matrix(0.75 * r, -0.5 * r, 0, 0, 0, 0, 0.08 * r, 0.08 * r, 0.08 * r)]);
     return verschmelzen(teile);
   }
   function fischGeo(typ) {
@@ -135,8 +169,12 @@
     if (typ === 'krakus') return krakeGeo(r, c, true);
     if (typ === 'rochen') return rochenGeo(r);
     const bauch = hell(c, 0.55), ruecken = dunkel(c, 0.15);
-    const teile = [];
-    let koerper = (x, y) => y < -0.25 * r ? bauch : y > 0.4 * r ? ruecken : rgb(c);
+    const teile = [], kM = kleineKugel(r);
+    const schuppe = (x, y) => 0.93 + 0.07 * hash(Math.round(x / (0.34 * r)), Math.round(y / (0.3 * r)));
+    let koerper = (x, y) => {
+      const u = mischA(mischA(bauch, rgb(c), glatt(-0.45 * r, 0.1 * r, y)), ruecken, glatt(0.25 * r, 0.7 * r, y)), k = schuppe(x, y);
+      return [u[0] * k, u[1] * k, u[2] * k];
+    };
     let flosse = dunkel(c, 0.25);
     let kScale = [1.2 * r, 0.72 * r, 0.62 * r];
     let schwanz = [0.6 * r, 0.85 * r];
@@ -162,16 +200,21 @@
       teile.push([G.kugel, koerper, matrix(0, 0, 0, 0, 0, 0, ...kScale)]);
     }
     // Schwanzflosse (senkrecht), Rückenflosse, Seitenflossen
-    teile.push([G.kegel, flosse, matrix(-kScale[0] - schwanz[1] * 0.3, 0, 0, 0, 0, -Math.PI / 2, schwanz[0], schwanz[1], schwanz[0] * 0.3)]);
+    const spitzen = (f0, laenge) => typeof f0 !== 'function' && Array.isArray(f0) ? ((x, y, z) => { const t = glatt(0, 1, laenge(x, y, z)) * 0.35; return [Math.min(1, f0[0] + t * 0.6), Math.min(1, f0[1] + t * 0.6), Math.min(1, f0[2] + t * 0.6)]; }) : f0;
+    teile.push([G.kegel, spitzen(flosse, (x) => (-x - kScale[0] - 0.2 * schwanz[1]) / schwanz[1]), matrix(-kScale[0] - schwanz[1] * 0.3, 0, 0, 0, 0, -Math.PI / 2, schwanz[0], schwanz[1], schwanz[0] * 0.3)]);
     const rueckenH = typ === 'wal' || typ === 'mega' ? 0.9 * r : 0.55 * r;
     teile.push([G.kegel, flosse, matrix(-0.1 * r, kScale[1] + rueckenH * 0.35, 0, 0, 0, 0.35, 0.38 * r, rueckenH, 0.08 * r)]);
     for (const s of [-1, 1]) {
       teile.push([G.kugel, flosse, matrix(0.25 * r, -0.2 * r, s * kScale[2] * 0.95, 0, s * 0.5, 0, 0.4 * r, 0.07 * r, 0.3 * r)]);
       const ax = kScale[0] * 0.66, ay = typ === 'wal' || typ === 'mega' ? 0.05 * r : 0.2 * r, az = s * kScale[2] * 0.62;
       const aug = typ === 'schwarz' ? 0.26 * r : typ === 'wal' || typ === 'mega' ? 0.1 * r : 0.2 * r;
-      teile.push([G.kugelGrob, 0xffffff, matrix(ax, ay, az, 0, 0, 0, aug, aug, aug)]);
-      teile.push([G.kugelGrob, 0x111111, matrix(ax + aug * 0.45, ay + aug * 0.1, az + s * aug * 0.45, 0, 0, 0, aug * 0.55, aug * 0.55, aug * 0.55)]);
+      teile.push([kM, 0xffffff, matrix(ax, ay, az, 0, 0, 0, aug, aug, aug)]);
+      teile.push([kM, 0x111111, matrix(ax + aug * 0.45, ay + aug * 0.1, az + s * aug * 0.45, 0, 0, 0, aug * 0.55, aug * 0.55, aug * 0.55)]);
+      teile.push([kM, 0xffffff, matrix(ax + aug * 0.75, ay + aug * 0.38, az + s * aug * 0.55, 0, 0, 0, aug * 0.2, aug * 0.2, aug * 0.2)]);
+      // Kiemenbogen
+      teile.push([kM, dunkel(c, 0.4), matrix(ax - aug * 2.2, ay - aug * 0.8, az + s * aug * 0.45, 0, 0, 0, aug * 0.28, aug * 1.5, aug * 0.12)]);
     }
+    if (typ !== 'koffer' && typ !== 'schwarz') teile.push([kM, dunkel(c, 0.55), matrix(kScale[0] * 0.93, -0.12 * r, 0, 0, 0, 0, 0.14 * r, 0.035 * r, 0.26 * r)]);
     if (typ === 'schwarz') {
       teile.push([G.zyl, 0x2b2f38, matrix(0.75 * r, 1.1 * r, 0, 0, 0, -0.7, 0.06 * r, 0.9 * r, 0.06 * r)]);
       teile.push([G.kugelGrob, 0xfff27a, matrix(1.15 * r, 1.45 * r, 0, 0, 0, 0, 0.22 * r, 0.22 * r, 0.22 * r)]);
@@ -194,17 +237,40 @@
 
   // Aussehen (Pinguin-Pass-Look), solange ein Pinguin gebaut wird; null = klassisch
   let look = null;
+  // Feine Einzelheiten eines Pinguins (Wangen, Augenglanz, Zehen, Schwanz, Unterschnabel) als EINE verschmolzene
+  // Geometrie je Größe und Rumpffarbe – ein Draw-Call, aber deutlich lebendigeres Gesicht.
+  const detailCache = new Map();
+  function pinguinDetail(s, rumpf) {
+    const key = s + '|' + rumpf;
+    if (detailCache.has(key)) return detailCache.get(key);
+    const t = [];
+    const M = (x, y, z, sx, sy, sz, rx = 0, ry = 0, rz = 0) => matrix(x * s, y * s, z * s, rx, ry, rz, sx * s, sy * s, sz * s);
+    for (const z of [-1, 1]) {
+      t.push([G.kugelMini, 0xffffff, M(8.15, 32.75, z * 3.05, 0.5, 0.5, 0.5)]);                 // Augenglanz
+      t.push([G.kugelMini, 0xffb4be, M(6.3, 28.4, z * 6, 1.9, 1.1, 0.9, 0, z * 0.5, 0)]);       // Bäckchen
+      t.push([G.kegel, 0xffb000, M(10, 2, z * 4.5, 0.6, 3.2, 0.8, 0, 0, -Math.PI / 2)]);          // Zehen
+      t.push([G.kegel, 0xffb000, M(9.4, 2, z * 4.5 - 1.7, 0.55, 2.8, 0.7, 0, 0.5, -Math.PI / 2)]);
+      t.push([G.kegel, 0xffb000, M(9.4, 2, z * 4.5 + 1.7, 0.55, 2.8, 0.7, 0, -0.5, -Math.PI / 2)]);
+    }
+    t.push([G.kegel, 0xe07a10, M(9.2, 28.7, 0, 1.9, 4.6, 1.9, 0, 0, -Math.PI / 2)]);            // Unterschnabel
+    t.push([G.kegel, dunkel(rumpf, 0.2), M(-9.5, 6.5, 0, 2.4, 6, 3, 0, 0, Math.PI / 2 + 0.5)]); // Schwanz
+    const geo = verschmelzen(t);
+    detailCache.set(key, geo);
+    return geo;
+  }
   function pinguinKoerper(g, teile, s = 1, rumpfFarbe = SCHWARZ) {
     const L = rumpfFarbe === SCHWARZ ? look : null;
     if (L) rumpfFarbe = L.rumpf;
-    const fell = L ? mat(L.rumpf, 'phong', { shininess:L.glanz ? 120 : 30, specular:L.glanz ? 0xffffff : 0x111111, emissive:L.leuchten || 0x000000 }) : mat(rumpfFarbe, 'phong', { shininess:30 });
-    const k = mesh(G.kugel, fell, 0, 16 * s, 0);
+    const fell = L ? mat(L.rumpf, 'phong', { shininess:L.glanz ? 120 : 30, specular:L.glanz ? 0xffffff : 0x111111, emissive:L.leuchten || 0x000000, vertexColors:true }) : mat(rumpfFarbe, 'phong', { shininess:30, specular:0x2a3347, vertexColors:true });
+    const k = mesh(G.kugelAO, fell, 0, 16 * s, 0);
     k.scale.set(10 * s, 14 * s, 10 * s);
-    const b = mesh(G.kugel, mat(L ? L.bauch : WEISS), 3.8 * s, 14.5 * s, 0);
+    const b = mesh(G.kugelAO, mat(L ? L.bauch : WEISS, 'lambert', { vertexColors:true }), 3.8 * s, 14.5 * s, 0);
     b.scale.set(7 * s, 11 * s, 7.6 * s);
-    const kopf = mesh(G.kugel, L ? fell : mat(SCHWARZ, 'phong', { shininess:30 }), 1 * s, 30 * s, 0);
+    const kopf = mesh(G.kugelAO, L ? fell : mat(SCHWARZ, 'phong', { shininess:30, specular:0x2a3347, vertexColors:true }), 1 * s, 30 * s, 0);
     kopf.scale.setScalar(8 * s);
     g.add(k, b, kopf);
+    const detail = new T.Mesh(pinguinDetail(s, rumpfFarbe), mat(0xffffff, 'lambert', { vertexColors:true }));
+    g.add(detail);
     if (L && L.extra === 'wangen') for (const z of [-1, 1]) { const w = mesh(G.kugel, mat(0xffb020), 1.5 * s, 28 * s, z * 6.6 * s); w.scale.set(3.2 * s, 2.4 * s, 1.6 * s); g.add(w); }
     if (L && L.extra === 'brille') {
       for (const z of [-1, 1]) { const gl = mesh(G.zyl, mat(0x111111, 'phong', { shininess:140, specular:0xffffff }), 7.8 * s, 32 * s, z * 3.4 * s); gl.scale.set(2.3 * s, 0.8 * s, 2.3 * s); gl.rotation.z = Math.PI / 2; g.add(gl); }
@@ -234,9 +300,24 @@
     g.add(schnabel);
     if (teile) teile.koerper = k;
   }
+  // Eis-Sockel mit Schneehaube und Eisklumpen als eine Geometrie (Helligkeit per Vertexfarbe, Tönung per Materialfarbe)
+  const sockelCache = new Map();
+  function sockelGeo(r) {
+    if (sockelCache.has(r)) return sockelCache.get(r);
+    const t = [];
+    t.push([G.zyl, (x, y) => (y < 1.2 ? [0.78, 0.9, 1] : [0.9, 0.96, 1]), matrix(0, 1.2, 0, 0, 0, 0, r + 3, 2.4, r + 3)]);
+    t.push([G.kuppel, [1, 1, 1], matrix(0, 2.4, 0, 0, 0, 0, r + 0.5, 0.85, r + 0.5)]);
+    for (let i = 0; i < 9; i++) {
+      const w = i / 9 * Math.PI * 2 + hash(i, r) * 0.6, d = r + 1 + hash(i, r + 3) * 2.5, k = 1.6 + hash(r, i) * 1.8;
+      t.push([G.ikosa0, [0.82 + hash(i, 5) * 0.18, 0.93, 1], matrix(Math.cos(w) * d, 0.9, Math.sin(w) * d, 0, w, 0, k, k * 0.7, k)]);
+    }
+    const geo = verschmelzen(t);
+    sockelCache.set(r, geo);
+    return geo;
+  }
   function sockel(g, r = 17, farbe = 0xffffff) {
-    const s = mesh(G.zyl, mat(farbe), 0, 1.5, 0);
-    s.scale.set(r + 2, 3, r + 2);
+    const s = new T.Mesh(sockelGeo(r), mat(farbe, 'lambert', { vertexColors:true }));
+    s.castShadow = true;
     s.receiveShadow = true;
     g.add(s);
   }
