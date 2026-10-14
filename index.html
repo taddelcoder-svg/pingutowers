@@ -738,5 +738,15 @@
 <script src="js/welt3d.js"></script>
 <script src="js/ton.js"></script>
 <script src="js/oberflaeche.js"></script>
+
+<!-- Rangliste der Spielesammlung: meldet Spielzeit, Punkte und Progress -->
+<script>
+window.SLRangAdapter=function(){
+  var m={};try{m=JSON.parse(localStorage.getItem('pt-medaillen'))||{}}catch(e){}
+  var ks=Object.keys(m),n=ks.filter(function(k){return /\|standard$/.test(k)}).length;
+  return{punkte:ks.length*100,progress:Math.min(100,n/32*100)}
+};
+</script>
+<script src="https://rangliste-aoee.onrender.com/melder.js" data-spiel="Pinguin Türmchen" defer></script>
 </body>
 </html>
