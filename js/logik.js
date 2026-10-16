@@ -114,8 +114,9 @@
       const st = PT.STUFEN[this.stufe];
       this.zielRunden = runden || rg.runden || md.runden || st.runden;
       this.unendlich = this.modus === 'sandkasten';
-      this.geldFaktor = this.modus === 'halb' ? 0.5 : 1;
-      this.geld = this.unendlich ? 999999 : (rg.geld || st.geld) + (bo.geld || 0);
+      const kartenGeld = this.kartenDaten.geld || 1;
+      this.geldFaktor = (this.modus === 'halb' ? 0.5 : 1) * kartenGeld;
+      this.geld = this.unendlich ? 999999 : Math.round((rg.geld || st.geld) * kartenGeld) + (bo.geld || 0);
       this.leben = this.unendlich ? 999999 : (rg.leben || st.leben) + (st.leben > 1 && !rg.leben ? bo.leben || 0 : 0);
       // Koop: Startgeld pro Spieler, getrennt hat jeder seine eigene Kasse
       this.spieler = [];

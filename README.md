@@ -11,7 +11,9 @@ Fisch – vom Rotbarsch bis zur Riesenkrake, zu Krakus und Kaiser Orka. Allein o
   Eistunnel (Mittel, zwei Tunnel – darunter sieht nur der Taucher-Pinguin die Fische), Schmelzscholle
   (Mittel, Eisflächen schmelzen in Runde 10, 15, 20, 25 und 30 zu Wasser; wer dort steht, bekommt sein
   Geld zurück, danach dürfen Boote hin), Erebus-Krater (Mittel, mit Vulkan und Lavaspalten), Polarnacht,
-  Doppelstrom (Profi, zwei Kanäle), Treibeis-Inseln (Profi, viele Wasserlöcher) und Dreizack (Profi, drei Kanäle).
+  Doppelstrom (Profi, zwei Kanäle), Treibeis-Inseln (Profi, viele Wasserlöcher) und Dreizack (Profi, drei
+  Schlangen-Kanäle). Weil sich die Fische auf mehrere Kanäle aufteilen, gibt es dort mehr Geld (Startgeld und
+  alle Einnahmen × 1,5 bei zwei, × 1,8 bei drei Kanälen; gilt auch für eigene Karten).
 - **Karten-Editor:** Kanäle (bis zu drei) zeichnen, Eisberge, Wasserlöcher und Tunnel setzen, Thema wählen,
   speichern, spielen und als Link teilen (`?karte=…`). Eigene Karten gehen auch im Koop (der Gastgeber wählt sie).
 - **4 Stufen:** Leicht (30 Runden, 200 Leben, Preise −15 %), Mittel (40 Runden, 150 Leben),
