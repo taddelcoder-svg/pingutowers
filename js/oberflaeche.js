@@ -1,6 +1,6 @@
 'use strict';
-// Pingu Towers – Menü, Seitenleiste, Fähigkeiten, Eingabe (auch Zoom), Hauptschleife, Speicherstand,
-// Medaillen und Olympiade.
+// Pinguin Türmchen – Menü, Seitenleiste, Fähigkeiten, Eingabe (auch Zoom), Hauptschleife, Speicherstand,
+// Medaillen, Olympiade, Pinguin-Pass und Koop (Verbindung zum Server, Takt für Takt nachrechnen).
 (function () {
   const PT = window.PT;
   const $ = s => document.querySelector(s);
@@ -14,8 +14,11 @@
 
   let welt = null, spiel = null, auswahl = null, bauTyp = null, zeiger = null, zielModus = null;
   let tempo = 1, pausiert = false, zeitRest = 0, letzte = 0, autoWarte = 0;
-  let wahl = Object.assign({ karte:'scholle', stufe:'mittel', modus:'standard', held:'kiel' }, speicher.lesen('pt-wahl') || {});
-  if (!PT.KARTEN[wahl.karte]) wahl.karte = 'scholle';
+  let wahl = Object.assign({ karte:'scholle', stufe:'mittel', modus:'standard', held:'kiel', kraft:true }, speicher.lesen('pt-wahl') || {});
+  // eigene Karten aus dem Editor: [{ id, ...Karte }]
+  let eigeneKarten = (speicher.lesen('pt-karten') || []).map(k => { const ok = PT.karteOk(k); return ok && k.id ? { ...ok, id:String(k.id) } : null; }).filter(Boolean);
+  const eigeneKarte = id => eigeneKarten.find(k => 'eigen:' + k.id === id) || null;
+  if (!PT.KARTEN[wahl.karte] && !eigeneKarte(wahl.karte)) wahl.karte = 'scholle';
   if (!PT.STUFEN[wahl.stufe]) wahl.stufe = 'mittel';
   if (!PT.MODI[wahl.modus]) wahl.modus = 'standard';
   if (wahl.held && !PT.HELDEN[wahl.held]) wahl.held = 'kiel';
@@ -24,9 +27,367 @@
   let olymp = null;   // { ticket, info, einst } wenn als Olympia-Disziplin gespielt wird
   const medaillen = speicher.lesen('pt-medaillen') || {};
 
+  /* ---------- Einstellungen ---------- */
+  const einstellung = Object.assign({ laut:60, design:'auto', vorschau:true, balken:true, texte:true, wackeln:true, autoStart:false }, speicher.lesen('pt-einst') || {});
+  function einstAnwenden() {
+    if (einstellung.design === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', einstellung.design);
+    if (PT.Ton.lautstaerke) PT.Ton.lautstaerke(einstellung.laut / 100);
+    if (welt) { welt.lebensbalken = einstellung.balken; welt.texteAn = einstellung.texte; welt.kameraWackeln = einstellung.wackeln; }
+  }
+
+  /* ---------- Fortschritt: Fischmünzen, Wissen, Erfolge, Aufträge, Tages-Herausforderung ---------- */
+  const fort = Object.assign({ muenzen:0, wissen:{}, wissenAn:true, erfolge:{}, lebenslang:{ platzer:0, tage:0, siege:0 }, auftraege:null, tage:{} }, speicher.lesen('pt-fortschritt') || {});
+  fort.lebenslang = Object.assign({ platzer:0, tage:0, siege:0 }, fort.lebenslang);
+  const fortMerken = () => speicher.schreiben('pt-fortschritt', fort);
+  let tagesAktiv = null;          // Datum der Tages-Herausforderung, die gerade gespielt wird
+  let spielLohn = { xp:0, muenzen:0, erfolge:[] };   // was dieses Spiel gebracht hat (fürs Ergebnisbild)
+  let zaehler = null;             // Stand der Zähler beim letzten Melden (Aufträge, lebenslange Fische)
+  function auftraegeHeute() {
+    const d = PT.heute();
+    if (!fort.auftraege || fort.auftraege.datum !== d) { fort.auftraege = { datum:d, stand:{}, fertig:{} }; fortMerken(); }
+    return PT.tagesAuftraege(d);
+  }
+  function muenzenDazu(n, warum) {
+    if (!n) return;
+    fort.muenzen += n; spielLohn.muenzen += n; fortMerken();
+    if (warum) kurzTipp(`🪙 +${n} Fischmünzen – ${warum}`);
+  }
+  const boniAktiv = () => (!olymp && !tagesAktiv && fort.wissenAn !== false ? PT.boniAus(fort.wissen) : null);
+
+  /* ---------- Pinguin-Pass ---------- */
+  const pass = Object.assign({ xp:0, skin:'standard', sockel:'standard' }, speicher.lesen('pt-pass') || {});
+  const passStufe = () => PT.passStufe(pass.xp).stufe;
+  if (!PT.SKINS[pass.skin] || !PT.skinFrei(pass.skin, passStufe())) pass.skin = 'standard';
+  if (!PT.SOCKEL[pass.sockel] || !PT.sockelFrei(pass.sockel, passStufe())) pass.sockel = 'standard';
+  let lookBilder = {}, sockelBilder = {};
+  function belohnungText(b) {
+    if (b.skin) return `Neuer Look: ${PT.SKINS[b.skin].name}`;
+    if (b.sockel) return `Neuer Sockel: ${PT.SOCKEL[b.sockel].name}`;
+    if (b.muenzen) return `${b.muenzen} Fischmünzen`;
+    return `Meisterkraft für ${PT.HELDEN[b.kraft].name}`;
+  }
+  function xpDazu(n) {
+    if (!n || !spiel || spiel.unendlich) return;
+    const vor = passStufe();
+    pass.xp += n;
+    spielLohn.xp += n;
+    speicher.schreiben('pt-pass', pass);
+    const nach = passStufe();
+    for (let st = vor + 1; st <= nach; st++) {
+      const b = PT.PASS_BELOHNUNG[st];
+      banner(`🎖️ Pinguin-Pass Stufe ${st}!`, b ? belohnungText(b) : 'Weiter so!', 3);
+      if (b && b.muenzen) muenzenDazu(b.muenzen);
+      PT.Ton.upgrade();
+    }
+  }
+  // Zähler seit dem letzten Melden: Aufträge, lebenslange Fische (nach jeder Runde und am Spielende)
+  function zaehlerStand() {
+    const pops = {};
+    for (const t of spiel.tuerme) pops[t.typ] = (pops[t.typ] || 0) + t.pops;
+    return { platzer:spiel.statistik.platzer, faehigkeiten:spiel.statistik.faehigkeiten || 0, stufe5:spiel.statistik.stufe5 || 0, pops };
+  }
+  function fortschrittMelden(art) {
+    if (!spiel || spiel.unendlich || olymp) return;
+    const jetzt = zaehlerStand(), alt = zaehler || jetzt;
+    zaehler = jetzt;
+    const d = (k) => Math.max(0, (jetzt[k] || 0) - (alt[k] || 0));
+    fort.lebenslang.platzer += d('platzer');
+    const liste = auftraegeHeute(), A = fort.auftraege;
+    for (const a of liste) {
+      if (A.fertig[a.id]) continue;
+      let plus = 0;
+      if (a.art === 'platzer') plus = d('platzer');
+      if (a.art === 'faehigkeiten') plus = d('faehigkeiten');
+      if (a.art === 'stufe5') plus = d('stufe5');
+      if (a.art === 'runden' && art === 'runde') plus = 1;
+      if (a.art === 'sieg' && art === 'sieg') plus = 1;
+      if (a.art === 'pinguin') plus = Math.max(0, (jetzt.pops[a.typ] || 0) - (alt.pops[a.typ] || 0));
+      if (!plus) continue;
+      A.stand[a.id] = Math.min(a.ziel, (A.stand[a.id] || 0) + plus);
+      if (A.stand[a.id] >= a.ziel) {
+        A.fertig[a.id] = true;
+        banner('📋 Auftrag erledigt!', `${a.text} · +${a.xp} Erfahrung · +${a.muenzen} 🪙`, 3);
+        PT.Ton.aufstieg && PT.Ton.aufstieg();
+        fortMerken();
+        xpDazu(a.xp);
+        muenzenDazu(a.muenzen);
+      }
+    }
+    if (art === 'sieg') fort.lebenslang.siege++;
+    if (art === 'runde' && spiel.runde % 5 === 0) muenzenDazu(1);
+    fortMerken();
+    erfolgeCheck(art === 'sieg' || art === 'verloren', art === 'sieg');
+  }
+  function erfolgeCheck(ende, gewonnen) {
+    if (!spiel || olymp) return;
+    const neu = PT.erfolgePruefen({ spiel, gewonnen, ende, geld:meinGeld(), lebenslang:fort.lebenslang, passStufe:passStufe(), medaillen }, fort.erfolge);
+    for (const e of neu) {
+      fort.erfolge[e.id] = PT.heute();
+      spielLohn.erfolge.push(e);
+      banner(`🏆 Erfolg: ${e.name}`, `${e.text} · +${e.muenzen} 🪙`, 3);
+      muenzenDazu(e.muenzen);
+    }
+    if (neu.length) fortMerken();
+  }
+  // Meisterkraft im Einzelspiel: freigeschaltet und eingeschaltet (in der Olympiade nie)
+  const kraftAktiv = held => !olymp && wahl.kraft !== false && !!held && PT.kraftFrei(held, passStufe());
+  function passBauen() {
+    const info = PT.passStufe(pass.xp);
+    $('#passStufe').textContent = `🎖️ Pinguin-Pass · Stufe ${info.stufe}${info.stufe >= PT.PASS_MAX ? ' (Maximum)' : ''}`;
+    $('#passXp').textContent = info.bedarf ? `${zahl(info.rest)} / ${zahl(info.bedarf)} Erfahrung` : `${zahl(pass.xp)} Erfahrung`;
+    $('#passBalken').style.width = (info.bedarf ? Math.round(info.rest / info.bedarf * 100) : 100) + '%';
+    const naechste = Object.keys(PT.PASS_BELOHNUNG).map(Number).find(st => st > info.stufe);
+    $('#passNaechst').textContent = naechste ? `Nächste Belohnung auf Stufe ${naechste}: ${belohnungText(PT.PASS_BELOHNUNG[naechste])}.` : 'Alles freigeschaltet!';
+    $('#muenzen').textContent = `🪙 ${zahl(fort.muenzen)}`;
+    // Leiste mit den Belohnungen rund um die aktuelle Stufe
+    const von = Math.max(1, Math.min(info.stufe - 2, PT.PASS_MAX - 9));
+    let leiste = '';
+    for (let st = von; st <= Math.min(PT.PASS_MAX, von + 11); st++) {
+      const b = PT.PASS_BELOHNUNG[st];
+      const bild = b && b.skin && lookBilder[b.skin] ? `<img src="${lookBilder[b.skin]}" alt="">` : b && b.sockel && sockelBilder[b.sockel] ? `<img src="${sockelBilder[b.sockel]}" alt="">`
+        : `<i>${!b ? '🎖️' : b.muenzen ? '🪙' : b.kraft ? '✨' : '🎁'}</i>`;
+      const name = !b ? 'Stufe' : b.skin ? PT.SKINS[b.skin].name : b.sockel ? 'Sockel ' + PT.SOCKEL[b.sockel].name : b.muenzen ? `${b.muenzen} Münzen` : 'Meisterkraft';
+      leiste += `<div class="stufe-chip ${st <= info.stufe ? 'da' : ''} ${st === info.stufe ? 'jetzt' : ''}"><b>${st}</b>${bild}<span>${esc(name)}</span></div>`;
+    }
+    $('#passLeiste').innerHTML = leiste;
+    // Tagesaufträge
+    const auf = auftraegeHeute();
+    $('#auftraege').innerHTML = auf.map(a => {
+      const st = fort.auftraege.stand[a.id] || 0, fertig = !!fort.auftraege.fertig[a.id];
+      return `<li class="${fertig ? 'fertig' : ''}">${fertig ? '✅' : '🎯'} ${esc(a.text)}<small>${fertig ? 'Erledigt!' : `${zahl(st)} / ${zahl(a.ziel)}`} · +${a.xp} Erfahrung · +${a.muenzen} 🪙</small><div class="mini"><i style="width:${Math.round(st / a.ziel * 100)}%"></i></div></li>`;
+    }).join('');
+    const sockelEl = $('#sockel');
+    sockelEl.innerHTML = PT.SOCKEL_REIHE.map(id => {
+      const frei = PT.sockelFrei(id, info.stufe);
+      return `<button class="look" data-sockel="${id}" aria-pressed="${pass.sockel === id}" ${frei ? '' : 'disabled'}><img src="${sockelBilder[id] || ''}" alt=""><b>${esc(PT.SOCKEL[id].name)}</b><small>${frei ? (pass.sockel === id ? 'Aktiv' : 'Benutzen') : `🔒 Stufe ${PT.belohnungStufe('sockel', id) || '?'}`}</small></button>`;
+    }).join('');
+    for (const b of sockelEl.querySelectorAll('[data-sockel]')) b.onclick = () => sockelWaehlen(b.dataset.sockel);
+    const looks = $('#looks');
+    looks.innerHTML = PT.SKIN_REIHE.map(id => {
+      const frei = PT.skinFrei(id, info.stufe);
+      const ab = Object.entries(PT.PASS_BELOHNUNG).find(([, b]) => b.skin === id);
+      return `<button class="look" data-look="${id}" aria-pressed="${pass.skin === id}" ${frei ? '' : 'disabled'}><img src="${lookBilder[id] || ''}" alt=""><b>${esc(PT.SKINS[id].name)}</b><small>${frei ? (pass.skin === id ? 'Aktiv' : 'Anziehen') : `🔒 Stufe ${ab ? ab[0] : '?'}`}</small></button>`;
+    }).join('');
+    for (const b of looks.querySelectorAll('[data-look]')) b.onclick = () => lookWaehlen(b.dataset.look);
+    $('#kraeftePass').innerHTML = PT.HELDEN_REIHE.map(h => {
+      const ab = Object.entries(PT.PASS_BELOHNUNG).find(([, b]) => b.kraft === h);
+      const frei = PT.kraftFrei(h, info.stufe);
+      return `<li class="${frei ? 'da' : ''}">${frei ? '✨' : '🔒'} <b>${esc(PT.HELDEN[h].name)}</b>${frei ? '' : ` (Stufe ${ab ? ab[0] : '?'})`}: ${esc(PT.HELDEN[h].kraft.text)}</li>`;
+    }).join('');
+  }
+  function lookWaehlen(id) {
+    if (!PT.skinFrei(id, passStufe()) || pass.skin === id) return;
+    pass.skin = id;
+    speicher.schreiben('pt-pass', pass);
+    PT.Ton.klick();
+    bilderMalen(false, true);
+    if (netz && netz.raum) senden({ t:'wahl', held:meinMitglied() ? meinMitglied().held : wahl.held, kraft:kraftAktivKoop(), skin:pass.skin, sockel:pass.sockel });
+    menueBauen();
+  }
+  function sockelWaehlen(id) {
+    if (!PT.sockelFrei(id, passStufe()) || pass.sockel === id) return;
+    pass.sockel = id;
+    speicher.schreiben('pt-pass', pass);
+    PT.Ton.klick();
+    bilderMalen();
+    if (netz && netz.raum) senden({ t:'wahl', held:meinMitglied() ? meinMitglied().held : wahl.held, kraft:kraftAktivKoop(), skin:pass.skin, sockel:pass.sockel });
+    menueBauen();
+  }
+  // Vorschaubilder im aktuellen Look (Laden, Helden), alle Looks und Sockel für den Pass
+  function bilderMalen(mitLooks, nurSockel) {
+    const b = PT.Welt.bilder([...PT.PINGUIN_REIHE, ...PT.HELDEN_REIHE], mitLooks ? [...PT.FISCH_REIHE, ...PT.BOSS_REIHE] : [], pass.skin, mitLooks ? PT.SKIN_REIHE : [],
+      pass.sockel, mitLooks || nurSockel ? PT.SOCKEL_REIHE : []);
+    bilder = b.pingu;
+    if (mitLooks) { fischBilder = b.fisch; lookBilder = b.look; }
+    if (mitLooks || nurSockel) sockelBilder = b.sockel;
+  }
+
+  /* ---------- Koop: Verbindung zum Server ----------
+     netz.raum ist der Raum, wie der Server ihn zuletzt geschickt hat. Im Spiel rechnet der Browser Takt für
+     Takt nach, was der Server vorgibt (netz.n = zuletzt gerechneter Takt, netz.ziel = letzter bekannter). */
+  let koopReiter = false;
+  let netz = null;
+  const ich = () => (spiel && spiel.koop && netz ? netz.id : null);
+  const meinGeld = () => (spiel ? spiel.kasse(ich()).geld : 0);
+  const imKoop = () => !!(spiel && spiel.koop);
+  const meinMitglied = () => (netz && netz.raum && netz.raum.mitglieder ? netz.raum.mitglieder.find(m => m.id === netz.id) : null);
+  const binHost = () => !!(netz && netz.raum && netz.raum.host === netz.id);
+  const kraftAktivKoop = (held) => { const m = meinMitglied(); const h = held !== undefined ? held : m ? m.held : wahl.held; return wahl.kraft !== false && !!h && PT.kraftFrei(h, passStufe()); };
+  function senden(d) {
+    if (!netz) return;
+    if (netz.ws && netz.ws.readyState === 1) netz.ws.send(JSON.stringify(d));
+    else if (netz.warte.length < 20) netz.warte.push(d);
+  }
+  function netzVerbinden() {
+    if (!netz) netz = { id:null, token:null, raum:null, ws:null, warte:[], befehle:[], n:0, ziel:0, rest:0, ref:1, versuche:0 };
+    if (netz.ws && netz.ws.readyState <= 1) return;
+    let ws;
+    try { ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`); } catch (e) { koopFehler('Keine Verbindung zum Server.'); return; }
+    netz.ws = ws;
+    ws.onopen = () => {
+      netz.versuche = 0;
+      const alt = speicher.lesen('pt-koop', sessionStorage);
+      ws.send(JSON.stringify({ t:'hallo', name:koopName(), skin:pass.skin, sockel:pass.sockel, token:alt && alt.token, code:alt && alt.code }));
+      for (const d of netz.warte.splice(0)) ws.send(JSON.stringify(d));
+      koopFehler('');
+      if (imKoop()) kurzTipp('Wieder verbunden.');
+    };
+    ws.onmessage = e => { let d; try { d = JSON.parse(e.data); } catch (_) { return; } netzNachricht(d); };
+    ws.onclose = () => {
+      if (netz.ws !== ws) return;
+      netz.ws = null;
+      if (!netz.raum && !koopReiter) return;
+      netz.versuche++;
+      if (imKoop()) tipp('Verbindung weg – verbinde neu …');
+      else koopFehler(netz.versuche > 2 ? 'Keine Verbindung zum Server. Ich versuche es weiter …' : '');
+      setTimeout(netzVerbinden, Math.min(8000, 800 * netz.versuche));
+    };
+  }
+  function koopName() { return ($('#koopName').value || '').trim().slice(0, 16); }
+  function koopFehler(text) { $('#koopFehler').textContent = text || ''; }
+  function netzNachricht(d) {
+    switch (d.t) {
+      case 'du': netz.id = d.id; netz.token = d.token; break;
+      case 'fehler':
+        if (imKoop() && !$('#spiel').hidden) kurzTipp(d.text); else koopFehler(d.text);
+        PT.Ton.fehler();
+        break;
+      case 'raum': {
+        const alt = netz.raum;
+        if (!d.code) {
+          netz.raum = null;
+          speicher.weg('pt-koop', sessionStorage);
+          if (imKoop()) { zumMenue(); koopFehler('Die Partie ist vorbei.'); }
+          if (!$('#menue').hidden) menueBauen();
+          break;
+        }
+        netz.raum = d;
+        speicher.schreiben('pt-koop', { token:netz.token, code:d.code }, sessionStorage);
+        koopReiter = true;
+        // gerade beigetreten: eigenen Helden, Meisterkraft und Look mitteilen
+        if ((!alt || alt.code !== d.code) && d.phase === 'lobby') senden({ t:'wahl', held:wahl.held, kraft:kraftAktivKoop(wahl.held), skin:pass.skin, sockel:pass.sockel });
+        if (d.phase === 'lobby' && imKoop()) zumMenue();
+        if (d.phase === 'spiel' && imKoop()) {
+          tempo = d.tempo;
+          $('#auto').checked = d.auto;
+          koopPauseZeigen();
+          letzteAnzeige = '';
+          // Looks und Farben der Mitspieler können sich geändert haben (z. B. nach Wiederverbinden)
+          if (alt && JSON.stringify(alt.mitglieder.map(m => m.skin + m.sockel)) !== JSON.stringify(d.mitglieder.map(m => m.skin + m.sockel)) && welt) welt.allesNeu();
+        }
+        if (!$('#menue').hidden) menueBauen();
+        break;
+      }
+      case 'zustand': koopZustand(d); break;
+      case 'takt':
+        if (!imKoop()) break;
+        for (const x of d.b) if (x[0] > netz.n) netz.befehle.push(x);
+        netz.ziel = Math.max(netz.ziel, d.n);
+        break;
+    }
+  }
+  function koopZustand(d) {
+    const neu = PT.Spiel.ausZustand(d.z);
+    netz.n = d.n; netz.ziel = d.n; netz.rest = 0;
+    netz.befehle = netz.befehle.filter(x => x[0] > d.n);
+    if (!spiel || !spiel.koop || $('#spiel').hidden || spiel.karte !== neu.karte) { spielStarten(neu); tempo = d.tempo || 1; return; }
+    tempo = d.tempo || 1;
+    // Spielstand vom Server übernehmen (Abweichung oder Wiederverbinden): Pinguine neu bauen, Auswahl behalten
+    const altId = auswahl && auswahl.id;
+    spiel = neu;
+    welt.allesNeu();
+    auswahl = altId ? spiel.tuerme.find(t => t.id === altId) || null : null;
+    zielModus = null;
+    ladenBauen(); seiteZeigen();
+    fkSchluessel = ''; letzteAnzeige = '';
+  }
+  // Takte nachrechnen: ein kleiner Puffer gleicht das Netz aus, bei Rückstand wird aufgeholt
+  function koopRechnen(dt) {
+    const vorne = netz.ziel - netz.n;
+    if (vorne <= 0) { netz.rest = 0; return; }
+    netz.rest += dt * 60 * tempo;
+    let n = Math.floor(netz.rest);
+    netz.rest -= n;
+    if (vorne - n > 8 * tempo + 6) n = vorne - 3 * tempo;
+    n = Math.min(n, vorne, 600);
+    for (let i = 0; i < n; i++) {
+      const k = ++netz.n;
+      while (netz.befehle.length && netz.befehle[0][0] <= k) {
+        const [kk, sp, b] = netz.befehle.shift();
+        if (kk < k) continue;
+        const res = spiel.befehl(sp, b);
+        if (sp === netz.id && b.ref != null) ergebnis(b, res);
+      }
+      spiel.schritt(1 / 60);
+      if (k % 60 === 0) senden({ t:'p', n:k, h:spiel.pruefsumme() });
+    }
+  }
+  function koopPauseZeigen() {
+    const p = netz && netz.raum && netz.raum.pause;
+    if (!imKoop()) return;
+    if (p) { pause(true, true); $('#pauseTitel').textContent = `Pause (${p})`; }
+    else if (!$('#pause').hidden) { $('#pause').hidden = true; pausiert = false; }
+  }
+  function koopVerlassen() {
+    senden({ t:'verlassen' });
+    speicher.weg('pt-koop', sessionStorage);
+    netz.raum = null;
+    zumMenue();
+  }
+  function mitspielerZeigen() {
+    const el = $('#mitspieler');
+    if (!imKoop()) { el.hidden = true; return ''; }
+    el.hidden = false;
+    const online = id => { const m = netz.raum && netz.raum.mitglieder.find(x => x.id === id); return !m || m.online; };
+    const getrennt = spiel.geldModus === 'getrennt';
+    const html = spiel.spieler.map(x => `<span class="sp ${online(x.id) ? '' : 'weg'} ${x.id === netz.id ? 'ich' : ''}" style="--f:${PT.KOOP_FARBEN[x.farbe]}"><i></i>${esc(x.name)}${getrennt ? ` <b>${spiel.unendlich ? '∞' : zahl(x.geld)}</b>` : ''}</span>`).join('');
+    if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; }
+    return html;
+  }
+
+  /* ---------- Befehle: im Einzelspiel sofort, im Koop über den Server ---------- */
+  function tun(b) {
+    if (!imKoop()) { const res = spiel.befehl(null, b); ergebnis(b, res); return res; }
+    b.ref = netz.ref++;
+    senden({ t:'b', b });
+    return undefined;
+  }
+  function ergebnis(b, res) {
+    switch (b.t) {
+      case 'bau':
+        if (res) {
+          PT.Ton.bauen();
+          if (!(b.weiter && spiel.preisBau(b.typ) <= meinGeld())) { bauTyp = null; welt.geistZeigen(null); tipp(''); turmWaehlen(res); }
+        } else {
+          PT.Ton.fehler();
+          const d = PT.def(b.typ);
+          kurzTipp(spiel.preisBau(b.typ, b.x, b.y) > meinGeld() ? 'Nicht genug Geld.' : d.wasser ? 'Boote passen nur in die runden Wasserlöcher.' : 'Hier ist kein Platz – nicht ins Wasser, nicht auf Eisberge, nicht zu nah an andere Pinguine.');
+        }
+        break;
+      case 'up': {
+        const t = spiel.tuerme.find(x => x.id === b.id);
+        if (res) { PT.Ton.upgrade(); if (t && t.pfade[b.pfad] === 5) banner(PT.PINGUINE[t.typ].pfade[b.pfad][4].name, 'Stufe 5!', 1.8); }
+        else PT.Ton.fehler();
+        break;
+      }
+      case 'stufe': if (res) PT.Ton.upgrade(); else PT.Ton.fehler(); break;
+      case 'verkauf': if (res) { PT.Ton.verkaufen(); if (auswahl && auswahl.id === b.id) turmWaehlen(null); } break;
+      case 'fk':
+        if (res) { PT.Ton.faehigkeit(); const f = PT.FAEHIGKEITEN[b.fk]; banner(`${f.symbol} ${f.name}`, '', 1.2); }
+        else { PT.Ton.fehler(); kurzTipp('Die Fähigkeit lädt noch.'); }
+        break;
+      case 'start': if (res) { tipp(''); if (olymp) olympMelden('da'); } break;
+      case 'sand': PT.Ton.klick(); break;
+      case 'leeren': PT.Ton.verkaufen(); break;
+    }
+    letzteAnzeige = '';
+    anzeigen();
+  }
+
   /* ---------- Menü ---------- */
   function kartenVorschau(canvas, id) {
-    const k = PT.KARTEN[id];
+    const k = typeof id === 'string' ? PT.KARTEN[id] || eigeneKarte(id) : id;
     canvas.width = 500; canvas.height = 320;
     const x = canvas.getContext('2d');
     x.scale(0.5, 0.5);
@@ -50,33 +411,124 @@
       x.fillStyle = '#2a8fc4'; x.strokeStyle = '#fff'; x.lineWidth = 6;
       x.beginPath(); x.arc(wx, wy, wr, 0, Math.PI * 2); x.fill(); x.stroke();
     }
+    for (const [sx, sy, sr] of k.schmelzen || []) {
+      x.fillStyle = 'rgba(94,200,255,0.45)'; x.strokeStyle = '#2a8fc4'; x.lineWidth = 4; x.setLineDash([10, 8]);
+      x.beginPath(); x.arc(sx, sy, sr, 0, Math.PI * 2); x.fill(); x.stroke(); x.setLineDash([]);
+    }
+    for (const [tx, ty, tr] of k.tunnel || []) {
+      x.fillStyle = k.thema === 'nacht' ? '#8ea3c4' : '#e4f5ff'; x.strokeStyle = '#9cc6e0'; x.lineWidth = 5;
+      x.beginPath(); x.arc(tx, ty, tr, 0, Math.PI * 2); x.fill(); x.stroke();
+    }
+  }
+  PT.kartenVorschau = kartenVorschau;
+  /* ---------- Medaillen ----------
+     Pro Karte eine Medaille je Schwierigkeit (im Standardmodus) und eine je Spielmodus. Die Modus-Medaille
+     hat die Farbe der schwersten Stufe, auf der der Modus dort geschafft wurde. */
+  const STUFEN_REIHE = Object.keys(PT.STUFEN);
+  const medModi = () => PT.MODI_REIHE.filter(m => m !== 'standard' && m !== 'sandkasten');
+  function besteStufe(karte, modus) {
+    let beste = null;
+    for (const id of STUFEN_REIHE) if (medaillen[`${karte}|${id}|${modus}`]) beste = id;
+    return beste;
+  }
+  function modusMuenze(karte, modus, gross) {
+    const m = PT.MODI[modus], beste = besteStufe(karte, modus);
+    const titel = `${m.name}: ${beste ? 'geschafft auf ' + PT.STUFEN[beste].name : 'noch nicht geschafft'}`;
+    return `<i class="muenze ${beste ? 'm-' + beste : 'aus'}${gross ? ' gross' : ''}" title="${esc(titel)}" aria-label="${esc(titel)}">${m.symbol}</i>`;
   }
   function medaillenText(karte) {
-    const stufen = Object.entries(PT.STUFEN).map(([id, st]) => `<i class="${medaillen[`${karte}|${id}|standard`] ? '' : 'aus'}" title="${esc(st.name)}">${st.medaille}</i>`).join('');
-    const modi = new Set(Object.keys(medaillen).filter(k => k.startsWith(karte + '|') && !k.endsWith('|standard') && !k.endsWith('|sandkasten')).map(k => k.split('|')[2]));
-    return `<div class="medaillen">${stufen}${modi.size ? `<em>+${modi.size} ${modi.size === 1 ? 'Modus' : 'Modi'}</em>` : ''}</div>`;
+    const stufen = STUFEN_REIHE.map(id => {
+      const st = PT.STUFEN[id], an = !!medaillen[`${karte}|${id}|standard`];
+      return `<i class="stufen-med${an ? '' : ' aus'}" title="${esc(st.name)}: ${an ? 'geschafft' : 'noch nicht geschafft'}">${st.medaille}</i>`;
+    }).join('');
+    const modi = medModi();
+    const anz = STUFEN_REIHE.filter(id => medaillen[`${karte}|${id}|standard`]).length + modi.filter(m => besteStufe(karte, m)).length;
+    const alle = STUFEN_REIHE.length + modi.length;
+    return `<div class="medaillen${anz === alle ? ' komplett' : ''}"><div class="med-reihe">${stufen}<small class="med-zahl">${anz}/${alle}</small></div>
+      <div class="med-reihe modi">${modi.map(m => modusMuenze(karte, m)).join('')}</div></div>`;
+  }
+  const CHIP_KLASSE = { 'Anfänger':'st-leicht', Mittel:'st-mittel', Profi:'st-profi', Eigene:'st-eigen' };
+  // Zusammenfassung der Auswahl in der Start-Leiste
+  function losInfoZeigen(E, held) {
+    const k = E.karte === 'eigen' ? E.eigen : String(E.karte).startsWith('eigen:') ? eigeneKarten.find(x => 'eigen:' + x.id === E.karte) : PT.KARTEN[E.karte];
+    const st = PT.STUFEN[E.stufe], m = PT.MODI[olymp ? 'standard' : E.modus];
+    const teile = [k && '🗺️ ' + k.name, st && st.medaille + ' ' + st.name, m && m.symbol + ' ' + m.name, held && PT.HELDEN[held] ? '⭐ ' + PT.HELDEN[held].name : '🚫 Ohne Held'];
+    $('#losInfo').innerHTML = teile.filter(Boolean).map(t => `<span>${esc(t)}</span>`).join('');
+  }
+  // Was im Menü ausgewählt ist: eigene Wahl oder (im Koop) die Einstellungen des Raums
+  function einst() { return koopReiter && netz && netz.raum ? netz.raum.einst : wahl; }
+  const darfEinstellen = () => !koopReiter || binHost();
+  function waehle(k, v) {
+    PT.Ton.klick();
+    if (koopReiter) { if (binHost()) senden({ t:'einst', ...netz.raum.einst, [k]:v }); return; }
+    wahl[k] = v; wahlMerken();
   }
   function menueBauen() {
+    const E = einst(), aus = !darfEinstellen();
+    koopMenueBauen();
+    passBauen();
     const karten = $('#karten');
     karten.innerHTML = '';
     for (const id of PT.KARTEN_REIHE) {
       const k = PT.KARTEN[id];
       const b = document.createElement('button');
       b.className = 'kartenwahl';
-      b.setAttribute('aria-pressed', wahl.karte === id);
-      b.innerHTML = `<canvas></canvas><div><b>${esc(k.name)}<span class="chip">${esc(k.stufe)}</span></b><small>${esc(k.text)}</small>${medaillenText(id)}</div>`;
+      b.setAttribute('aria-pressed', E.karte === id);
+      b.disabled = aus;
+      b.innerHTML = `<canvas></canvas><div><b>${esc(k.name)}<span class="chip ${CHIP_KLASSE[k.stufe] || ''}">${esc(k.stufe)}</span></b><small>${esc(k.text)}</small>${medaillenText(id)}</div>`;
       kartenVorschau(b.querySelector('canvas'), id);
-      b.onclick = () => { wahl.karte = id; wahlMerken(); PT.Ton.klick(); };
+      b.onclick = () => waehle('karte', id);
       karten.appendChild(b);
+    }
+    // Koop-Gäste sehen die eigene Karte des Gastgebers
+    if (koopReiter && E.karte === 'eigen' && E.eigen && !binHost()) {
+      const b = document.createElement('button');
+      b.className = 'kartenwahl'; b.setAttribute('aria-pressed', 'true'); b.disabled = true;
+      b.innerHTML = `<canvas></canvas><div><b>${esc(E.eigen.name)}<span class="chip st-eigen">Eigene</span></b><small>Karte des Gastgebers.</small></div>`;
+      kartenVorschau(b.querySelector('canvas'), E.eigen);
+      karten.appendChild(b);
+    }
+    // eigene Karten aus dem Editor
+    if (!olymp && (!koopReiter || binHost())) {
+      for (const k of eigeneKarten) {
+        const id = 'eigen:' + k.id;
+        const b = document.createElement('button');
+        b.className = 'kartenwahl';
+        b.setAttribute('aria-pressed', koopReiter ? E.karte === 'eigen' && !!E.eigen && E.eigen.name === k.name : E.karte === id);
+        b.innerHTML = `<canvas></canvas><div><b>${esc(k.name)}<span class="chip st-eigen">Eigene</span></b><small>${k.wege.length} ${k.wege.length === 1 ? 'Kanal' : 'Kanäle'} · selbst gebaut</small>
+          <div class="karten-knoepfe"><span data-aktion="bearbeiten" role="button" tabindex="0">✏️ Bearbeiten</span><span data-aktion="teilen" role="button" tabindex="0">🔗 Teilen</span><span data-aktion="weg" role="button" tabindex="0">🗑️</span></div></div>`;
+        kartenVorschau(b.querySelector('canvas'), k);
+        b.onclick = e => {
+          const aktion = e.target.closest('[data-aktion]');
+          if (aktion) {
+            e.stopPropagation();
+            if (aktion.dataset.aktion === 'bearbeiten') editorOeffnen(k);
+            if (aktion.dataset.aktion === 'teilen') karteTeilen(k);
+            if (aktion.dataset.aktion === 'weg' && confirm(`Karte „${k.name}“ löschen?`)) { karteLoeschen(k.id); }
+            return;
+          }
+          if (koopReiter) { PT.Ton.klick(); if (binHost()) senden({ t:'einst', ...netz.raum.einst, karte:'eigen', eigen:{ name:k.name, thema:k.thema, wege:k.wege, hindernisse:k.hindernisse, wasser:k.wasser, tunnel:k.tunnel } }); return; }
+          waehle('karte', id);
+        };
+        karten.appendChild(b);
+      }
+      const neu = document.createElement('button');
+      neu.className = 'kartenwahl neu';
+      neu.innerHTML = '<div><span>✏️</span>Eigene Karte bauen</div>';
+      neu.onclick = () => editorOeffnen(null);
+      karten.appendChild(neu);
     }
     const stufen = $('#stufen');
     stufen.innerHTML = '';
     for (const [id, st] of Object.entries(PT.STUFEN)) {
       const b = document.createElement('button');
       b.className = 'stufe';
-      b.setAttribute('aria-pressed', wahl.stufe === id);
-      b.innerHTML = `<b>${st.medaille} ${esc(st.name)}</b><small>${st.runden} Runden · ${st.leben} ${st.leben === 1 ? 'Leben' : 'Leben'}${st.preis !== 1 ? ` · Preise ${st.preis < 1 ? '−' : '+'}${Math.round(Math.abs(1 - st.preis) * 100)} %` : ''}</small>`;
-      b.onclick = () => { wahl.stufe = id; wahlMerken(); PT.Ton.klick(); };
+      b.setAttribute('aria-pressed', E.stufe === id);
+      b.disabled = aus;
+      const geschafft = !!medaillen[`${E.karte}|${id}|standard`];
+      b.classList.toggle('geschafft', geschafft);
+      b.innerHTML = `${geschafft ? '<span class="haken" title="Auf dieser Karte geschafft">✓</span>' : ''}<b>${st.medaille} ${esc(st.name)}</b><small>${st.runden} Runden · ${st.leben} ${st.leben === 1 ? 'Leben' : 'Leben'}${st.preis !== 1 ? ` · Preise ${st.preis < 1 ? '−' : '+'}${Math.round(Math.abs(1 - st.preis) * 100)} %` : ''}</small>`;
+      b.onclick = () => waehle('stufe', id);
       stufen.appendChild(b);
     }
     const modi = $('#modi');
@@ -85,35 +537,147 @@
       const m = PT.MODI[id];
       const b = document.createElement('button');
       b.className = 'modus';
-      b.setAttribute('aria-pressed', wahl.modus === id);
-      b.innerHTML = `<b data-symbol="${m.symbol}">${esc(m.name)}</b><small>${esc(m.text)}</small>`;
-      b.onclick = () => { wahl.modus = id; wahlMerken(); PT.Ton.klick(); };
+      b.setAttribute('aria-pressed', E.modus === id);
+      b.disabled = aus;
+      const medaille = id !== 'standard' && id !== 'sandkasten' && PT.KARTEN[E.karte] ? modusMuenze(E.karte, id) : '';
+      b.innerHTML = `${medaille}<b data-symbol="${m.symbol}">${esc(m.name)}</b><small>${esc(m.text)}</small>`;
+      b.onclick = () => waehle('modus', id);
       modi.appendChild(b);
+    }
+    // Koop: geteiltes oder getrenntes Geld
+    const geld = $('#geldModi');
+    geld.innerHTML = '';
+    for (const [id, g] of Object.entries(PT.KOOP_GELD)) {
+      const b = document.createElement('button');
+      b.className = 'stufe';
+      b.setAttribute('aria-pressed', (E.geldModus || 'geteilt') === id);
+      b.disabled = aus;
+      b.innerHTML = `<b>${esc(g.name)}</b><small>${esc(g.text)}</small>`;
+      b.onclick = () => waehle('geldModus', id);
+      geld.appendChild(b);
     }
     heldenBauen();
     const stand = speicher.lesen('pt-stand');
-    $('#weiterReihe').hidden = !stand || !PT.KARTEN[stand.karte];
-    if (stand && PT.KARTEN[stand.karte]) {
-      $('#weiterText').textContent = `${PT.KARTEN[stand.karte].name}, ${PT.STUFEN[stand.stufe] ? PT.STUFEN[stand.stufe].name : ''}${stand.modus && stand.modus !== 'standard' ? ', ' + PT.MODI[stand.modus].name : ''} – Runde ${stand.runde + 1}`;
+    const standKarte = stand && (stand.karte === 'eigen' ? PT.karteOk(stand.eigeneKarte) : PT.KARTEN[stand.karte]);
+    $('#weiterReihe').hidden = koopReiter || !standKarte;
+    if (standKarte) {
+      $('#weiterText').textContent = `${stand.tag ? '📅 ' : ''}${standKarte.name}, ${PT.STUFEN[stand.stufe] ? PT.STUFEN[stand.stufe].name : ''}${stand.modus && stand.modus !== 'standard' ? ', ' + PT.MODI[stand.modus].name : ''} – Runde ${stand.runde + 1}`;
     }
     const zahlMed = Object.keys(medaillen).filter(k => !k.endsWith('|sandkasten')).length;
-    $('#erfolge').textContent = zahlMed ? `🏅 ${zahlMed} ${zahlMed === 1 ? 'Sieg' : 'Siege'} gesammelt` : '';
+    const zahlErf = Object.keys(fort.erfolge).length;
+    $('#erfolge').textContent = zahlMed || zahlErf ? `🏅 ${zahlMed} ${zahlMed === 1 ? 'Medaille' : 'Medaillen'} · 🏆 ${zahlErf} von ${PT.ERFOLGE.length} Erfolgen` : '';
+    extrasBauen();
+  }
+  // Tages-Herausforderung, Pinguin-Wissen und Erfolge im Menü
+  function extrasBauen() {
+    const h = PT.tagesHerausforderung(PT.heute());
+    const geschafft = !!fort.tage[h.datum];
+    $('#tagBox').hidden = !!olymp || koopReiter;
+    $('#tagBox').classList.toggle('geschafft', geschafft);
+    $('#tagDatum').textContent = new Date().toLocaleDateString('de-DE', { weekday:'long', day:'numeric', month:'long' });
+    $('#tagTitel').textContent = h.titel;
+    $('#tagText').textContent = h.text;
+    $('#tagLohn').textContent = geschafft ? '✅ Heute schon geschafft! Morgen gibt es eine neue.' : `Belohnung: ${h.xp} Erfahrung und ${h.muenzen} 🪙 · ${fort.lebenslang.tage} geschafft`;
+    $('#tagLos').textContent = geschafft ? 'Nochmal spielen (ohne Belohnung)' : 'Herausforderung starten';
+    $('#wissenBox').hidden = !!olymp;
+    $('#wissenAn').checked = fort.wissenAn !== false;
+    const gesamt = PT.WISSEN_REIHE.reduce((n, id) => n + (fort.wissen[id] || 0), 0);
+    $('#wissenKurz').textContent = `🪙 ${zahl(fort.muenzen)} · ${gesamt} gelernt`;
+    $('#wissen').innerHTML = PT.WISSEN_REIHE.map(id => {
+      const w = PT.WISSEN[id], n = fort.wissen[id] || 0, voll = n >= w.max, preis = voll ? 0 : w.kosten[n];
+      return `<div class="wissen-item"><b>${w.symbol} ${esc(w.name)}</b><small>${n ? esc(w.text(n)) : 'Noch nicht gelernt.'}${voll ? '' : ` Nächste Stufe: ${esc(w.text(n + 1))}.`}</small>
+        <div class="pips">${Array.from({ length:w.max }, (_, i) => `<i class="${i < n ? 'an' : ''}"></i>`).join('')}</div>
+        <button data-wissen="${id}" ${voll || preis > fort.muenzen ? 'disabled' : ''}>${voll ? 'Voll' : `${preis} 🪙`}</button></div>`;
+    }).join('');
+    for (const b of document.querySelectorAll('[data-wissen]')) b.onclick = () => {
+      const id = b.dataset.wissen, w = PT.WISSEN[id], n = fort.wissen[id] || 0;
+      if (n >= w.max || w.kosten[n] > fort.muenzen) return;
+      fort.muenzen -= w.kosten[n]; fort.wissen[id] = n + 1; fortMerken();
+      PT.Ton.upgrade();
+      passBauen(); extrasBauen();
+    };
+    $('#erfolgeKurz').textContent = `${Object.keys(fort.erfolge).length} / ${PT.ERFOLGE.length}`;
+    $('#erfolgeListe').innerHTML = PT.ERFOLGE.map(e => `<div class="erfolg ${fort.erfolge[e.id] ? 'da' : ''}"><i>${e.symbol}</i><span><b>${esc(e.name)}</b><small>${esc(e.text)} · ${e.muenzen} 🪙</small></span></div>`).join('');
+  }
+  function tagesStarten() {
+    const h = PT.tagesHerausforderung(PT.heute());
+    speicher.weg('pt-stand');
+    tagesAktiv = h.datum;
+    spielStarten(new PT.Spiel({ karte:h.karte, stufe:h.stufe, modus:h.modus, held:h.held, kraft:kraftAktiv(h.held), regeln:h.regeln, seed:Date.now() & 0xffffff }));
   }
   function heldenBauen() {
-    const ohne = !!(PT.MODI[olymp ? 'standard' : wahl.modus].ohneHeld);
+    const E = einst();
+    const ohne = !!(PT.MODI[olymp ? 'standard' : E.modus].ohneHeld);
+    const m = koopReiter ? meinMitglied() : null;
+    const meiner = m ? m.held : wahl.held;
+    const st = passStufe();
     const h = $('#helden');
     h.innerHTML = '';
     for (const id of [...PT.HELDEN_REIHE, null]) {
       const d = id && PT.HELDEN[id];
       const b = document.createElement('button');
       b.className = 'heldwahl';
-      b.setAttribute('aria-pressed', !ohne && wahl.held === id);
+      b.setAttribute('aria-pressed', !ohne && meiner === id);
       b.disabled = ohne && !!id;
-      b.innerHTML = d ? `<img src="${bilder[id] || ''}" alt=""><span><b>${esc(d.name)}</b><small>${esc(d.kurz)} · ${PT.preis(d.preis, wahl.stufe)} 💰</small></span>`
+      const kraft = d && PT.kraftFrei(id, st) && !olymp ? ' <span class="chip kraft" title="Meisterkraft freigeschaltet">✨</span>' : '';
+      b.innerHTML = d ? `<img src="${bilder[id] || ''}" alt=""><span><b>${esc(d.name)}${kraft}</b><small>${esc(d.kurz)} · ${PT.preis(d.preis, E.stufe)} 💰</small></span>`
         : '<span style="font-size:2.4rem;width:72px;text-align:center">🚫</span><span><b>Ohne Held</b><small>Nur Pinguine.</small></span>';
-      b.onclick = () => { wahl.held = id; wahlMerken(); PT.Ton.klick(); };
+      b.onclick = () => {
+        PT.Ton.klick();
+        wahl.held = id; speicher.schreiben('pt-wahl', wahl);
+        if (koopReiter && netz && netz.raum) senden({ t:'wahl', held:id, kraft:kraftAktivKoop(id), skin:pass.skin, sockel:pass.sockel });
+        menueBauen();
+      };
       h.appendChild(b);
     }
+    // Meisterkraft ein- und ausschalten
+    const frei = !!meiner && PT.kraftFrei(meiner, st) && !olymp && !ohne;
+    $('#kraftReihe').hidden = !frei;
+    $('#kraftAn').checked = wahl.kraft !== false;
+    if (frei) $('#kraftText').textContent = PT.HELDEN[meiner].kraft.text;
+    losInfoZeigen(E, ohne ? null : meiner);
+  }
+
+  /* ---------- Koop im Menü ---------- */
+  function koopMenueBauen() {
+    $('#reiterAllein').setAttribute('aria-pressed', !koopReiter);
+    $('#reiterKoop').setAttribute('aria-pressed', koopReiter);
+    const raum = koopReiter && netz && netz.raum;
+    $('#koopBox').hidden = !koopReiter;
+    $('#koopVerbinden').hidden = !!raum;
+    $('#koopRaum').hidden = !raum;
+    $('#normalMenue').hidden = koopReiter && !raum;
+    $('#geldBereich').hidden = !raum;
+    $('#heldBereich').hidden = koopReiter && !raum;
+    $('#losReihe').hidden = koopReiter && !raum;
+    if (!olymp) {
+      $('#los').disabled = !!raum && !binHost();
+      $('#los').textContent = raum ? (binHost() ? 'Spiel starten' : 'Der Gastgeber startet das Spiel …') : "Los geht's!";
+    }
+    if (!raum) return;
+    $('#raumCode').textContent = raum.code;
+    $('#mitglieder').innerHTML = raum.mitglieder.map((m, i) => {
+      const held = m.held && PT.HELDEN[m.held] ? PT.HELDEN[m.held].name : 'ohne Held';
+      return `<li style="--f:${PT.KOOP_FARBEN[i] || '#999'}" class="${m.online ? '' : 'weg'}"><i></i><b>${esc(m.name)}</b>${m.id === raum.host ? ' 👑' : ''}${m.id === netz.id ? ' (du)' : ''}<small>${esc(held)}${m.kraft ? ' ✨' : ''}${m.skin && m.skin !== 'standard' && PT.SKINS[m.skin] ? ' · ' + esc(PT.SKINS[m.skin].name) : ''}${m.online ? '' : ' · offline'}</small></li>`;
+    }).join('');
+    $('#koopHinweis').textContent = raum.phase === 'spiel' ? 'In diesem Raum läuft gerade eine Partie.' : binHost()
+      ? `Du bist Gastgeber: Wähl Karte, Schwierigkeit, Modus und Geld, dann starte. Freunde treten mit dem Code ${raum.code} bei.`
+      : 'Such dir deinen Helden aus. Karte und Modus wählt der Gastgeber.';
+  }
+  function koopReiterSetzen(an) {
+    koopReiter = an;
+    if (an) {
+      if (!$('#koopName').value) $('#koopName').value = speicher.lesen('pt-name') || '';
+      netzVerbinden();
+    }
+    menueBauen();
+  }
+  function koopHallo() {
+    const n = koopName();
+    if (!n) { koopFehler('Gib zuerst deinen Namen ein.'); $('#koopName').focus(); return false; }
+    speicher.schreiben('pt-name', n);
+    senden({ t:'hallo', name:n, skin:pass.skin, sockel:pass.sockel });
+    return true;
   }
   function wahlMerken() { speicher.schreiben('pt-wahl', wahl); menueBauen(); }
   function lexikonBauen() {
@@ -122,10 +686,16 @@
       schwarz:'Explosionen machen ihm nichts.', weiss:'Kälte macht ihm nichts.', panzer:'Spitzes prallt ab – braucht Explosionen, Magie oder schwere Waffen.',
       zebra:'Weder Explosionen noch Kälte.', regen:'Zerfällt in zwei Zebrafische.', koffer:'Harte Schale: 10 Treffer.',
       wal:'Riesig: 200 Treffer, dann 4 Kofferfische.', mega:'700 Treffer, dann 4 Walhaie.',
-      rochen:'Immer getarnt, schnell, nichts Spitzes und keine Explosionen. 400 Treffer, dann 6 Kofferfische.',
+      rochen:'Getarnt, taucht aber alle paar Sekunden kurz auf – dann trifft ihn jeder. Nachtsicht und Leuchtfeuer sehen ihn immer. Keine Explosionen. 320 Treffer, dann 6 Kofferfische.',
       krake:'4000 Treffer, dann 4 Megalodons.', krakus:'Der Boss der Boss-Jagd. Ruft Verstärkung. Darf nie durchkommen!'
     };
-    $('#lexikon').innerHTML = [...PT.FISCH_REIHE, 'krakus'].map(id => {
+    beschr.orka = 'Der Boss des Orka-Angriffs. Seine Flutwellen betäuben Pinguine am Ufer. Darf nie durchkommen!';
+    Object.assign(beschr, {
+      flug:'Springt immer wieder aus dem Wasser – in der Luft treffen ihn nur Flieger.', tinte:'Verspritzt beim Platzen Tinte: Pinguine in der Nähe sehen kurz nichts.',
+      kugel:'Bläht sich nach einem Treffer auf – dann prallt kurz alles ab. Dann 2 Regenbogenforellen.',
+      leviathan:'Der Boss von „Leviathan-Erwachen“. Sein Eisatem friert Pinguine am Ufer ein.', haikoenig:'Der Boss von „Hai-König“. Ruft ständig neue Fische herbei.'
+    });
+    $('#lexikon').innerHTML = [...PT.FISCH_REIHE, ...PT.BOSS_REIHE].map(id => {
       const f = PT.FISCHE[id];
       return `<div><img src="${fischBilder[id] || ''}" alt=""><span><b>${esc(f.name)}</b><br><small>${esc(beschr[id])}</small></span></div>`;
     }).join('');
@@ -134,8 +704,13 @@
   /* ---------- Spiel starten ---------- */
   function spielStarten(neu) {
     spiel = neu;
+    spielLohn = { xp:0, muenzen:0, erfolge:[] };
+    zaehler = zaehlerStand();
+    vorschauSchluessel = '';
     auswahl = null; bauTyp = null; zielModus = null; tempo = 1; pausiert = false; zeitRest = 0; autoWarte = 0;
     olympGemeldet = false;
+    endeArt = null;
+    $('#pauseTitel').textContent = 'Pause';
     $('#menue').hidden = true;
     $('#spiel').hidden = false;
     $('#pause').hidden = true;
@@ -145,7 +720,16 @@
       welt = new PT.Welt($('#welt'), $('#ueber'));
       new ResizeObserver(() => welt.groesse()).observe($('#buehne'));
       welt.grafik(grafikHoch);
+      // Aussehen der Pinguine: eigener Look, im Koop Look und Farbe des Besitzers
+      welt.aussehenFuer = t => {
+        if (!spiel || !spiel.koop || t.besitzer == null) return { skin:pass.skin, sockel:pass.sockel };
+        const sp = spiel.spielerVon(t.besitzer);
+        const m = netz && netz.raum && netz.raum.mitglieder.find(x => x.id === t.besitzer);
+        return { skin:m ? m.skin : 'standard', sockel:m ? m.sockel : 'standard', farbe:sp ? PT.KOOP_FARBEN[sp.farbe] : null };
+      };
+      einstAnwenden();
     }
+    welt.namenZeigen = spiel.koop && spiel.spieler.length > 1;
     welt.karteLaden(spiel);
     ladenBauen();
     seiteZeigen();
@@ -155,20 +739,87 @@
     const md = PT.MODI[spiel.modus];
     $('#modusAnzeige').textContent = spiel.modus !== 'standard' ? `${md.symbol} ${md.name}` : '';
     tipp('');
-    if (spiel.runde === 0 && !spiel.tuerme.length) { tipp(spiel.held ? 'Setz zuerst deinen Helden und ein paar Pinguine neben den Kanal.' : 'Wähle einen Pinguin und setz ihn neben den Kanal.'); tippZeit = 6; }
-    banner(PT.KARTEN[spiel.karte].name, `${PT.STUFEN[spiel.stufe].name} · ${spiel.zielRunden} Runden${spiel.modus !== 'standard' ? ' · ' + md.name : ''}`);
+    if (spiel.runde === 0 && !spiel.tuerme.length) { tipp(spiel.heldVon(ich()) ? 'Setz zuerst deinen Helden und ein paar Pinguine neben den Kanal.' : 'Wähle einen Pinguin und setz ihn neben den Kanal.'); tippZeit = 6; }
+    const geldText = spiel.koop ? ` · ${spiel.spieler.length} Spieler, ${PT.KOOP_GELD[spiel.geldModus].name}` : '';
+    if (tagesAktiv) banner(`📅 ${PT.tagesHerausforderung(tagesAktiv).titel}`, `${spiel.kartenDaten.name} · ${PT.STUFEN[spiel.stufe].name} · ${spiel.zielRunden} Runden`, 3);
+    else banner(spiel.kartenDaten.name, `${PT.STUFEN[spiel.stufe].name} · ${spiel.zielRunden} Runden${spiel.modus !== 'standard' ? ' · ' + md.name : ''}${geldText}`);
+    if (tagesAktiv) $('#modusAnzeige').textContent = '📅 Tages-Herausforderung';
+    $('#auto').checked = spiel.koop ? !!(netz.raum && netz.raum.auto) : speicher.lesen('pt-auto') === true || (einstellung.autoStart && spiel.runde === 0);
+    $('#pNeu').hidden = !!olymp || spiel.koop;
+    $('#pMenue').textContent = spiel.koop ? 'Raum verlassen' : 'Zum Hauptmenü';
+    mitspielerZeigen();
+    if (spiel.koop) koopPauseZeigen();
   }
   function neuesSpiel() {
     speicher.weg('pt-stand');
-    spielStarten(new PT.Spiel({ karte:wahl.karte, stufe:wahl.stufe, modus:wahl.modus, held:wahl.held, seed:Date.now() & 0xffffff }));
+    tagesAktiv = null;
+    const eigen = eigeneKarte(wahl.karte);
+    spielStarten(new PT.Spiel({ karte:eigen ? 'eigen' : wahl.karte, eigeneKarte:eigen, stufe:wahl.stufe, modus:wahl.modus, held:wahl.held, kraft:kraftAktiv(wahl.held),
+      boni:boniAktiv(), seed:Date.now() & 0xffffff }));
   }
+  /* ---------- Eigene Karten ---------- */
+  function kartenMerken() { speicher.schreiben('pt-karten', eigeneKarten); }
+  function karteSpeichern(k) {
+    const ok = PT.karteOk(k);
+    if (!ok) return null;
+    const id = k.id || Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
+    const neu = { ...ok, id:String(id) };
+    const i = eigeneKarten.findIndex(x => x.id === neu.id);
+    if (i >= 0) eigeneKarten[i] = neu; else eigeneKarten.push(neu);
+    eigeneKarten = eigeneKarten.slice(-20);
+    kartenMerken();
+    return neu;
+  }
+  function karteLoeschen(id) {
+    eigeneKarten = eigeneKarten.filter(k => k.id !== id);
+    kartenMerken();
+    if (wahl.karte === 'eigen:' + id) wahl.karte = 'scholle';
+    wahlMerken();
+  }
+  // Teilen-Link: die Karte steckt (kurz gepackt) im Link
+  function karteLink(k) {
+    const roh = { n:k.name, t:k.thema, w:k.wege, h:k.hindernisse, s:k.wasser, u:k.tunnel };
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(roh)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    return `${location.origin}${location.pathname}?karte=${b64}`;
+  }
+  function karteAusLink(text) {
+    try {
+      const roh = JSON.parse(decodeURIComponent(escape(atob(text.replace(/-/g, '+').replace(/_/g, '/')))));
+      return PT.karteOk({ name:roh.n, thema:roh.t, wege:roh.w, hindernisse:roh.h, wasser:roh.s, tunnel:roh.u });
+    } catch (e) { return null; }
+  }
+  async function karteTeilen(k) {
+    const link = karteLink(k);
+    try {
+      if (navigator.share) { await navigator.share({ title:`Pinguin Türmchen: ${k.name}`, url:link }); return; }
+      await navigator.clipboard.writeText(link);
+      alert('Link kopiert! Schick ihn an deine Freunde – wer ihn öffnet, bekommt die Karte.');
+    } catch (e) { prompt('Diesen Link kopieren und verschicken:', link); }
+  }
+  function editorOeffnen(k) {
+    PT.Ton.klick();
+    $('#menue').hidden = true;
+    $('#editor').hidden = false;
+    window.scrollTo(0, 0);
+    PT.Editor.oeffnen(k);
+  }
+  function editorZu(gespeichert, spielen) {
+    $('#editor').hidden = true;
+    if (gespeichert) { wahl.karte = 'eigen:' + gespeichert.id; speicher.schreiben('pt-wahl', wahl); }
+    if (spielen && gespeichert) { neuesSpiel(); return; }
+    $('#menue').hidden = false;
+    menueBauen();
+  }
+  PT.UI = { karteSpeichern, karteLink, karteTeilen, editorZu, kartenVorschau, speicher };
   function zumMenue() {
+    if (spiel && !spiel.vorbei) fortschrittMelden('menue');
     $('#spiel').hidden = true;
     $('#pause').hidden = true;
     $('#ende').hidden = true;
     $('#menue').hidden = false;
     document.body.style.overflow = '';
     spiel = null;
+    if (netz) { netz.befehle = []; netz.n = netz.ziel = 0; }
     menueBauen();
   }
 
@@ -188,12 +839,13 @@
   function anzeigen() {
     if (!spiel) return;
     const t = auswahl;
-    const schluessel = [Math.ceil(spiel.leben), Math.floor(spiel.geld), spiel.runde, spiel.laeuft, tempo, bauTyp, zielModus && zielModus.id, spiel.tuerme.length,
+    const geld = meinGeld();
+    const schluessel = [Math.ceil(spiel.leben), Math.floor(geld), mitspielerZeigen(), spiel.runde, spiel.laeuft, tempo, bauTyp, zielModus && zielModus.id, spiel.tuerme.length,
       t && t.id, t && t.pfade.join(), t && t.ziel, t && t.muster, t && t.pops, t && t.stufe, t && Math.floor(t.xp), t && t.eff && t.eff.gebufft].join('|');
     if (schluessel === letzteAnzeige) return;
     letzteAnzeige = schluessel;
     $('#leben').textContent = spiel.unendlich ? '∞' : Math.max(0, Math.ceil(spiel.leben));
-    $('#geld').textContent = spiel.unendlich ? '∞' : zahl(spiel.geld);
+    $('#geld').textContent = spiel.unendlich ? '∞' : zahl(geld);
     $('#runde').textContent = Math.max(1, spiel.runde + 1);
     $('#rundenZiel').textContent = spiel.endlos ? '∞' : spiel.zielRunden;
     const st = $('#start');
@@ -203,9 +855,9 @@
       const typ = b.dataset.typ;
       const preis = spiel.preisBau(typ);
       b.querySelector('span').textContent = zahl(preis) + ' 💰';
-      b.classList.toggle('teuer', preis > spiel.geld);
+      b.classList.toggle('teuer', preis > geld);
       b.setAttribute('aria-pressed', bauTyp === typ);
-      if (PT.HELDEN[typ]) b.hidden = !!spiel.heldDa();
+      if (PT.HELDEN[typ]) b.hidden = !!spiel.heldDa(ich());
     }
     if (auswahl) turmInfoBauen();
   }
@@ -213,19 +865,20 @@
   function ladenBauen() {
     const l = $('#ladenListe');
     l.innerHTML = '';
-    if (spiel.held) {
-      const d = PT.HELDEN[spiel.held];
+    const held = spiel.heldVon(ich());
+    if (held) {
+      const d = PT.HELDEN[held];
       const b = document.createElement('button');
       b.className = 'pingu-kauf held';
-      b.dataset.typ = spiel.held;
+      b.dataset.typ = held;
       b.title = `${d.name} – ${d.kurz}`;
-      b.innerHTML = `<kbd>H</kbd><img src="${bilder[spiel.held] || ''}" alt=""><div><b>⭐ ${esc(d.name)}</b><br><span></span></div>`;
-      b.onclick = () => bauWaehlen(bauTyp === spiel.held ? null : spiel.held);
+      b.innerHTML = `<kbd>H</kbd><img src="${bilder[held] || ''}" alt=""><div><b>⭐ ${esc(d.name)}</b><br><span></span></div>`;
+      b.onclick = () => bauWaehlen(bauTyp === held ? null : held);
       b.onpointerenter = () => { $('#ladenInfo').textContent = `${d.name}: ${d.kurz}`; };
       l.appendChild(b);
     }
     for (const gruppe of PT.GRUPPEN) {
-      const typen = PT.PINGUIN_REIHE.filter(t => PT.PINGUINE[t].gruppe === gruppe && spiel.erlaubt(t));
+      const typen = PT.PINGUIN_REIHE.filter(t => PT.PINGUINE[t].gruppe === gruppe && spiel.erlaubt(t, ich()));
       if (!typen.length) continue;
       const h = document.createElement('p');
       h.className = 'gruppe'; h.textContent = gruppe;
@@ -245,18 +898,16 @@
     // Sandkasten: Fische selbst losschicken
     $('#sand').hidden = spiel.modus !== 'sandkasten';
     if (spiel.modus === 'sandkasten') {
-      $('#sandFische').innerHTML = [...PT.FISCH_REIHE, 'krakus'].map(id => `<button data-fisch="${id}" title="${esc(PT.FISCHE[id].name)}"><img src="${fischBilder[id] || ''}" alt="${esc(PT.FISCHE[id].name)}"></button>`).join('');
+      $('#sandFische').innerHTML = [...PT.FISCH_REIHE, ...PT.BOSS_REIHE].map(id => `<button data-fisch="${id}" title="${esc(PT.FISCHE[id].name)}"><img src="${fischBilder[id] || ''}" alt="${esc(PT.FISCHE[id].name)}"></button>`).join('');
       for (const b of document.querySelectorAll('[data-fisch]')) b.onclick = () => {
-        const n = +$('#sandAnzahl').value;
-        spiel.sandFische(b.dataset.fisch, b.dataset.fisch === 'krakus' ? 1 : n, { camo:$('#sandCamo').checked, nach:$('#sandNach').checked, fest:$('#sandFest').checked });
-        PT.Ton.klick();
+        tun({ t:'sand', typ:b.dataset.fisch, n:+$('#sandAnzahl').value, camo:$('#sandCamo').checked, nach:$('#sandNach').checked, fest:$('#sandFest').checked });
       };
-      $('#sandLeeren').onclick = () => { for (const f of spiel.fische) f.tot = true; spiel.warteschlange = []; PT.Ton.verkaufen(); };
+      $('#sandLeeren').onclick = () => tun({ t:'leeren' });
     }
   }
   function bauWaehlen(typ) {
-    if (typ && spiel.preisBau(typ) > spiel.geld) { PT.Ton.fehler(); kurzTipp('Dafür reicht das Geld noch nicht.'); return; }
-    if (typ && PT.HELDEN[typ] && spiel.heldDa()) return;
+    if (typ && spiel.preisBau(typ) > meinGeld()) { PT.Ton.fehler(); kurzTipp('Dafür reicht das Geld noch nicht.'); return; }
+    if (typ && PT.HELDEN[typ] && spiel.heldDa(ich())) return;
     bauTyp = typ;
     auswahl = null; zielModus = null;
     welt.geistZeigen(null);
@@ -283,7 +934,7 @@
     if (t.eff.flieger) return `<div class="ziele drei" role="group" aria-label="Flugbahn">${PT.MUSTER.map(([id, name]) => `<button data-muster="${id}" aria-pressed="${t.muster === id}">${name}</button>`).join('')}</div>`;
     if (d.greift === false) return '';
     const ziele = d.ziele || PT.ZIELE;
-    return `<div class="ziele" role="group" aria-label="Ziel">${ziele.map(([id, name]) => `<button data-ziel="${id}" aria-pressed="${t.ziel === id}">${name}</button>`).join('')}</div>`;
+    return `<div class="ziele ${ziele.length > 4 ? 'sechs' : ''}" role="group" aria-label="Ziel">${ziele.map(([id, name]) => `<button data-ziel="${id}" aria-pressed="${t.ziel === id}">${name}</button>`).join('')}</div>`;
   }
   function kennzahlenText(t) {
     const k = spiel.kennzahlen(t);
@@ -304,48 +955,84 @@
     }
     return `<div class="werte">${teile.filter(Boolean).map(x => `<span>${esc(x)}</span>`).join('')}</div>`;
   }
+  // Die Leiste wird nur neu gebaut, wenn sich ihr Aufbau ändert. Geld, Fischzahl und Erfahrung ändern sich während
+  // der Runde ständig – würde dafür jedes Mal das HTML ersetzt, ginge ein Klick zwischen Drücken und Loslassen verloren.
+  let turmInfoHtml = '';
   function turmInfoBauen() {
     const t = auswahl, d = PT.def(t.typ);
     const el = $('#turmInfo');
     const held = !!PT.HELDEN[t.typ];
     const farben = ['#e2463b', '#2f7fe0', '#35b04a'];
     const tasten = [',', '.', '-'];
-    let html = `<div class="turm-kopf"><img src="${bilder[t.typ] || ''}" alt=""><div><h3>${held ? '⭐ ' : ''}${esc(d.name)}</h3><small>${zahl(t.pops)} Fische erwischt</small></div>
+    const meins = spiel.darf(t, ich());
+    const besitzer = spiel.koop && spiel.spielerVon(t.besitzer);
+    let html = `<div class="turm-kopf" data-turm="${t.id}"><img src="${bilder[t.typ] || ''}" alt=""><div><h3>${held ? '⭐ ' : ''}${esc(d.name)}</h3><small data-wert="pops"></small>
+      ${besitzer ? `<small class="besitzer" style="--f:${PT.KOOP_FARBEN[besitzer.farbe]}"><i></i>${besitzer.id === netz.id ? 'Dein Pinguin' : 'Gehört ' + esc(besitzer.name)}</small>` : ''}</div>
       <button class="lknopf schliessen" id="tiZu" aria-label="Schließen">✕</button></div>`;
     html += kennzahlenText(t);
-    html += zielKnoepfe(t, d);
-    if (held) {
-      const S = PT.HELDEN_STUFEN;
-      const anteil = t.stufe >= 10 ? 1 : (t.xp - S[t.stufe]) / (S[t.stufe + 1] - S[t.stufe]);
-      const preis = spiel.preisHeldenStufe(t);
-      html += `<div class="held-info"><b>Stufe ${t.stufe} / 10</b>${t.stufe < 10 ? ` <small style="color:var(--panel-leise)">· ${zahl(t.xp)} / ${zahl(S[t.stufe + 1])} Erfahrung</small>` : ''}
-        <div class="xp"><i style="width:${Math.round(Math.max(0, Math.min(1, anteil)) * 100)}%"></i></div>
-        ${t.stufe < 10 ? `<button class="kaufen" id="tiStufe" ${preis > spiel.geld ? 'disabled' : ''}>Stufe ${t.stufe + 1} kaufen · ${zahl(preis)} 💰</button>` : ''}
-        <ul class="held-stufen">${d.stufen.map((s, i) => `<li class="${i < t.stufe ? 'da' : ''}"><b>${i + 1}</b>${esc(s)}</li>`).join('')}</ul></div>`;
+    if (t.betaeubt > 0) html += `<p class="hinweis">${{ eis:'🧊 Vom Eisatem eingefroren.', tinte:'🦑 Voller Tinte – sieht gerade nichts.' }[t.betaeubtArt] || '💫 Von einer Flutwelle betäubt.'}</p>`;
+    if (t.verdient) html += '<p class="hinweis" data-wert="verdient"></p>';
+    if (!meins) {
+      // Getrenntes Geld: fremde Pinguine nur anschauen
+      html += `<p class="hinweis">Bei getrennter Kasse kann nur ${esc(besitzer ? besitzer.name : 'der Besitzer')} diesen Pinguin aufrüsten oder verkaufen.</p>`;
     } else {
-      for (let i = 0; i < 3; i++) {
-        const stufe = t.pfade[i];
-        const u = d.pfade[i][stufe];
-        const erlaubt = spiel.upgradeErlaubt(t, i);
-        const preis = u ? spiel.preisUpgrade(t, i) : 0;
-        const letzte = stufe > 0 ? d.pfade[i][stufe - 1].name : 'Pfad ' + (i + 1);
-        html += `<div class="pfad" style="--pf:${farben[i]}"><div class="pfad-kopf"><div class="pips">${[0, 1, 2, 3, 4].map(k => `<i class="${k < stufe ? 'an' : ''}"></i>`).join('')}</div>${esc(letzte)}</div>`;
-        if (!u) html += `<button disabled><b>Voll ausgebaut</b><small>Stärker geht's nicht.</small></button>`;
-        else if (spiel.stufe5Vergeben(t, i)) html += `<button disabled><b>🔒 ${esc(u.name)}</b><small>Diese Stufe 5 gibt es nur einmal – ein anderer ${esc(d.name)} hat sie schon.</small></button>`;
-        else if (!erlaubt) html += `<button disabled><b>🔒 ${esc(u.name)}</b><small>Gesperrt: höchstens zwei Pfade, nur einer über Stufe 2.</small></button>`;
-        else html += `<button data-pfad="${i}" class="${preis > spiel.geld ? 'teuer' : ''} ${stufe === 4 ? 'fuenf' : ''}"><b>${stufe === 4 ? '✨ ' : ''}${esc(u.name)}<kbd>${tasten[i]}</kbd></b><em>${zahl(preis)} 💰</em><small>${esc(u.text)}</small></button>`;
-        html += '</div>';
+      html += zielKnoepfe(t, d);
+      if (held) {
+        const S = PT.HELDEN_STUFEN;
+        const preis = spiel.preisHeldenStufe(t);
+        html += `<div class="held-info"><b>Stufe ${t.stufe} / 10</b>${t.stufe < 10 ? ` <small style="color:var(--panel-leise)" data-wert="xpText"></small>` : ''}
+          <div class="xp"><i data-wert="xp"></i></div>
+          ${t.stufe < 10 ? `<button class="kaufen" id="tiStufe" data-preis="${preis}">Stufe ${t.stufe + 1} kaufen · ${zahl(preis)} 💰</button>` : ''}
+          <ul class="held-stufen">${d.stufen.map((s, i) => `<li class="${i < t.stufe ? 'da' : ''}"><b>${i + 1}</b>${esc(s)}</li>`).join('')}</ul></div>`;
+      } else {
+        for (let i = 0; i < 3; i++) {
+          const stufe = t.pfade[i];
+          const u = d.pfade[i][stufe];
+          const erlaubt = spiel.upgradeErlaubt(t, i);
+          const preis = u ? spiel.preisUpgrade(t, i) : 0;
+          const letzte = stufe > 0 ? d.pfade[i][stufe - 1].name : 'Pfad ' + (i + 1);
+          html += `<div class="pfad" style="--pf:${farben[i]}"><div class="pfad-kopf"><div class="pips">${[0, 1, 2, 3, 4].map(k => `<i class="${k < stufe ? 'an' : ''}"></i>`).join('')}</div><span>${esc(letzte)}</span></div>`;
+          if (!u) html += `<button disabled class="voll"><b>✔ Voll ausgebaut</b><small>Stärker geht's nicht.</small></button>`;
+          else if (spiel.stufe5Vergeben(t, i)) html += `<button disabled><b>🔒 ${esc(u.name)}</b><small>Diese Stufe 5 gibt es nur einmal – ein anderer ${esc(d.name)} hat sie schon.</small></button>`;
+          else if (!erlaubt) html += `<button disabled><b>🔒 ${esc(u.name)}</b><small>Gesperrt: höchstens zwei Pfade, nur einer über Stufe 2.</small></button>`;
+          else html += `<button data-pfad="${i}" data-preis="${preis}" class="${stufe === 4 ? 'fuenf' : ''}"><b>${stufe === 4 ? '✨ ' : ''}${esc(u.name)}<kbd>${tasten[i]}</kbd></b><em>${zahl(preis)} 💰</em><small>${esc(u.text)}</small></button>`;
+          html += '</div>';
+        }
+      }
+      html += `<button class="verkauf" id="tiVerkauf">Verkaufen für ${zahl(spiel.verkaufswert(t))} 💰</button>`;
+    }
+    if (html !== turmInfoHtml || !el.firstChild) {
+      turmInfoHtml = html;
+      el.innerHTML = html;
+      $('#tiZu').onclick = () => turmWaehlen(null);
+      if (meins) {
+        $('#tiVerkauf').onclick = () => verkaufen();
+        if ($('#tiZiel')) $('#tiZiel').onclick = () => { zielModus = zielModus === t ? null : t; welt.zielModus = !!zielModus; kurzTipp(zielModus ? 'Tippe auf die Stelle, die der Mörser treffen soll.' : ''); letzteAnzeige = ''; anzeigen(); };
+        if ($('#tiStufe')) $('#tiStufe').onclick = () => tun({ t:'stufe', id:t.id });
+        for (const b of el.querySelectorAll('[data-ziel]')) b.onclick = () => { PT.Ton.klick(); tun({ t:'ziel', id:t.id, ziel:b.dataset.ziel }); };
+        for (const b of el.querySelectorAll('[data-muster]')) b.onclick = () => { PT.Ton.klick(); tun({ t:'muster', id:t.id, muster:b.dataset.muster }); };
+        for (const b of el.querySelectorAll('[data-pfad]')) b.onclick = () => upgraden(+b.dataset.pfad);
       }
     }
-    html += `<button class="verkauf" id="tiVerkauf">Verkaufen für ${zahl(spiel.verkaufswert(t))} 💰</button>`;
-    el.innerHTML = html;
-    $('#tiZu').onclick = () => turmWaehlen(null);
-    $('#tiVerkauf').onclick = () => verkaufen();
-    if ($('#tiZiel')) $('#tiZiel').onclick = () => { zielModus = zielModus === t ? null : t; welt.zielModus = !!zielModus; kurzTipp(zielModus ? 'Tippe auf die Stelle, die der Mörser treffen soll.' : ''); letzteAnzeige = ''; anzeigen(); };
-    if ($('#tiStufe')) $('#tiStufe').onclick = () => { if (spiel.heldenStufeKaufen(t)) PT.Ton.upgrade(); else PT.Ton.fehler(); letzteAnzeige = ''; anzeigen(); };
-    for (const b of el.querySelectorAll('[data-ziel]')) b.onclick = () => { t.ziel = b.dataset.ziel; PT.Ton.klick(); letzteAnzeige = ''; anzeigen(); };
-    for (const b of el.querySelectorAll('[data-muster]')) b.onclick = () => { t.muster = b.dataset.muster; t.musterGesetzt = true; PT.Ton.klick(); letzteAnzeige = ''; anzeigen(); };
-    for (const b of el.querySelectorAll('[data-pfad]')) b.onclick = () => upgraden(+b.dataset.pfad);
+    turmInfoWerte(t, el, held);
+  }
+  // Werte, die sich während der Runde laufend ändern, direkt in die bestehenden Knöpfe schreiben
+  function turmInfoWerte(t, el, held) {
+    const geld = meinGeld();
+    const setze = (w, f) => { const x = el.querySelector(`[data-wert="${w}"]`); if (x) f(x); };
+    setze('pops', x => { x.textContent = `${zahl(t.pops)} Fische erwischt`; });
+    setze('verdient', x => { x.textContent = `🍤 Schon ${zahl(t.verdient)} Geld mit Fischstäbchen verdient.`; });
+    if (held && t.stufe < 10) {
+      const S = PT.HELDEN_STUFEN;
+      const anteil = (t.xp - S[t.stufe]) / (S[t.stufe + 1] - S[t.stufe]);
+      setze('xp', x => { x.style.width = Math.round(Math.max(0, Math.min(1, anteil)) * 100) + '%'; });
+      setze('xpText', x => { x.textContent = `· ${zahl(t.xp)} / ${zahl(S[t.stufe + 1])} Erfahrung`; });
+    } else setze('xp', x => { x.style.width = '100%'; });
+    for (const b of el.querySelectorAll('[data-preis]')) {
+      const zuTeuer = +b.dataset.preis > geld;
+      if (b.id === 'tiStufe') b.disabled = zuTeuer;
+      else { b.classList.toggle('teuer', zuTeuer); b.classList.toggle('leistbar', !zuTeuer); }
+    }
   }
   function turmWaehlen(t) {
     auswahl = t;
@@ -356,23 +1043,73 @@
     anzeigen();
   }
   function upgraden(i) {
-    if (!auswahl || PT.HELDEN[auswahl.typ]) return;
-    if (spiel.upgraden(auswahl, i)) { PT.Ton.upgrade(); if (auswahl.pfade[i] === 5) banner(PT.PINGUINE[auswahl.typ].pfade[i][4].name, 'Stufe 5!', 1.8); }
-    else PT.Ton.fehler();
-    letzteAnzeige = '';
-    anzeigen();
+    if (!auswahl || PT.HELDEN[auswahl.typ] || !spiel.darf(auswahl, ich())) return;
+    tun({ t:'up', id:auswahl.id, pfad:i });
   }
   function verkaufen() {
-    if (!auswahl) return;
-    spiel.verkaufen(auswahl);
-    PT.Ton.verkaufen();
-    turmWaehlen(null);
+    if (!auswahl || !spiel.darf(auswahl, ich())) return;
+    tun({ t:'verkauf', id:auswahl.id });
+  }
+
+  /* ---------- Vorschau auf die nächste Runde ---------- */
+  let vorschauSchluessel = '', vorschauKlein = speicher.lesen('pt-vorschau-klein') === true;
+  function vorschauZeigen() {
+    const el = $('#vorschau');
+    const zeigen = einstellung.vorschau && spiel && !spiel.laeuft && !spiel.vorbei && !spiel.unendlich && (!spiel.gewonnen || spiel.endlos) && $('#ende').hidden;
+    if (!zeigen) { if (!el.hidden) el.hidden = true; return; }
+    const n = spiel.runde + 1;
+    const k = `${n}|${vorschauKlein}`;
+    el.hidden = false;
+    if (k === vorschauSchluessel) return;
+    vorschauSchluessel = k;
+    const r = PT.runde(n, spiel.modus);
+    const summe = new Map();
+    for (const g of r.gruppen) {
+      const sch = `${g.typ}|${g.camo ? 'c' : ''}${g.nach ? 'r' : ''}${g.fest ? 'f' : ''}`;
+      const alt = summe.get(sch);
+      summe.set(sch, { ...g, anzahl:(alt ? alt.anzahl : 0) + g.anzahl });
+    }
+    const teile = [...summe.values()].sort((a, b) => PT.FISCHE[b.typ].rbe - PT.FISCHE[a.typ].rbe).map(g => {
+      const zus = (g.camo ? '👻' : '') + (g.nach ? '🌿' : '') + (g.fest ? '⛑️' : '');
+      return `<span class="${PT.FISCHE[g.typ].boss ? 'boss' : ''}" title="${esc(PT.FISCHE[g.typ].name)}"><img src="${fischBilder[g.typ] || ''}" alt="${esc(PT.FISCHE[g.typ].name)}">${g.anzahl}×${zus ? `<em>${zus}</em>` : ''}</span>`;
+    });
+    el.classList.toggle('klein', vorschauKlein);
+    el.innerHTML = `<b>🔍 Runde ${n}${r.boss ? ` · ${PT.BOSSE[r.bossTyp].symbol} Boss!` : ''}${vorschauKlein ? ' ▸' : ''}</b><div class="vf">${teile.join('')}</div>`;
+  }
+
+  /* ---------- Einstellungen-Dialog ---------- */
+  function einstOeffnen() {
+    PT.Ton.klick();
+    $('#eLaut').value = einstellung.laut;
+    $('#eGrafik').value = grafikHoch ? 'hoch' : 'schnell';
+    $('#eDesign').value = einstellung.design;
+    $('#eVorschau').checked = einstellung.vorschau;
+    $('#eBalken').checked = einstellung.balken;
+    $('#eTexte').checked = einstellung.texte;
+    $('#eWackeln').checked = einstellung.wackeln;
+    $('#eAuto').checked = einstellung.autoStart;
+    $('#einstellungen').hidden = false;
+    $('#einstZu').focus();
+  }
+  function einstUebernehmen() {
+    einstellung.laut = +$('#eLaut').value;
+    einstellung.design = $('#eDesign').value;
+    einstellung.vorschau = $('#eVorschau').checked;
+    einstellung.balken = $('#eBalken').checked;
+    einstellung.texte = $('#eTexte').checked;
+    einstellung.wackeln = $('#eWackeln').checked;
+    einstellung.autoStart = $('#eAuto').checked;
+    const hoch = $('#eGrafik').value === 'hoch';
+    if (hoch !== grafikHoch) { grafikHoch = hoch; speicher.schreiben('pt-grafik', grafikHoch); if (welt) welt.grafik(grafikHoch); }
+    speicher.schreiben('pt-einst', einstellung);
+    einstAnwenden();
+    vorschauSchluessel = '';
   }
 
   /* ---------- Fähigkeiten ---------- */
   let fkSchluessel = '';
   function faehigkeitenZeigen() {
-    const liste = spiel.faehigkeitenListe();
+    const liste = spiel.faehigkeitenListe(ich());
     const s = liste.map(f => f.id + f.anzahl).join();
     const el = $('#faehigkeiten');
     if (s !== fkSchluessel) {
@@ -389,31 +1126,31 @@
   }
   function faehigkeit(id) {
     PT.Ton.start();
-    if (spiel.faehigkeitAusloesen(id)) { PT.Ton.faehigkeit(); const f = PT.FAEHIGKEITEN[id]; banner(`${f.symbol} ${f.name}`, '', 1.2); }
-    else { PT.Ton.fehler(); kurzTipp('Die Fähigkeit lädt noch.'); }
+    tun({ t:'fk', fk:id });
   }
 
   /* ---------- Knöpfe ---------- */
   function startKnopf() {
     PT.Ton.start();
     if (!spiel || spiel.vorbei) return;
-    if (spiel.laeuft) { tempo = tempo >= 3 ? 1 : tempo + 1; letzteAnzeige = ''; anzeigen(); return; }
+    if (spiel.laeuft) {
+      tempo = tempo >= 3 ? 1 : tempo + 1;
+      if (imKoop()) senden({ t:'tempo', tempo });
+      letzteAnzeige = ''; anzeigen(); return;
+    }
     rundeStarten();
   }
   function rundeStarten() {
-    if (spiel.rundeStarten()) {
-      tipp('');
-      if (olymp) olympMelden('da');
-    }
-    letzteAnzeige = '';
-    anzeigen();
+    tun({ t:'start', runde:spiel.runde + 1 });
   }
-  function pause(an) {
+  // Im Koop hält die Pause das Spiel für alle an; "nurZeigen" kommt vom Server
+  function pause(an, nurZeigen) {
+    if (imKoop() && !nurZeigen) { senden({ t:'pause', an }); if (an) return; }
     pausiert = an;
     $('#pause').hidden = !an;
     $('#pTon').textContent = PT.Ton.an ? '🔊 Ton an' : '🔇 Ton aus';
     $('#pGrafik').textContent = grafikHoch ? '✨ Grafik: hoch' : '⚡ Grafik: schnell';
-    $('#pNeu').hidden = !!olymp;
+    $('#pNeu').hidden = !!olymp || imKoop();
     $('#pMenue').hidden = !!olymp;
     $('#pAufgeben').hidden = !olymp;
     if (an) $('#pWeiter').focus();
@@ -437,7 +1174,7 @@
     if (zielModus && zeiger) { welt.zielZeigen(zeiger[0], zeiger[1], zielModus.eff.angriffe[0].splash); return; }
     if (!bauTyp || !zeiger) { welt.geistZeigen(null); if (!auswahl) welt.reichweiteZeigen(null); return; }
     const [x, y] = zeiger;
-    const ok = spiel.platzFrei(bauTyp, x, y) && spiel.preisBau(bauTyp, x, y) <= spiel.geld;
+    const ok = spiel.platzFrei(bauTyp, x, y) && spiel.preisBau(bauTyp, x, y) <= meinGeld();
     const w = PT.werteFuer(bauTyp, [0, 0, 0]);
     welt.geistZeigen(bauTyp, x, y, ok);
     welt.reichweiteZeigen(x, y, w.reichweite > 5000 ? 60 : w.reichweite || 40, ok);
@@ -495,25 +1232,16 @@
     if (!zeiger) return;
     const [x, y] = zeiger;
     if (zielModus) {
-      zielModus.zielPunkt = [Math.max(0, Math.min(PT.BREITE, x)), Math.max(0, Math.min(PT.HOEHE, y))];
+      tun({ t:'zielpunkt', id:zielModus.id, x:Math.round(x), y:Math.round(y) });
       zielModus = null; welt.zielModus = false;
       PT.Ton.klick(); tipp('');
       letzteAnzeige = ''; anzeigen();
       return;
     }
     if (bauTyp) {
-      const t = spiel.bauen(bauTyp, x, y);
-      if (t) {
-        PT.Ton.bauen();
-        const weiterBauen = e.shiftKey && !PT.HELDEN[bauTyp] && spiel.preisBau(bauTyp) <= spiel.geld;
-        if (!weiterBauen) { bauTyp = null; welt.geistZeigen(null); tipp(''); turmWaehlen(t); }
-      } else {
-        PT.Ton.fehler();
-        const d = PT.def(bauTyp);
-        kurzTipp(spiel.preisBau(bauTyp, x, y) > spiel.geld ? 'Nicht genug Geld.' : d.wasser ? 'Boote passen nur in die runden Wasserlöcher.' : 'Hier ist kein Platz – nicht ins Wasser, nicht auf Eisberge, nicht zu nah an andere Pinguine.');
-        if (e.pointerType !== 'mouse') vorschau();
-      }
-      letzteAnzeige = ''; anzeigen();
+      const ok = spiel.platzFrei(bauTyp, x, y) && spiel.preisBau(bauTyp, x, y) <= meinGeld();
+      tun({ t:'bau', typ:bauTyp, x:Math.round(x * 100) / 100, y:Math.round(y * 100) / 100, weiter:e.shiftKey && !PT.HELDEN[bauTyp] });
+      if (!ok && e.pointerType !== 'mouse' && bauTyp) vorschau();
       return;
     }
     const t = turmBei(x, y);
@@ -526,8 +1254,10 @@
     welt.zoomen(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX, e.clientY);
   }
   function tasten(e) {
+    if (e.key === 'Escape' && !$('#einstellungen').hidden) { e.preventDefault(); $('#einstZu').click(); return; }
     if (!spiel || $('#spiel').hidden) return;
     if (!$('#ende').hidden) return;
+    if (!$('#einstellungen').hidden) return;
     if (e.key === 'Escape') {
       e.preventDefault();
       if (zielModus) { zielModus = null; welt.zielModus = false; welt.zielZeigen(null); tipp(''); }
@@ -538,17 +1268,19 @@
     }
     if (pausiert) return;
     if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+    if (!$('#ende').hidden) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.toLowerCase();
     const n = parseInt(e.key, 10);
     if (n >= 1 && n <= 9) {
-      const f = spiel.faehigkeitenListe()[n - 1];
+      const f = spiel.faehigkeitenListe(ich())[n - 1];
       if (f) { e.preventDefault(); faehigkeit(f.id); }
       return;
     }
-    if (k === 'h' && spiel.held && !spiel.heldDa()) { bauWaehlen(spiel.held); if (zeiger) vorschau(); return; }
+    const held = spiel.heldVon(ich());
+    if (k === 'h' && held && !spiel.heldDa(ich())) { bauWaehlen(held); if (zeiger) vorschau(); return; }
     const typ = PT.PINGUIN_REIHE.find(t => PT.PINGUINE[t].taste === k || (k === 'y' && PT.PINGUINE[t].taste === 'z'));
-    if (typ && spiel.erlaubt(typ)) { bauWaehlen(typ); if (zeiger) vorschau(); return; }
+    if (typ && spiel.erlaubt(typ, ich())) { bauWaehlen(typ); if (zeiger) vorschau(); return; }
     if (e.key === ' ') { e.preventDefault(); startKnopf(); return; }
     if (auswahl) {
       const i = [',', '.', '-'].indexOf(e.key);
@@ -560,12 +1292,11 @@
         const d = PT.def(auswahl.typ);
         if (auswahl.eff.flieger) {
           const ids = PT.MUSTER.map(z => z[0]);
-          auswahl.muster = ids[(ids.indexOf(auswahl.muster) + 1) % ids.length]; auswahl.musterGesetzt = true;
+          tun({ t:'muster', id:auswahl.id, muster:ids[(ids.indexOf(auswahl.muster) + 1) % ids.length] });
         } else if (d.greift !== false && auswahl.typ !== 'moerser') {
           const ids = (d.ziele || PT.ZIELE).map(z => z[0]);
-          auswahl.ziel = ids[(ids.indexOf(auswahl.ziel) + (e.shiftKey ? ids.length - 1 : 1)) % ids.length];
+          tun({ t:'ziel', id:auswahl.id, ziel:ids[(ids.indexOf(auswahl.ziel) + (e.shiftKey ? ids.length - 1 : 1)) % ids.length] });
         }
-        letzteAnzeige = ''; anzeigen();
       }
     }
   }
@@ -574,23 +1305,49 @@
   function ereignisse(liste) {
     for (const e of liste) {
       if (e.art === 'rundeStart') {
-        if (e.boss) banner(`🐙 Krakus ist da!`, e.boss === 1 ? 'Boss Stufe 1 – lass ihn nicht durch!' : 'Boss Stufe 2 – das große Finale!', 3);
+        if (e.boss) banner(`${PT.BOSSE[e.bossTyp].symbol} ${PT.FISCHE[e.bossTyp].name} ist da!`, e.boss === 1 ? 'Boss Stufe 1 – lass ihn nicht durch!' : 'Boss Stufe 2 – das große Finale!', 3);
         else banner(`Runde ${e.runde}`, rundenHinweis(e.runde));
       }
       if (e.art === 'rundeEnde') {
         const n = e.runde + 1;
-        if (spiel.modus === 'boss' && ((n >= 17 && n < 20) || (n >= 37 && n < 40))) banner(`Runde ${e.runde} geschafft!`, `Krakus kommt in ${(n < 20 ? 20 : 40) - n + 1} ${(n < 20 ? 20 : 40) - n + 1 === 1 ? 'Runde' : 'Runden'} – stell auf „Stärkster“!`, 2.6);
+        const boss = PT.bossFuer(spiel.modus);
+        const bossRunde = boss && Object.keys(PT.BOSSE[boss].runden).map(Number).find(r => r >= n && r - n <= 2);
+        if (bossRunde) { const k = bossRunde - n + 1; banner(`Runde ${e.runde} geschafft!`, `${PT.FISCHE[boss].name} kommt in ${k} ${k === 1 ? 'Runde' : 'Runden'} – stell auf „Stärkster“!`, 2.6); }
         else banner(`Runde ${e.runde} geschafft!`, `+${zahl(e.bonus)} 💰`);
+        xpDazu(PT.passXpRunde(e.runde, spiel.stufe));
+        fortschrittMelden('runde');
         speichern();
-        if ($('#auto').checked && !spiel.gewonnen && spiel.modus !== 'flut') autoWarte = 1.2;
+        if (!spiel.koop && $('#auto').checked && !spiel.gewonnen && spiel.modus !== 'flut') autoWarte = 1.2;
         if (olymp && spiel.runde >= spiel.zielRunden) olympFertig();
       }
       if (e.art === 'aufstieg') banner(`⭐ ${PT.HELDEN[e.turm.typ].name}`, `Stufe ${e.stufe}: ${PT.HELDEN[e.turm.typ].stufen[e.stufe - 1]}`, 2.2);
-      if (e.art === 'bossPhase') banner('Krakus ruft Verstärkung!', `${4 - e.phase} von 4 Lebensbalken übrig`, 1.8);
-      if (e.art === 'bossBesiegt') banner('🐙 Krakus besiegt!', `+${zahl(1500 * (spiel.modus === 'halb' ? 0.5 : 1))} 💰`, 2.5);
-      if (e.art === 'gewonnen' && !olymp) endeZeigen(true);
+      if (e.art === 'bossPhase') banner(`${PT.FISCHE[e.fisch.typ].name} ruft Verstärkung!`, `${4 - e.phase} von 4 Lebensbalken übrig`, 1.8);
+      if (e.art === 'flutwelle' && spiel.tuerme.some(t => t.betaeubt > 0 && (!spiel.koop || t.besitzer === ich()))) kurzTipp('🌊 Flutwelle! Deine Pinguine am Ufer sind kurz betäubt.');
+      if (e.art === 'eisatem' && spiel.tuerme.some(t => t.betaeubtArt === 'eis' && (!spiel.koop || t.besitzer === ich()))) kurzTipp('❄️ Eisatem! Pinguine am Ufer sind eingefroren.');
+      if (e.art === 'schmelzWarnung') kurzTipp('💧 Achtung: Nach der nächsten Runde schmilzt eine Eisfläche (blau gestrichelt). Wer dort steht, bekommt sein Geld zurück.');
+      if (e.art === 'geschmolzen') { kurzTipp('💧 Eine Eisfläche ist geschmolzen – jetzt dürfen dort Boote hin.'); letzteAnzeige = ''; }
+      if (e.art === 'bossBesiegt') {
+        const B = PT.BOSSE[e.typ] || PT.BOSSE.krakus;
+        banner(`${B.symbol} ${PT.FISCHE[e.typ].name} besiegt!`, `+${zahl(B.belohnung * (spiel.modus === 'halb' ? 0.5 : 1))} 💰`, 2.5);
+        xpDazu(PT.PASS_XP_BOSS);
+      }
+      if (e.art === 'gewonnen') {
+        xpDazu(PT.passXpSieg(spiel.stufe));
+        if (!olymp && !spiel.unendlich) {
+          muenzenDazu(PT.MUENZEN_SIEG[spiel.stufe] || 8);
+          // Tages-Herausforderung geschafft (einmal pro Tag mit Belohnung)
+          if (tagesAktiv && !fort.tage[tagesAktiv]) {
+            const h = PT.tagesHerausforderung(tagesAktiv);
+            fort.tage[tagesAktiv] = true; fort.lebenslang.tage++; fortMerken();
+            xpDazu(h.xp); muenzenDazu(h.muenzen);
+          }
+          fortschrittMelden('sieg');
+        }
+        if (!olymp) endeZeigen(true);
+      }
       if (e.art === 'verloren') {
         speicher.weg('pt-stand');
+        fortschrittMelden('verloren');
         if (olymp) olympFertig(); else endeZeigen(false);
       }
     }
@@ -599,38 +1356,92 @@
     const r = PT.runde(n, spiel.modus);
     const typen = [...new Set(r.gruppen.map(g => g.typ))];
     const neu = { 17:'Nachwachsende Fische! Grüne Algen = sie wachsen nach.', 20:'Anglerfische! Explosionen helfen nicht.', 22:'Eisfische! Kälte hilft nicht.', 24:'Getarnte Fische!',
-      26:'Zebrafische!', 28:'Panzerwelse! Spitzes prallt ab.', 38:'Kofferfische!', 40:'Ein Walhai!', 46:'Gepanzerte Fische mit Helm!', 55:'Der Megalodon kommt!', 60:'Ein Schattenrochen – immer getarnt!', 65:'Die Riesenkrake!' }[n];
+      26:'Zebrafische!', 28:'Panzerwelse! Spitzes prallt ab.', 38:'Kofferfische!', 40:'Ein Walhai!', 46:'Gepanzerte Fische mit Helm!', 55:'Der Megalodon kommt!', 60:'Ein Schattenrochen! Er taucht nur kurz auf – mit Nachtsicht trifft man ihn immer.', 65:'Die Riesenkrake!',
+      21:'Fliegende Fische! In der Luft treffen sie nur Flieger.', 31:'Tintenfische! Ihre Tinte blendet Pinguine.', 42:'Kugelfische! Nach einem Treffer prallt kurz alles ab.' }[n];
     if (neu) return neu;
     return typen.map(t => PT.FISCHE[t].name).join(' · ');
   }
   function speichern() {
-    if (!spiel || spiel.vorbei || spiel.modus === 'sandkasten') return;
+    if (!spiel || spiel.vorbei || spiel.modus === 'sandkasten' || spiel.koop) return;
     if (olymp) speicher.schreiben('pt-olymp-stand-' + olymp.info.lauf, spiel.speichern(), sessionStorage);
-    else speicher.schreiben('pt-stand', spiel.speichern());
+    else speicher.schreiben('pt-stand', { ...spiel.speichern(), tag:tagesAktiv });
   }
 
+  let endeArt = null;
   function endeZeigen(gewonnen) {
     const k = $('#endeKnoepfe');
     $('#ende').hidden = false;
+    endeArt = gewonnen ? 'gewonnen' : 'verloren';
+    if (spiel.koop) return koopEnde(gewonnen);
     pausiert = true;
     if (gewonnen) {
       const st = PT.STUFEN[spiel.stufe];
       const schluessel = `${spiel.karte}|${spiel.stufe}|${spiel.modus}`;
-      const neu = !medaillen[schluessel] && spiel.modus !== 'sandkasten';
-      if (spiel.modus !== 'sandkasten') { medaillen[schluessel] = true; speicher.schreiben('pt-medaillen', medaillen); }
-      $('#endeEmoji').textContent = spiel.modus === 'standard' ? st.medaille : '🏆';
+      const zaehlt = spiel.modus !== 'sandkasten' && spiel.karte !== 'eigen' && !tagesAktiv;
+      const neu = !medaillen[schluessel] && zaehlt;
+      if (zaehlt) { medaillen[schluessel] = true; speicher.schreiben('pt-medaillen', medaillen); }
+      if (spiel.modus === 'standard' || spiel.modus === 'sandkasten' || !zaehlt) $('#endeEmoji').textContent = spiel.modus === 'standard' ? st.medaille : '🏆';
+      else $('#endeEmoji').innerHTML = modusMuenze(spiel.karte, spiel.modus, true);
       $('#endeTitel').textContent = 'Gewonnen!';
-      $('#endeText').textContent = `Alle ${spiel.zielRunden} Runden auf ${PT.KARTEN[spiel.karte].name} (${st.name}${spiel.modus !== 'standard' ? ', ' + PT.MODI[spiel.modus].name : ''}) mit ${Math.ceil(spiel.leben)} Leben übrig.${neu ? ' Neue Medaille!' : ''}`;
+      $('#endeText').textContent = `${tagesAktiv ? 'Tages-Herausforderung geschafft! ' : ''}Alle ${spiel.zielRunden} Runden auf ${spiel.kartenDaten.name} (${st.name}${spiel.modus !== 'standard' ? ', ' + PT.MODI[spiel.modus].name : ''}) mit ${Math.ceil(spiel.leben)} Leben übrig.${neu ? ' Neue Medaille!' : ''}`;
       k.innerHTML = '<button class="knopf haupt" id="eEndlos">Endlos weiterspielen</button><button class="knopf" id="eNeu">Nochmal</button><button class="knopf" id="eMenue">Hauptmenü</button>';
       $('#eEndlos').onclick = () => { spiel.endlos = true; $('#ende').hidden = true; pausiert = false; speichern(); letzteAnzeige = ''; anzeigen(); };
     } else {
       $('#endeEmoji').textContent = '🐟';
-      $('#endeTitel').textContent = spiel.modus === 'boss' && spiel.leben <= 0 && spiel.statistik.geleakt >= 1e6 ? 'Krakus ist entkommen!' : 'Die Fische sind durch!';
-      $('#endeText').textContent = `Du hast ${spiel.runde} ${spiel.runde === 1 ? 'Runde' : 'Runden'} geschafft. ${zahl(spiel.statistik.platzer)} Fische erwischt.`;
+      $('#endeTitel').textContent = endeTitel();
+      $('#endeText').textContent = `Du hast ${spiel.runde} ${spiel.runde === 1 ? 'Runde' : 'Runden'} geschafft.`;
       k.innerHTML = '<button class="knopf haupt" id="eNeu">Nochmal</button><button class="knopf" id="eMenue">Hauptmenü</button>';
     }
-    $('#eNeu').onclick = () => { wahl = { ...wahl, karte:spiel.karte, stufe:spiel.stufe, modus:spiel.modus, held:spiel.held }; neuesSpiel(); };
+    if (gewonnen) erfolgeCheck(true, true);
+    statistikZeigen();
+    $('#eNeu').onclick = () => {
+      if (tagesAktiv) { tagesStarten(); return; }
+      wahl = { ...wahl, karte:spiel.karte === 'eigen' ? wahl.karte : spiel.karte, stufe:spiel.stufe, modus:spiel.modus, held:spiel.held }; neuesSpiel();
+    };
     $('#eMenue').onclick = zumMenue;
+  }
+  // Statistik fürs Ergebnisbild: Zahlen, die besten Pinguine und was das Spiel gebracht hat
+  function statistikZeigen() {
+    const st = spiel.statistik;
+    const zeit = Math.round(st.zeit || 0), min = Math.floor(zeit / 60), sek = String(zeit % 60).padStart(2, '0');
+    const top = spiel.tuerme.filter(t => t.pops > 0).sort((a, b) => b.pops - a.pops).slice(0, 4);
+    const zahlen = [['🐟', zahl(st.platzer), 'Fische erwischt'], ['💰', zahl(st.verdient), 'Geld verdient'], ['⏱', `${min}:${sek}`, 'Spielzeit'],
+      ['🌊', spiel.runde, 'Runden'], ['💥', zahl(st.geleakt >= 1e6 ? 0 : st.geleakt), 'Leben verloren'], ['⚡', zahl(st.faehigkeiten || 0), 'Fähigkeiten']];
+    let html = `<div class="stat-zahlen">${zahlen.map(([sy, w, t]) => `<div><b>${sy} ${w}</b>${t}</div>`).join('')}</div>`;
+    if (top.length) html += `<ul class="stat-top">${top.map((t, i) => `<li><span>${['🥇', '🥈', '🥉', '4.'][i]}</span><img src="${bilder[t.typ] || ''}" alt=""><span>${esc(PT.def(t.typ).name)}${t.pfade && t.pfade.some(x => x) ? ` <small>${t.pfade.join('-')}</small>` : ''}</span><em>${zahl(t.pops)}</em></li>`).join('')}</ul>`;
+    const lohn = [];
+    if (spielLohn.xp) lohn.push(`🎖️ +${zahl(spielLohn.xp)} Pass-Erfahrung`);
+    if (spielLohn.muenzen) lohn.push(`🪙 +${spielLohn.muenzen} Fischmünzen`);
+    for (const e of spielLohn.erfolge) lohn.push(`🏆 ${e.name}`);
+    if (lohn.length) html += `<p class="stat-lohn">${lohn.map(esc).join(' · ')}</p>`;
+    $('#endeStatistik').innerHTML = html;
+  }
+  function endeTitel() {
+    const boss = PT.bossFuer(spiel.modus);
+    return boss && spiel.leben <= 0 && spiel.statistik.geleakt >= 1e6 ? `${PT.FISCHE[boss].name} ist entkommen!` : 'Die Fische sind durch!';
+  }
+  // Koop: Das Spiel läuft beim Server weiter; der Gastgeber holt alle zurück in die Lobby
+  function koopEnde(gewonnen) {
+    const k = $('#endeKnoepfe');
+    const namen = spiel.spieler.map(x => x.name).join(', ');
+    if (gewonnen) {
+      const schluessel = `${spiel.karte}|${spiel.stufe}|${spiel.modus}`;
+      if (spiel.modus !== 'sandkasten') { medaillen[schluessel] = true; speicher.schreiben('pt-medaillen', medaillen); }
+      $('#endeEmoji').textContent = '🏆';
+      $('#endeTitel').textContent = 'Gemeinsam gewonnen!';
+      $('#endeText').textContent = `${namen}: alle ${spiel.zielRunden} Runden auf ${spiel.kartenDaten.name} mit ${Math.ceil(spiel.leben)} Leben übrig.`;
+    } else {
+      $('#endeEmoji').textContent = '🐟';
+      $('#endeTitel').textContent = endeTitel();
+      $('#endeText').textContent = `Ihr habt ${spiel.runde} ${spiel.runde === 1 ? 'Runde' : 'Runden'} geschafft.`;
+    }
+    statistikZeigen();
+    k.innerHTML = (gewonnen ? '<button class="knopf haupt" id="eEndlos">Endlos weiterspielen</button>' : '')
+      + (binHost() ? '<button class="knopf" id="eLobby">Zurück in die Lobby</button>' : '<p>Der Gastgeber kann alle zurück in die Lobby holen.</p>')
+      + '<button class="knopf" id="eRaus">Raum verlassen</button>';
+    if ($('#eEndlos')) $('#eEndlos').onclick = () => { tun({ t:'endlos' }); $('#ende').hidden = true; endeArt = null; };
+    if ($('#eLobby')) $('#eLobby').onclick = () => senden({ t:'nochmal' });
+    $('#eRaus').onclick = koopVerlassen;
   }
 
   /* ---------- Olympiade ---------- */
@@ -677,7 +1488,7 @@
     $('#los').onclick = () => {
       PT.Ton.start();
       const alt = speicher.lesen('pt-olymp-stand-' + olymp.info.lauf, sessionStorage);
-      const s = alt ? PT.Spiel.laden(alt) : new PT.Spiel({ karte:d.einst.karte, stufe:d.einst.stufe, runden:d.einst.runden, held:wahl.held, seed:12345 });
+      const s = alt ? PT.Spiel.laden(alt) : new PT.Spiel({ karte:d.einst.karte, stufe:d.einst.stufe, runden:d.einst.runden, held:wahl.held, kraft:false, seed:12345 });
       spielStarten(s);
       olympMelden('da');
     };
@@ -705,7 +1516,12 @@
     const dt = Math.min(0.1, (jetzt - (letzte || jetzt)) / 1000);
     letzte = jetzt;
     if (!spiel || !welt || $('#spiel').hidden) return;
-    if (!pausiert) {
+    const koopPause = imKoop() && !!(netz.raum && netz.raum.pause);
+    if (imKoop()) {
+      koopRechnen(dt);
+      // ein anderer Spieler hat "Endlos weiter" gedrückt
+      if (endeArt === 'gewonnen' && spiel.endlos) { $('#ende').hidden = true; endeArt = null; }
+    } else if (!pausiert) {
       zeitRest += dt * (spiel.laeuft ? tempo : 1);
       let n = 0;
       while (zeitRest >= 1 / 60 && n < 12) { spiel.schritt(1 / 60); zeitRest -= 1 / 60; n++; }
@@ -716,18 +1532,18 @@
     const ev = spiel.ereignisse.splice(0);
     if (ev.length) { welt.ereignisse(ev); PT.Ton.ereignisse(ev); ereignisse(ev); }
     if (auswahl && !spiel.tuerme.includes(auswahl)) turmWaehlen(null);
-    welt.zeichnen(spiel, pausiert ? 0 : dt, auswahl);
+    welt.zeichnen(spiel, (imKoop() ? koopPause : pausiert) ? 0 : dt, auswahl);
     if (bannerZeit > 0) { bannerZeit -= dt; if (bannerZeit <= 0) $('#banner').classList.remove('an'); }
     if (tippZeit > 0) { tippZeit -= dt; if (tippZeit <= 0) tipp(''); }
     faehigkeitenZeigen();
+    vorschauZeigen();
     anzeigen();
   }
 
   /* ---------- Los ---------- */
   function init() {
     try {
-      const b = PT.Welt.bilder([...PT.PINGUIN_REIHE, ...PT.HELDEN_REIHE], [...PT.FISCH_REIHE, 'krakus']);
-      bilder = b.pingu; fischBilder = b.fisch;
+      bilderMalen(true);
     } catch (e) {
       console.error(e);
       document.body.innerHTML = '<p style="padding:24px;font-size:1.2rem">Dein Browser kann leider kein WebGL (3D). Probier es mit einem aktuellen Chrome, Firefox, Safari oder Edge.</p>';
@@ -735,24 +1551,55 @@
     }
     lexikonBauen();
     menueBauen();
-    $('#los').onclick = () => { PT.Ton.start(); neuesSpiel(); };
+    einstAnwenden();
+    $('#los').onclick = () => {
+      PT.Ton.start();
+      if (koopReiter) { if (binHost()) senden({ t:'start' }); return; }
+      neuesSpiel();
+    };
+    $('#reiterAllein').onclick = () => { PT.Ton.klick(); koopReiterSetzen(false); };
+    $('#reiterKoop').onclick = () => { PT.Ton.klick(); koopReiterSetzen(true); };
+    $('#koopNeu').onclick = () => { PT.Ton.start(); if (koopHallo()) senden({ t:'erstellen' }); };
+    $('#koopRein').onclick = () => {
+      PT.Ton.start();
+      const code = $('#koopCode').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (code.length !== 4) { koopFehler('Der Raum-Code hat 4 Zeichen.'); return; }
+      if (koopHallo()) senden({ t:'beitreten', code });
+    };
+    $('#koopCode').onkeydown = e => { if (e.key === 'Enter') $('#koopRein').click(); };
+    $('#koopRaus').onclick = () => { PT.Ton.klick(); koopVerlassen(); };
+    $('#kraftAn').onchange = () => {
+      wahl.kraft = $('#kraftAn').checked; speicher.schreiben('pt-wahl', wahl);
+      if (koopReiter && netz && netz.raum) { const m = meinMitglied(); senden({ t:'wahl', held:m ? m.held : wahl.held, kraft:kraftAktivKoop(), skin:pass.skin, sockel:pass.sockel }); }
+    };
+    $('#tagLos').onclick = () => { PT.Ton.start(); tagesStarten(); };
+    $('#wissenAn').onchange = () => { fort.wissenAn = $('#wissenAn').checked; fortMerken(); };
+    $('#einstKnopf').onclick = einstOeffnen;
+    $('#pEinst').onclick = einstOeffnen;
+    $('#einstZu').onclick = () => { PT.Ton.klick(); $('#einstellungen').hidden = true; if (!$('#pause').hidden) pause(true, true); };
+    for (const el of document.querySelectorAll('#einstellungen input, #einstellungen select')) el.addEventListener(el.type === 'range' ? 'input' : 'change', einstUebernehmen);
+    $('#einstellungen').addEventListener('click', e => { if (e.target.id === 'einstellungen') $('#einstZu').click(); });
+    $('#vorschau').onclick = () => { vorschauKlein = !vorschauKlein; speicher.schreiben('pt-vorschau-klein', vorschauKlein); vorschauSchluessel = ''; PT.Ton.klick(); };
     $('#weiter').onclick = () => {
       PT.Ton.start();
       const stand = speicher.lesen('pt-stand');
-      if (stand && PT.KARTEN[stand.karte]) spielStarten(PT.Spiel.laden(stand));
+      if (stand && (PT.KARTEN[stand.karte] || stand.karte === 'eigen')) { tagesAktiv = stand.tag || null; spielStarten(PT.Spiel.laden(stand)); }
     };
     $('#start').onclick = startKnopf;
     $('#pauseKnopf').onclick = () => pause(true);
     $('#tonKnopf').onclick = () => { PT.Ton.start(); $('#tonKnopf').textContent = PT.Ton.umschalten() ? '🔊' : '🔇'; };
     $('#tonKnopf').textContent = PT.Ton.an ? '🔊' : '🔇';
     $('#pWeiter').onclick = () => pause(false);
-    $('#pTon').onclick = () => { PT.Ton.umschalten(); $('#tonKnopf').textContent = PT.Ton.an ? '🔊' : '🔇'; pause(true); };
-    $('#pGrafik').onclick = () => { grafikHoch = !grafikHoch; speicher.schreiben('pt-grafik', grafikHoch); welt.grafik(grafikHoch); pause(true); };
+    $('#pTon').onclick = () => { PT.Ton.umschalten(); $('#tonKnopf').textContent = PT.Ton.an ? '🔊' : '🔇'; pause(true, true); };
+    $('#pGrafik').onclick = () => { grafikHoch = !grafikHoch; speicher.schreiben('pt-grafik', grafikHoch); welt.grafik(grafikHoch); pause(true, true); };
     $('#pNeu').onclick = () => { if (confirm('Wirklich neu anfangen? Der Fortschritt geht verloren.')) { wahl = { ...wahl, karte:spiel.karte, stufe:spiel.stufe, modus:spiel.modus, held:spiel.held }; neuesSpiel(); } };
-    $('#pMenue').onclick = () => { speichern(); zumMenue(); };
+    $('#pMenue').onclick = () => {
+      if (imKoop()) { if (confirm('Raum verlassen? Deine Pinguine bleiben für die anderen stehen.')) { senden({ t:'pause', an:false }); koopVerlassen(); } return; }
+      speichern(); zumMenue();
+    };
     $('#pAufgeben').onclick = () => { if (confirm('Wirklich aufgeben? Dann zählen die bisher geschafften Runden.')) olympFertig(); };
     $('#auto').checked = speicher.lesen('pt-auto') === true;
-    $('#auto').onchange = () => speicher.schreiben('pt-auto', $('#auto').checked);
+    $('#auto').onchange = () => { if (imKoop()) senden({ t:'auto', an:$('#auto').checked }); else speicher.schreiben('pt-auto', $('#auto').checked); };
     $('#zoomRein').onclick = () => welt && welt.zoomen(1.25);
     $('#zoomRaus').onclick = () => welt && welt.zoomen(1 / 1.25);
     $('#zoomZurueck').onclick = () => welt && welt.zoomZurueck();
@@ -765,7 +1612,7 @@
     c.addEventListener('wheel', rad, { passive:false });
     c.addEventListener('contextmenu', e => { e.preventDefault(); if (bauTyp) bauWaehlen(null); else if (zielModus) { zielModus = null; welt.zielModus = false; } });
     window.addEventListener('keydown', tasten);
-    document.addEventListener('visibilitychange', () => { if (document.hidden && spiel && !$('#spiel').hidden && $('#ende').hidden) pause(true); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden && spiel && !spiel.koop && !$('#spiel').hidden && $('#ende').hidden) pause(true); });
     setInterval(() => { if (olymp && spiel && !olympGemeldet) olympMelden('da'); }, 60_000);
 
     // Olympia-Ticket im Link oder (nach Neuladen) im Sitzungsspeicher
@@ -776,7 +1623,22 @@
       url.searchParams.delete('olymp');
       history.replaceState(null, '', url.pathname + url.search + url.hash);
     } else ticket = speicher.lesen('pt-olymp', sessionStorage);
+    // Geteilte Karte im Link: in die eigenen Karten übernehmen und auswählen
+    const kLink = url.searchParams.get('karte');
+    if (kLink) {
+      url.searchParams.delete('karte');
+      history.replaceState(null, '', url.pathname + url.search + url.hash);
+      const k = karteAusLink(kLink);
+      if (k) {
+        const schon = eigeneKarten.find(x => JSON.stringify(x.wege) === JSON.stringify(k.wege));
+        const neu = schon || karteSpeichern(k);
+        if (neu) { wahl.karte = 'eigen:' + neu.id; speicher.schreiben('pt-wahl', wahl); menueBauen(); setTimeout(() => alert(`Karte „${neu.name}“ geladen! Du findest sie bei den Karten.`), 300); }
+      }
+    }
     if (ticket) olympStart(ticket);
+    // Nach dem Neuladen zurück in den Koop-Raum
+    else if (speicher.lesen('pt-koop', sessionStorage)) koopReiterSetzen(true);
+    $('#reiterReihe').hidden = !!ticket;
 
     requestAnimationFrame(schleife);
 
@@ -786,7 +1648,8 @@
         test(plaene) {
           spiel.geld = 1e6;
           plaene = plaene || [['zapfen', [0, 2, 5]], ['rundum', [2, 0, 5]], ['schneeball', [5, 2, 0]], ['frost', [0, 5, 2]], ['harpune', [2, 0, 5]], ['polar', [0, 5, 2]],
-            ['markt', [5, 0, 2]], ['haeuptling', [2, 5, 0]], ['ninja', [5, 2, 0]], ['flieger', [5, 2, 0]], ['moerser', [0, 5, 2]], ['fabrik', [2, 0, 5]], ['boot', [5, 0, 2]], [spiel.held || 'kiel', [0, 0, 0]]];
+            ['markt', [5, 0, 2]], ['haeuptling', [2, 5, 0]], ['ninja', [5, 2, 0]], ['flieger', [5, 2, 0]], ['moerser', [0, 5, 2]], ['fabrik', [2, 0, 5]], ['boot', [5, 0, 2]],
+            ['laser', [2, 5, 0]], ['disco', [5, 0, 2]], ['taucher', [5, 2, 0]], ['eisbaer', [2, 0, 5]], ['mecha', [5, 2, 0]], ['koch', [0, 2, 5]], [spiel.held || 'kiel', [0, 0, 0]]];
           let n = 0;
           for (const [typ, pf] of plaene) {
             if (!spiel.erlaubt(typ)) continue;
@@ -808,7 +1671,7 @@
         },
         fische() {
           spiel.fische = [];
-          [...PT.FISCH_REIHE, 'krakus'].forEach((typ, i) => {
+          [...PT.FISCH_REIHE, ...PT.BOSS_REIHE].forEach((typ, i) => {
             const f = spiel.neuerFisch(typ, spiel.weg.vonDist + 60 + i * 80, { nach:i % 4 === 1, fest:typ === 'koffer' || typ === 'wal', boss:1 });
             f.betaeubt = 999; f.wind = 1;
           });
@@ -817,6 +1680,12 @@
         },
         faehigkeiten() { for (const t of spiel.tuerme) for (const k of Object.keys(t.fcd)) t.fcd[k] = 0; return spiel.faehigkeitenListe().map(f => f.id); },
         ausloesen(id) { return spiel.faehigkeitAusloesen(id); },
+        pass(xp, skin, sockel) { if (xp != null) pass.xp = xp; if (skin) pass.skin = skin; if (sockel) pass.sockel = sockel; speicher.schreiben('pt-pass', pass); bilderMalen(false, true); menueBauen(); return PT.passStufe(pass.xp); },
+        fort(f) { Object.assign(fort, f); fortMerken(); menueBauen(); return fort; },
+        tag() { tagesStarten(); return tagesAktiv; },
+        ende(g) { endeZeigen(g); },
+        netz() { return netz && { id:netz.id, n:netz.n, ziel:netz.ziel, raum:netz.raum }; },
+        tun(b) { return tun(b); },
         welt() { return welt; },
         spiel() { return spiel; },
         stand() { return { runde:spiel.runde, leben:spiel.leben, geld:spiel.geld, fische:spiel.fische.length, geschosse:spiel.geschosse.length, tuerme:spiel.tuerme.length, haufen:spiel.haufen.length }; }

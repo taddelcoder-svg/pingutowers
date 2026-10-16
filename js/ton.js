@@ -1,7 +1,7 @@
 'use strict';
-// Pingu Towers – Geräusche mit Web Audio, ohne Dateien.
+// Pinguin Türmchen – Geräusche mit Web Audio, ohne Dateien.
 (function () {
-  let ctx = null, haupt = null, an = true;
+  let ctx = null, haupt = null, an = true, laut = 0.6;
   const zuletzt = {};
   try { an = localStorage.getItem('pt-ton') !== 'aus'; } catch (e) { /* egal */ }
 
@@ -11,7 +11,7 @@
     if (!AC) return;
     ctx = new AC();
     haupt = ctx.createGain();
-    haupt.gain.value = an ? 0.5 : 0;
+    haupt.gain.value = an ? 0.8 * laut : 0;
     haupt.connect(ctx.destination);
   }
   function ton({ f = 440, f2 = null, dauer = 0.1, typ = 'sine', laut = 0.3, verz = 0 }) {
@@ -52,9 +52,10 @@
     umschalten() {
       an = !an;
       try { localStorage.setItem('pt-ton', an ? 'an' : 'aus'); } catch (e) { /* egal */ }
-      if (haupt) haupt.gain.value = an ? 0.5 : 0;
+      if (haupt) haupt.gain.value = an ? 0.8 * laut : 0;
       return an;
     },
+    lautstaerke(v) { laut = Math.max(0, Math.min(1, v)); if (haupt) haupt.gain.value = an ? 0.8 * laut : 0; },
     klick() { ton({ f:660, f2:880, dauer:0.06, typ:'triangle', laut:0.15 }); },
     bauen() { ton({ f:300, f2:600, dauer:0.12, typ:'triangle', laut:0.3 }); ton({ f:600, f2:900, dauer:0.1, typ:'sine', laut:0.2, verz:0.08 }); },
     upgrade() { [523, 659, 784, 1047].forEach((f, i) => ton({ f, dauer:0.12, typ:'triangle', laut:0.2, verz:i * 0.06 })); },

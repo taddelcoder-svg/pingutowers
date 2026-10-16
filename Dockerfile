@@ -1,7 +1,9 @@
 FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production PORT=10000
-COPY package.json server.js zugang.js olymp.js index.html datenschutz.html ./
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+COPY server.js raeume.js zugang.js olymp.js index.html datenschutz.html ./
 COPY js ./js
 COPY vendor ./vendor
 COPY fonts ./fonts

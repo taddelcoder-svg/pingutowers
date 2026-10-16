@@ -1,5 +1,5 @@
 'use strict';
-// Pingu Towers – 3D-Modelle aus Grundformen: Fische (als verschmolzene Geometrie für Instanzen),
+// Pinguin Türmchen – 3D-Modelle aus Grundformen: Fische (als verschmolzene Geometrie für Instanzen),
 // Pinguine und Helden (als Gruppen, die mit den Upgrades wachsen) und Geschosse.
 (function () {
   const PT = window.PT;
@@ -60,30 +60,53 @@
     kegel4:new T.ConeGeometry(1, 1, 4),
     zyl:new T.CylinderGeometry(1, 1, 1, 12),
     box:new T.BoxGeometry(1, 1, 1),
+    kugelMini:new T.SphereGeometry(1, 6, 4),
     ikosa:new T.IcosahedronGeometry(1, 1),
+    ikosa0:new T.IcosahedronGeometry(1, 0),
+    kuppel:new T.SphereGeometry(1, 12, 3, 0, Math.PI * 2, 0, Math.PI / 2),
     okta:new T.OctahedronGeometry(1, 0),
     torus:new T.TorusGeometry(1, 0.16, 8, 24),
     ring:new T.TorusGeometry(1, 0.06, 6, 40)
   };
 
+  // Kugel mit Helligkeitsverlauf (oben hell, unten dunkel): billiges "Ambient Occlusion" ohne Extra-Draw-Call.
+  // Wird mit Vertexfarben als Faktor auf die Materialfarbe gemalt.
+  G.kugelAO = (() => {
+    const g = new T.SphereGeometry(1, 16, 12);
+    const p = g.attributes.position, c = [];
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i), x = p.getX(i);
+      const k = 0.74 + 0.26 * Math.min(1, Math.max(0, (y + 1) / 1.7)) + Math.max(0, -x) * 0.04;
+      c.push(k, k, Math.min(1, k * 1.04));
+    }
+    g.setAttribute('color', new T.Float32BufferAttribute(c, 3));
+    return g;
+  })();
+  const glatt = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const mischen = (hexA, hexB, t) => { const c = new T.Color(hexA).lerp(new T.Color(hexB), t); return [c.r, c.g, c.b]; };
+  const mischA = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+
   /* ---------- Fische ---------- */
+  // Augen und Details: kleine Fische bekommen grobe (billige) Kugeln, Riesen feinere, damit nichts eckig wirkt
+  const kleineKugel = r => (r >= 40 ? G.kugel : r >= 24 ? G.kugelGrob : G.kugelMini);
   function krakeGeo(r, farbe, krone) {
-    const teile = [];
-    const koerper = (x, y) => y < 0 ? hell(farbe, 0.35) : (hash(Math.round(x / 4), Math.round(y / 4)) > 0.82 ? dunkel(farbe, 0.35) : rgb(farbe));
+    const teile = [], kM = kleineKugel(r);
+    const koerper = (x, y) => y < 0 ? hell(farbe, 0.35) : (hash(Math.round(x / 4), Math.round(y / 4)) > 0.82 ? dunkel(farbe, 0.35) : mischen(farbe, 0xffffff, glatt(0.2 * r, 1.1 * r, y) * 0.22));
     teile.push([G.kugel, koerper, matrix(-0.15 * r, 0.25 * r, 0, 0, 0, 0, 0.95 * r, 0.85 * r, 0.9 * r)]);
     // acht Fangarme nach hinten und zur Seite
     for (let i = 0; i < 8; i++) {
       const w = Math.PI * (0.55 + i / 7 * 0.9);
       const lang = 1.4 * r;
       const dx = Math.cos(w), dz = Math.sin(w);
-      teile.push([G.kegel, (x, y) => (y > -0.05 * r ? rgb(farbe) : hell(farbe, 0.5)),
+      teile.push([G.kegel, (x, y, z) => (y > -0.05 * r ? mischen(farbe, 0xffffff, glatt(0.6 * r, 2.4 * r, Math.hypot(x, z)) * 0.35) : hell(farbe, 0.5)),
         new T.Matrix4().compose(new T.Vector3(dx * lang * 0.55 - 0.1 * r, -0.15 * r, dz * lang * 0.55),
           new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), new T.Vector3(dx, -0.08, dz).normalize()),
           new T.Vector3(0.17 * r, lang, 0.17 * r))]);
     }
     for (const s of [-1, 1]) {
-      teile.push([G.kugelGrob, 0xfff4b8, matrix(0.55 * r, 0.45 * r, s * 0.38 * r, 0, 0, 0, 0.24 * r, 0.24 * r, 0.24 * r)]);
-      teile.push([G.kugelGrob, 0x111111, matrix(0.72 * r, 0.47 * r, s * 0.42 * r, 0, 0, 0, 0.12 * r, 0.16 * r, 0.12 * r)]);
+      teile.push([kM, 0xfff4b8, matrix(0.55 * r, 0.45 * r, s * 0.38 * r, 0, 0, 0, 0.24 * r, 0.24 * r, 0.24 * r)]);
+      teile.push([kM, 0x111111, matrix(0.72 * r, 0.47 * r, s * 0.42 * r, 0, 0, 0, 0.12 * r, 0.16 * r, 0.12 * r)]);
+      teile.push([kM, 0xffffff, matrix(0.8 * r, 0.54 * r, s * 0.4 * r, 0, 0, 0, 0.05 * r, 0.05 * r, 0.05 * r)]);
     }
     if (krone) {
       teile.push([G.zyl, 0xffd54a, matrix(-0.15 * r, 1.08 * r, 0, 0, 0, 0, 0.42 * r, 0.12 * r, 0.42 * r)]);
@@ -105,14 +128,160 @@
     }
     return verschmelzen(teile);
   }
+  // Kaiser Orka: schwarz-weißer Riese mit hoher Rückenflosse und Krone
+  function orkaGeo(r) {
+    const teile = [], kM = kleineKugel(r);
+    const farbe = (x, y, z) => {
+      if (y < -0.12 * r) return mischen(0xf4f6f8, 0xcfd9e6, glatt(-0.1 * r, -0.55 * r, y));   // weißer Bauch mit Schatten
+      if (y > 0.3 * r && x > -0.2 * r) return mischen(0x15171d, 0x2a3140, glatt(0.3 * r, 0.55 * r, y));   // Rücken mit Glanz
+      if (x > 0.55 * r && x < 0.95 * r && y > 0.02 * r && y < 0.25 * r && Math.abs(z) > 0.3 * r) return rgb(0xf4f6f8);   // Augenfleck
+      if (x < -0.3 * r && x > -0.8 * r && y > 0.32 * r) return rgb(0x8a93a3);              // Sattelfleck
+      return rgb(0x15171d);
+    };
+    teile.push([G.kugel, farbe, matrix(0, 0, 0, 0, 0, 0, 1.45 * r, 0.55 * r, 0.6 * r)]);
+    teile.push([G.kegel, 0x15171d, matrix(-1.75 * r, 0, 0, 0, 0, Math.PI / 2, 0.5 * r, 0.9 * r, 0.12 * r)]);
+    for (const s of [-1, 1]) teile.push([G.box, 0x15171d, matrix(-2.05 * r, 0, s * 0.35 * r, 0, s * 0.5, 0, 0.35 * r, 0.06 * r, 0.5 * r)]);
+    teile.push([G.kegel, 0x15171d, matrix(-0.1 * r, 0.95 * r, 0, 0, 0, 0.18, 0.22 * r, 0.95 * r, 0.07 * r)]);
+    for (const s of [-1, 1]) {
+      teile.push([G.kugel, 0x15171d, matrix(0.35 * r, -0.35 * r, s * 0.55 * r, s * 0.6, 0, -0.3, 0.45 * r, 0.08 * r, 0.22 * r)]);
+      teile.push([kM, 0xf4f6f8, matrix(0.84 * r, 0.2 * r, s * 0.45 * r, 0, s * 0.35, 0, 0.34 * r, 0.12 * r, 0.1 * r)]);   // weißer Augenfleck
+      teile.push([kM, 0x111111, matrix(0.98 * r, 0.2 * r, s * 0.46 * r, 0, 0, 0, 0.07 * r, 0.07 * r, 0.07 * r)]);
+    }
+    // Krone
+    teile.push([G.zyl, 0xffd54a, matrix(0.55 * r, 0.62 * r, 0, 0, 0, 0, 0.3 * r, 0.1 * r, 0.3 * r)]);
+    for (let i = 0; i < 6; i++) { const w = i / 6 * Math.PI * 2; teile.push([G.kegel4, 0xffd54a, matrix(0.55 * r + Math.cos(w) * 0.26 * r, 0.76 * r, Math.sin(w) * 0.26 * r, 0, 0, 0, 0.07 * r, 0.22 * r, 0.07 * r)]); }
+    teile.push([G.okta, 0x2f7fe0, matrix(0.82 * r, 0.66 * r, 0, 0, 0, 0, 0.07 * r, 0.1 * r, 0.07 * r)]);
+    for (let i = 0; i < 6; i++) { const w = i / 6 * Math.PI * 2; teile.push([kM, i % 2 ? 0xe2463b : 0x35d0ff, matrix(0.55 * r + Math.cos(w) * 0.26 * r, 0.7 * r, Math.sin(w) * 0.26 * r, 0, 0, 0, 0.035 * r, 0.035 * r, 0.035 * r)]); }
+    teile.push([G.torus, 0xffe07a, matrix(0.55 * r, 0.64 * r, 0, Math.PI / 2, 0, 0, 0.29 * r, 0.29 * r, 0.5 * r)]);
+    // Maul mit Zähnen und rosa Zunge, Augenglanz
+    teile.push([kM, 0x3a1a22, matrix(1.3 * r, -0.12 * r, 0, 0, 0, 0, 0.18 * r, 0.04 * r, 0.34 * r)]);
+    for (let i = -3; i <= 3; i++) teile.push([G.kegel4, 0xffffff, matrix(1.33 * r, -0.07 * r, i * 0.09 * r, Math.PI, 0, 0, 0.03 * r, 0.1 * r, 0.03 * r)]);
+    for (const s of [-1, 1]) teile.push([kM, 0xffffff, matrix(1.02 * r, 0.24 * r, s * 0.46 * r, 0, 0, 0, 0.025 * r, 0.025 * r, 0.025 * r)]);
+    // goldene Kette um den Hals
+    teile.push([G.torus, 0xffd54a, matrix(0.62 * r, -0.02 * r, 0, 0, Math.PI / 2, 0, 0.56 * r, 0.52 * r, 0.5 * r)]);
+    teile.push([kM, 0xe2463b, matrix(0.75 * r, -0.5 * r, 0, 0, 0, 0, 0.08 * r, 0.08 * r, 0.08 * r)]);
+    return verschmelzen(teile);
+  }
+
+  // Krone für Bosse (auf Höhe y, Mittelpunkt x)
+  function krone(teile, r, x, y, k = 0.3) {
+    const kM = kleineKugel(r);
+    teile.push([G.zyl, 0xffd54a, matrix(x, y, 0, 0, 0, 0, k * r, 0.1 * r, k * r)]);
+    for (let i = 0; i < 6; i++) { const w = i / 6 * Math.PI * 2; teile.push([G.kegel4, 0xffd54a, matrix(x + Math.cos(w) * k * 0.87 * r, y + 0.14 * r, Math.sin(w) * k * 0.87 * r, 0, 0, 0, 0.07 * r, 0.22 * r, 0.07 * r)]); }
+    for (let i = 0; i < 6; i++) { const w = i / 6 * Math.PI * 2; teile.push([kM, i % 2 ? 0xe2463b : 0x35d0ff, matrix(x + Math.cos(w) * k * 0.87 * r, y + 0.08 * r, Math.sin(w) * k * 0.87 * r, 0, 0, 0, 0.035 * r, 0.035 * r, 0.035 * r)]); }
+  }
+  function augen(teile, r, x, y, z, gr, glanz = true, farbe = 0xffffff, pupille = 0x111111) {
+    const kM = kleineKugel(r);
+    for (const s of [-1, 1]) {
+      teile.push([kM, farbe, matrix(x, y, s * z, 0, 0, 0, gr, gr, gr)]);
+      teile.push([kM, pupille, matrix(x + gr * 0.45, y + gr * 0.1, s * (z + gr * 0.45), 0, 0, 0, gr * 0.55, gr * 0.55, gr * 0.55)]);
+      if (glanz) teile.push([kM, 0xffffff, matrix(x + gr * 0.75, y + gr * 0.38, s * (z + gr * 0.55), 0, 0, 0, gr * 0.2, gr * 0.2, gr * 0.2)]);
+    }
+  }
+  // Kugelfisch: rund, gelb gefleckt, mit Stacheln (bläht sich auf, siehe Welt)
+  function kugelGeo(r, c) {
+    const teile = [];
+    const farbe = (x, y, z) => y < -0.3 * r ? hell(c, 0.6) : (hash(Math.round(x / 3), Math.round(z / 3) + Math.round(y / 3) * 5) > 0.84 ? dunkel(c, 0.45) : rgb(c));
+    teile.push([G.kugel, farbe, matrix(0, 0, 0, 0, 0, 0, 1.05 * r, 0.95 * r, 0.95 * r)]);
+    for (let i = 0; i < 26; i++) {
+      const u = (i * 0.618) % 1, v = (i / 26) * 2 - 1, w = u * Math.PI * 2, q = Math.sqrt(1 - v * v);
+      const d = new T.Vector3(Math.cos(w) * q, v, Math.sin(w) * q);
+      if (d.x > 0.75) continue;
+      teile.push([G.kegel4, hell(c, 0.4), new T.Matrix4().compose(d.clone().multiplyScalar(0.98 * r), new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), d), new T.Vector3(0.08 * r, 0.35 * r, 0.08 * r))]);
+    }
+    teile.push([G.kegel, dunkel(c, 0.2), matrix(-1.15 * r, 0, 0, 0, 0, -Math.PI / 2, 0.4 * r, 0.5 * r, 0.12 * r)]);
+    for (const s of [-1, 1]) teile.push([G.kugel, dunkel(c, 0.2), matrix(0.2 * r, -0.1 * r, s * 0.95 * r, 0, s * 0.5, 0, 0.3 * r, 0.06 * r, 0.22 * r)]);
+    augen(teile, r, 0.7 * r, 0.3 * r, 0.42 * r, 0.24 * r);
+    teile.push([kleineKugel(r), 0xff8a80, matrix(1.02 * r, -0.12 * r, 0, 0, 0, 0, 0.12 * r, 0.1 * r, 0.16 * r)]);
+    return verschmelzen(teile);
+  }
+  // Fliegender Fisch: schlank mit großen Flügelflossen
+  function flugGeo(r, c) {
+    const teile = [];
+    const koerper = (x, y) => y < -0.1 * r ? rgb(0xe6f3fb) : mischen(c, 0x1b4f8a, glatt(0, 0.5 * r, y));
+    teile.push([G.kugel, koerper, matrix(0, 0, 0, 0, 0, 0, 1.35 * r, 0.5 * r, 0.45 * r)]);
+    for (const s of [-1, 1]) {
+      teile.push([G.kugel, (x, y, z) => mischen(0xbfe9ff, c, glatt(0, 1.6 * r, Math.abs(z))), matrix(0.1 * r, 0.2 * r, s * 0.95 * r, 0.1 * s, 0, -0.15, 0.7 * r, 0.04 * r, 0.95 * r)]);
+      teile.push([G.kegel, dunkel(c, 0.2), matrix(-1.55 * r, 0, s * 0.18 * r, 0, s * 0.5, -Math.PI / 2, 0.22 * r, 0.75 * r, 0.06 * r)]);
+    }
+    augen(teile, r, 0.85 * r, 0.12 * r, 0.3 * r, 0.2 * r);
+    return verschmelzen(teile);
+  }
+  // Tintenfisch: spitzer Mantel vorn, große Augen, Fangarme hinten
+  function tinteGeo(r, c) {
+    const teile = [];
+    const mantel = (x, y, z) => (hash(Math.round(x / 2.5), Math.round(z / 2.5) + Math.round(y / 2.5) * 3) > 0.8 ? dunkel(c, 0.35) : y < -0.2 * r ? hell(c, 0.4) : rgb(c));
+    teile.push([G.kegel, mantel, matrix(0.65 * r, 0.1 * r, 0, 0, 0, -Math.PI / 2, 0.55 * r, 1.4 * r, 0.55 * r)]);
+    teile.push([G.kugel, mantel, matrix(-0.15 * r, 0.05 * r, 0, 0, 0, 0, 0.62 * r, 0.6 * r, 0.6 * r)]);
+    for (const s of [-1, 1]) teile.push([G.kugel, hell(c, 0.25), matrix(1.0 * r, 0.1 * r, s * 0.3 * r, 0, 0, 0, 0.35 * r, 0.06 * r, 0.3 * r)]);
+    for (let i = 0; i < 8; i++) {
+      const w = (i / 8) * Math.PI * 2, dz = Math.cos(w) * 0.35, dy = Math.sin(w) * 0.3;
+      teile.push([G.kegel, hell(c, 0.15), new T.Matrix4().compose(new T.Vector3(-1.05 * r, dy * r - 0.05 * r, dz * r),
+        new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), new T.Vector3(-1, dy * 0.6, dz * 0.6).normalize()), new T.Vector3(0.1 * r, 1.0 * r, 0.1 * r))]);
+    }
+    augen(teile, r, 0.2 * r, 0.25 * r, 0.48 * r, 0.24 * r, true, 0xfff4b8);
+    return verschmelzen(teile);
+  }
+  // Eis-Leviathan: langer Eisdrache mit Hörnern, Kristallstacheln und leuchtenden Augen
+  function leviathanGeo(r) {
+    const teile = [], kM = kleineKugel(r);
+    const schuppen = (x, y, z) => y < -0.12 * r ? rgb(0xe6f7ff) : (hash(Math.round(x / 5), Math.round(z / 5) + Math.round(y / 5) * 7) > 0.8 ? rgb(0xbfeeff) : mischen(0x2f7fb8, 0x7fd6ff, glatt(-0.2 * r, 0.5 * r, y)));
+    for (let i = 0; i < 7; i++) {
+      const t = i / 6, k = 0.62 - t * 0.38;
+      teile.push([G.kugel, schuppen, matrix(0.9 * r - t * 3.4 * r, Math.sin(t * 5) * 0.08 * r, Math.sin(t * 6.3) * 0.32 * r, 0, 0, 0, 0.62 * r, k * r, k * r)]);
+      teile.push([G.kegel, 0xdff8ff, matrix(0.9 * r - t * 3.4 * r, k * r + 0.18 * r, Math.sin(t * 6.3) * 0.32 * r, 0, 0, -0.35, 0.09 * r, 0.42 * r * (1 - t * 0.6), 0.09 * r)]);
+    }
+    teile.push([G.kegel, 0x7fd6ff, matrix(-2.8 * r, 0, Math.sin(6.3) * 0.32 * r, 0, 0, Math.PI / 2, 0.38 * r, 0.7 * r, 0.1 * r)]);
+    // Kopf mit Maul, Hörnern und Augen
+    teile.push([G.kugel, schuppen, matrix(1.45 * r, 0.12 * r, 0, 0, 0, 0, 0.62 * r, 0.42 * r, 0.48 * r)]);
+    teile.push([G.box, 0x1d3a5a, matrix(1.9 * r, -0.05 * r, 0, 0, 0, 0, 0.35 * r, 0.08 * r, 0.5 * r)]);
+    for (let i = -3; i <= 3; i++) teile.push([G.kegel4, 0xffffff, matrix(1.95 * r, 0.02 * r, i * 0.07 * r, Math.PI, 0, 0, 0.03 * r, 0.1 * r, 0.03 * r)]);
+    for (const s of [-1, 1]) {
+      teile.push([G.kegel, 0xeefcff, matrix(1.2 * r, 0.6 * r, s * 0.3 * r, s * 0.5, 0, 0.7, 0.08 * r, 0.65 * r, 0.08 * r)]);
+      teile.push([kM, 0x9ff3ff, matrix(1.78 * r, 0.3 * r, s * 0.32 * r, 0, 0, 0, 0.11 * r, 0.09 * r, 0.09 * r)]);
+      teile.push([kM, 0x0a2a4a, matrix(1.86 * r, 0.31 * r, s * 0.36 * r, 0, 0, 0, 0.05 * r, 0.06 * r, 0.04 * r)]);
+      teile.push([G.kugel, 0x5ab4e6, matrix(0.6 * r, -0.2 * r, s * 0.62 * r, s * 0.5, 0, -0.3, 0.5 * r, 0.05 * r, 0.3 * r)]);
+    }
+    krone(teile, r, 1.35 * r, 0.58 * r, 0.24);
+    return verschmelzen(teile);
+  }
+  // Hai-König: großer Hai mit Krone und Zähnen
+  function haiGeo(r) {
+    const teile = [];
+    const haut = (x, y) => y < -0.12 * r ? mischen(0xf4f6f8, 0xd5dee8, glatt(-0.1 * r, -0.5 * r, y)) : mischen(0x4a6a8a, 0x2c4560, glatt(0, 0.5 * r, y));
+    teile.push([G.kugel, haut, matrix(0, 0, 0, 0, 0, 0, 1.55 * r, 0.5 * r, 0.55 * r)]);
+    teile.push([G.kegel, haut, matrix(1.55 * r, -0.02 * r, 0, 0, 0, -Math.PI / 2, 0.42 * r, 0.65 * r, 0.42 * r)]);
+    teile.push([G.kegel, 0x3a5878, matrix(-1.9 * r, 0.15 * r, 0, 0, 0, Math.PI / 2 + 0.35, 0.5 * r, 0.95 * r, 0.1 * r)]);
+    teile.push([G.kegel, 0x3a5878, matrix(-1.75 * r, -0.25 * r, 0, 0, 0, Math.PI / 2 - 0.5, 0.35 * r, 0.6 * r, 0.1 * r)]);
+    teile.push([G.kegel, 0x3a5878, matrix(-0.1 * r, 0.8 * r, 0, 0, 0, 0.35, 0.4 * r, 0.9 * r, 0.08 * r)]);
+    for (const s of [-1, 1]) {
+      teile.push([G.kegel, 0x3a5878, matrix(0.35 * r, -0.35 * r, s * 0.6 * r, s * 1.1, 0, -0.5, 0.25 * r, 0.8 * r, 0.06 * r)]);
+      for (let k = 0; k < 3; k++) teile.push([G.box, 0x23384d, matrix(0.75 * r - k * 0.12 * r, 0.02 * r, s * 0.5 * r, 0, 0, 0.2, 0.025 * r, 0.25 * r, 0.02 * r)]);
+    }
+    augen(teile, r, 1.15 * r, 0.18 * r, 0.32 * r, 0.09 * r, true, 0x111111, 0x111111);
+    teile.push([G.box, 0x5a1020, matrix(1.55 * r, -0.2 * r, 0, 0, 0, 0, 0.35 * r, 0.1 * r, 0.5 * r)]);
+    for (let i = -4; i <= 4; i++) teile.push([G.kegel4, 0xffffff, matrix(1.65 * r, -0.12 * r, i * 0.055 * r, Math.PI, 0, 0, 0.025 * r, 0.09 * r, 0.025 * r)]);
+    krone(teile, r, 0.85 * r, 0.52 * r, 0.26);
+    return verschmelzen(teile);
+  }
   function fischGeo(typ) {
     const f = PT.FISCHE[typ], r = f.r, c = f.farbe;
+    if (typ === 'orka') return orkaGeo(r);
+    if (typ === 'kugel') return kugelGeo(r, c);
+    if (typ === 'flug') return flugGeo(r, c);
+    if (typ === 'tinte') return tinteGeo(r, c);
+    if (typ === 'leviathan') return leviathanGeo(r);
+    if (typ === 'haikoenig') return haiGeo(r);
     if (typ === 'krake') return krakeGeo(r, c, false);
     if (typ === 'krakus') return krakeGeo(r, c, true);
     if (typ === 'rochen') return rochenGeo(r);
     const bauch = hell(c, 0.55), ruecken = dunkel(c, 0.15);
-    const teile = [];
-    let koerper = (x, y) => y < -0.25 * r ? bauch : y > 0.4 * r ? ruecken : rgb(c);
+    const teile = [], kM = kleineKugel(r);
+    const schuppe = (x, y) => 0.93 + 0.07 * hash(Math.round(x / (0.34 * r)), Math.round(y / (0.3 * r)));
+    let koerper = (x, y) => {
+      const u = mischA(mischA(bauch, rgb(c), glatt(-0.45 * r, 0.1 * r, y)), ruecken, glatt(0.25 * r, 0.7 * r, y)), k = schuppe(x, y);
+      return [u[0] * k, u[1] * k, u[2] * k];
+    };
     let flosse = dunkel(c, 0.25);
     let kScale = [1.2 * r, 0.72 * r, 0.62 * r];
     let schwanz = [0.6 * r, 0.85 * r];
@@ -138,16 +307,21 @@
       teile.push([G.kugel, koerper, matrix(0, 0, 0, 0, 0, 0, ...kScale)]);
     }
     // Schwanzflosse (senkrecht), Rückenflosse, Seitenflossen
-    teile.push([G.kegel, flosse, matrix(-kScale[0] - schwanz[1] * 0.3, 0, 0, 0, 0, -Math.PI / 2, schwanz[0], schwanz[1], schwanz[0] * 0.3)]);
+    const spitzen = (f0, laenge) => typeof f0 !== 'function' && Array.isArray(f0) ? ((x, y, z) => { const t = glatt(0, 1, laenge(x, y, z)) * 0.35; return [Math.min(1, f0[0] + t * 0.6), Math.min(1, f0[1] + t * 0.6), Math.min(1, f0[2] + t * 0.6)]; }) : f0;
+    teile.push([G.kegel, spitzen(flosse, (x) => (-x - kScale[0] - 0.2 * schwanz[1]) / schwanz[1]), matrix(-kScale[0] - schwanz[1] * 0.3, 0, 0, 0, 0, -Math.PI / 2, schwanz[0], schwanz[1], schwanz[0] * 0.3)]);
     const rueckenH = typ === 'wal' || typ === 'mega' ? 0.9 * r : 0.55 * r;
     teile.push([G.kegel, flosse, matrix(-0.1 * r, kScale[1] + rueckenH * 0.35, 0, 0, 0, 0.35, 0.38 * r, rueckenH, 0.08 * r)]);
     for (const s of [-1, 1]) {
       teile.push([G.kugel, flosse, matrix(0.25 * r, -0.2 * r, s * kScale[2] * 0.95, 0, s * 0.5, 0, 0.4 * r, 0.07 * r, 0.3 * r)]);
       const ax = kScale[0] * 0.66, ay = typ === 'wal' || typ === 'mega' ? 0.05 * r : 0.2 * r, az = s * kScale[2] * 0.62;
       const aug = typ === 'schwarz' ? 0.26 * r : typ === 'wal' || typ === 'mega' ? 0.1 * r : 0.2 * r;
-      teile.push([G.kugelGrob, 0xffffff, matrix(ax, ay, az, 0, 0, 0, aug, aug, aug)]);
-      teile.push([G.kugelGrob, 0x111111, matrix(ax + aug * 0.45, ay + aug * 0.1, az + s * aug * 0.45, 0, 0, 0, aug * 0.55, aug * 0.55, aug * 0.55)]);
+      teile.push([kM, 0xffffff, matrix(ax, ay, az, 0, 0, 0, aug, aug, aug)]);
+      teile.push([kM, 0x111111, matrix(ax + aug * 0.45, ay + aug * 0.1, az + s * aug * 0.45, 0, 0, 0, aug * 0.55, aug * 0.55, aug * 0.55)]);
+      teile.push([kM, 0xffffff, matrix(ax + aug * 0.75, ay + aug * 0.38, az + s * aug * 0.55, 0, 0, 0, aug * 0.2, aug * 0.2, aug * 0.2)]);
+      // Kiemenbogen
+      teile.push([kM, dunkel(c, 0.4), matrix(ax - aug * 2.2, ay - aug * 0.8, az + s * aug * 0.45, 0, 0, 0, aug * 0.28, aug * 1.5, aug * 0.12)]);
     }
+    if (typ !== 'koffer' && typ !== 'schwarz') teile.push([kM, dunkel(c, 0.55), matrix(kScale[0] * 0.93, -0.12 * r, 0, 0, 0, 0, 0.14 * r, 0.035 * r, 0.26 * r)]);
     if (typ === 'schwarz') {
       teile.push([G.zyl, 0x2b2f38, matrix(0.75 * r, 1.1 * r, 0, 0, 0, -0.7, 0.06 * r, 0.9 * r, 0.06 * r)]);
       teile.push([G.kugelGrob, 0xfff27a, matrix(1.15 * r, 1.45 * r, 0, 0, 0, 0, 0.22 * r, 0.22 * r, 0.22 * r)]);
@@ -168,20 +342,91 @@
   const SCHWARZ = 0x1d2230, WEISS = 0xf7f9fc, ORANGE = 0xff9a1a;
   const PFAD_FARBEN = [0xe2463b, 0x2f7fe0, 0x35b04a];
 
+  // Aussehen (Pinguin-Pass-Look), solange ein Pinguin gebaut wird; null = klassisch
+  let look = null;
+  // Feine Einzelheiten eines Pinguins (Wangen, Augenglanz, Zehen, Schwanz, Unterschnabel) als EINE verschmolzene
+  // Geometrie je Größe und Rumpffarbe – ein Draw-Call, aber deutlich lebendigeres Gesicht.
+  const detailCache = new Map();
+  function pinguinDetail(s, rumpf) {
+    const key = s + '|' + rumpf;
+    if (detailCache.has(key)) return detailCache.get(key);
+    const t = [];
+    const M = (x, y, z, sx, sy, sz, rx = 0, ry = 0, rz = 0) => matrix(x * s, y * s, z * s, rx, ry, rz, sx * s, sy * s, sz * s);
+    for (const z of [-1, 1]) {
+      t.push([G.kugelMini, 0xffffff, M(8.15, 32.75, z * 3.05, 0.5, 0.5, 0.5)]);                 // Augenglanz
+      t.push([G.kugelMini, 0xffb4be, M(6.3, 28.4, z * 6, 1.9, 1.1, 0.9, 0, z * 0.5, 0)]);       // Bäckchen
+      t.push([G.kegel, 0xffb000, M(10, 2, z * 4.5, 0.6, 3.2, 0.8, 0, 0, -Math.PI / 2)]);          // Zehen
+      t.push([G.kegel, 0xffb000, M(9.4, 2, z * 4.5 - 1.7, 0.55, 2.8, 0.7, 0, 0.5, -Math.PI / 2)]);
+      t.push([G.kegel, 0xffb000, M(9.4, 2, z * 4.5 + 1.7, 0.55, 2.8, 0.7, 0, -0.5, -Math.PI / 2)]);
+    }
+    t.push([G.kegel, 0xe07a10, M(9.2, 28.7, 0, 1.9, 4.6, 1.9, 0, 0, -Math.PI / 2)]);            // Unterschnabel
+    t.push([G.kegel, dunkel(rumpf, 0.2), M(-9.5, 6.5, 0, 2.4, 6, 3, 0, 0, Math.PI / 2 + 0.5)]); // Schwanz
+    const geo = verschmelzen(t);
+    detailCache.set(key, geo);
+    return geo;
+  }
   function pinguinKoerper(g, teile, s = 1, rumpfFarbe = SCHWARZ) {
-    const k = mesh(G.kugel, mat(rumpfFarbe, 'phong', { shininess:30 }), 0, 16 * s, 0);
+    const L = rumpfFarbe === SCHWARZ ? look : null;
+    if (L) rumpfFarbe = L.rumpf;
+    const fell = L ? mat(L.rumpf, 'phong', { shininess:L.glanz ? 120 : 30, specular:L.glanz ? 0xffffff : 0x111111, emissive:L.leuchten || 0x000000, vertexColors:true }) : mat(rumpfFarbe, 'phong', { shininess:30, specular:0x2a3347, vertexColors:true });
+    const k = mesh(G.kugelAO, fell, 0, 16 * s, 0);
     k.scale.set(10 * s, 14 * s, 10 * s);
-    const b = mesh(G.kugel, mat(WEISS), 3.8 * s, 14.5 * s, 0);
+    const b = mesh(G.kugelAO, mat(L ? L.bauch : WEISS, 'lambert', { vertexColors:true }), 3.8 * s, 14.5 * s, 0);
     b.scale.set(7 * s, 11 * s, 7.6 * s);
-    const kopf = mesh(G.kugel, mat(SCHWARZ, 'phong', { shininess:30 }), 1 * s, 30 * s, 0);
+    const kopf = mesh(G.kugelAO, L ? fell : mat(SCHWARZ, 'phong', { shininess:30, specular:0x2a3347, vertexColors:true }), 1 * s, 30 * s, 0);
     kopf.scale.setScalar(8 * s);
     g.add(k, b, kopf);
+    const detail = new T.Mesh(pinguinDetail(s, rumpfFarbe), mat(0xffffff, 'lambert', { vertexColors:true }));
+    g.add(detail);
+    if (L && L.extra === 'wangen') for (const z of [-1, 1]) { const w = mesh(G.kugel, mat(0xffb020), 1.5 * s, 28 * s, z * 6.6 * s); w.scale.set(3.2 * s, 2.4 * s, 1.6 * s); g.add(w); }
+    if (L && L.extra === 'brille') {
+      for (const z of [-1, 1]) { const gl = mesh(G.zyl, mat(0x111111, 'phong', { shininess:140, specular:0xffffff }), 7.8 * s, 32 * s, z * 3.4 * s); gl.scale.set(2.3 * s, 0.8 * s, 2.3 * s); gl.rotation.z = Math.PI / 2; g.add(gl); }
+      const steg = mesh(G.box, mat(0x111111), 8.4 * s, 32.4 * s, 0); steg.scale.set(0.6 * s, 0.6 * s, 2.4 * s); g.add(steg);
+    }
+    if (L && L.extra === 'augenklappe') {
+      const kl = mesh(G.zyl, mat(0x111111), 7.6 * s, 32 * s, 3.4 * s); kl.scale.set(2.2 * s, 0.8 * s, 2.2 * s); kl.rotation.z = Math.PI / 2; g.add(kl);
+      const band = mesh(G.torus, mat(0x111111), 1 * s, 33 * s, 0); band.scale.set(8.3 * s, 8.3 * s, 4 * s); band.rotation.set(Math.PI / 2, 0.5, 0); g.add(band);
+    }
+    if (L && L.extra === 'muetze') {
+      const m = mesh(G.kegel, mat(0xd8262b), 0, 42 * s, -1 * s); m.scale.set(7.2 * s, 13 * s, 7.2 * s); m.rotation.z = 0.35; g.add(m);
+      const rand = mesh(G.torus, mat(0xffffff), 1 * s, 36.5 * s, 0); rand.scale.set(7.6 * s, 7.6 * s, 9 * s); rand.rotation.x = Math.PI / 2; g.add(rand);
+      const bommel = mesh(G.kugelGrob, mat(0xffffff), -4.2 * s, 47.5 * s, -1 * s); bommel.scale.setScalar(2.4 * s); g.add(bommel);
+    }
+    if (L && L.extra === 'helm') {
+      const h = mesh(G.halbkugel, mat(0xc8d0da, 'phong', { shininess:140, specular:0xffffff }), 1 * s, 31 * s, 0); h.scale.set(8.8 * s, 9 * s, 8.8 * s); g.add(h);
+      const v = mesh(G.box, mat(0x2b2f38), 8.6 * s, 32 * s, 0); v.scale.set(1 * s, 1.2 * s, 9 * s); g.add(v);
+      const busch = mesh(G.kugel, mat(0xe2463b), -1 * s, 41 * s, 0); busch.scale.set(6 * s, 3 * s, 1.6 * s); g.add(busch);
+    }
+    if (L && L.extra === 'astro') {
+      const glas = mesh(G.kugel, mat(0xbfeaff, 'phong', { transparent:true, opacity:0.35, shininess:160, specular:0xffffff, depthWrite:false }), 1 * s, 30 * s, 0); glas.scale.setScalar(11 * s); glas.castShadow = false; g.add(glas);
+      const ring = mesh(G.torus, mat(0xe2463b), 1 * s, 21 * s, 0); ring.scale.set(10 * s, 10 * s, 6 * s); ring.rotation.x = Math.PI / 2; g.add(ring);
+      const tank = mesh(G.box, mat(0xdfe6ee), -10 * s, 18 * s, 0); tank.scale.set(5 * s, 14 * s, 11 * s); g.add(tank);
+      const fahne = mesh(G.box, mat(0x2f7fe0), 0.5 * s, 18 * s, 10.4 * s); fahne.scale.set(4 * s, 2.6 * s, 0.4 * s); g.add(fahne);
+    }
+    if (L && L.extra === 'antenne') {
+      const a = mesh(G.zyl, mat(0x5a6573), 1 * s, 41 * s, 0); a.scale.set(0.5 * s, 8 * s, 0.5 * s); g.add(a);
+      const k = mesh(G.kugelGrob, mat(0xe2463b, 'basic'), 1 * s, 45.5 * s, 0); k.scale.setScalar(1.8 * s); g.add(k);
+      for (const z of [-1, 1]) { const b = mesh(G.zyl, mat(0x8a93a3), 1 * s, 30 * s, z * 8.2 * s); b.scale.set(1.6 * s, 1.2 * s, 1.6 * s); b.rotation.x = Math.PI / 2; g.add(b); }
+    }
+    if (L && L.extra === 'krone') {
+      const k = mesh(G.zyl, mat(0xffd54a, 'phong', { shininess:140, specular:0xffffff }), 1 * s, 38.5 * s, 0); k.scale.set(5.6 * s, 3 * s, 5.6 * s); g.add(k);
+      for (let i = 0; i < 6; i++) { const w = i / 6 * Math.PI * 2; const z = mesh(G.kegel4, mat(0xffd54a), 1 * s + Math.cos(w) * 5 * s, 42 * s, Math.sin(w) * 5 * s); z.scale.set(1.2 * s, 3.4 * s, 1.2 * s); g.add(z); }
+      const j = mesh(G.okta, mat(0xe2463b, 'basic'), 6.6 * s, 38.5 * s, 0); j.scale.setScalar(1.4 * s); g.add(j);
+    }
+    if (L && L.extra === 'zombie') {
+      for (const z of [-1, 1]) { const a = mesh(G.kugelGrob, mat(0xff2a2a, 'basic'), 7.9 * s, 32 * s, z * 3.5 * s); a.scale.setScalar(1.2 * s); g.add(a); }
+      const narbe = mesh(G.box, mat(0x2a3a20), 4 * s, 36 * s, 4 * s); narbe.scale.set(0.6 * s, 0.6 * s, 4 * s); narbe.rotation.y = 0.6; g.add(narbe);
+      for (let i = 0; i < 3; i++) { const st = mesh(G.box, mat(0x2a3a20), 4 * s, 36 * s, (2.6 + i * 1.2) * s); st.scale.set(0.5 * s, 2 * s, 0.4 * s); g.add(st); }
+    }
+    if (L && L.extra === 'glitzer') for (let i = 0; i < 5; i++) {
+      const st = mesh(G.okta, mat(i % 2 ? 0xffe066 : 0xffffff, 'basic'), 9.6 * s, (9 + i * 3.2) * s, ((i * 1.7) % 5 - 2.5) * s); st.scale.setScalar(0.9 * s); g.add(st);
+    }
     for (const z of [-1, 1]) {
       const w = mesh(G.kugel, mat(WEISS), 5.6 * s, 31.5 * s, z * 3.2 * s); w.scale.set(2.2 * s, 2.6 * s, 2.2 * s);
       const p = mesh(G.kugelGrob, mat(0x111111), 7.4 * s, 32 * s, z * 3.4 * s); p.scale.setScalar(1.1 * s);
       const fuss = mesh(G.kugel, mat(ORANGE), 5 * s, 2.5 * s, z * 4.5 * s); fuss.scale.set(4.5 * s, 1.5 * s, 2.6 * s);
       g.add(w, p, fuss);
-      const fl = mesh(G.kugel, mat(rumpfFarbe), 0, 18 * s, z * 10.2 * s);
+      const fl = mesh(G.kugel, L ? fell : mat(rumpfFarbe), 0, 18 * s, z * 10.2 * s);
       fl.scale.set(4 * s, 9 * s, 1.6 * s);
       fl.rotation.x = z * 0.35;
       g.add(fl);
@@ -193,9 +438,24 @@
     g.add(schnabel);
     if (teile) teile.koerper = k;
   }
-  function sockel(g, r = 17, farbe = 0xffffff) {
-    const s = mesh(G.zyl, mat(farbe), 0, 1.5, 0);
-    s.scale.set(r + 2, 3, r + 2);
+  // Eis-Sockel mit Schneehaube und Eisklumpen als eine Geometrie (Helligkeit per Vertexfarbe, Tönung per Materialfarbe)
+  const sockelCache = new Map();
+  function sockelGeo(r) {
+    if (sockelCache.has(r)) return sockelCache.get(r);
+    const t = [];
+    t.push([G.zyl, (x, y) => (y < 1.2 ? [0.78, 0.9, 1] : [0.9, 0.96, 1]), matrix(0, 1.2, 0, 0, 0, 0, r + 3, 2.4, r + 3)]);
+    t.push([G.kuppel, [1, 1, 1], matrix(0, 2.4, 0, 0, 0, 0, r + 0.5, 0.85, r + 0.5)]);
+    for (let i = 0; i < 9; i++) {
+      const w = i / 9 * Math.PI * 2 + hash(i, r) * 0.6, d = r + 1 + hash(i, r + 3) * 2.5, k = 1.6 + hash(r, i) * 1.8;
+      t.push([G.ikosa0, [0.82 + hash(i, 5) * 0.18, 0.93, 1], matrix(Math.cos(w) * d, 0.9, Math.sin(w) * d, 0, w, 0, k, k * 0.7, k)]);
+    }
+    const geo = verschmelzen(t);
+    sockelCache.set(r, geo);
+    return geo;
+  }
+  function sockel(g, r = 17, farbe = 0xffffff, leuchten = 0) {
+    const s = new T.Mesh(sockelGeo(r), mat(farbe, 'lambert', { vertexColors:true, emissive:leuchten }));
+    s.castShadow = true;
     s.receiveShadow = true;
     g.add(s);
   }
@@ -208,7 +468,7 @@
     return g;
   }
   // Albatros mit Pinguin-Pilot (fliegt separat über die Karte)
-  function albatros(p) {
+  function albatros(p, skin = null) {
     const g = new T.Group();
     const gold = p[0] >= 5;
     const k = mesh(G.kugel, mat(0xf4f6f8), 0, 0, 0); k.scale.set(16, 7, 7); g.add(k);
@@ -223,7 +483,10 @@
       g.add(f); fluegel.push(f);
     }
     const schwanz = mesh(G.box, mat(0xeef1f4), -17, 1, 0); schwanz.scale.set(8, 1.4, 10); g.add(schwanz);
-    const pilot = new T.Group(); pilot.position.set(-2, 4, 0); pilot.scale.setScalar(0.45); pinguinKoerper(pilot, null);
+    const pilot = new T.Group(); pilot.position.set(-2, 4, 0); pilot.scale.setScalar(0.45);
+    look = skin && skin !== 'standard' ? PT.SKINS[skin] || null : null;
+    pinguinKoerper(pilot, null);
+    look = null;
     const brille = mesh(G.box, mat(0x3a2a1a), 6, 32, 0); brille.scale.set(2, 3, 12); pilot.add(brille);
     g.add(pilot);
     if (p[1] >= 1) for (const s of [-1, 1]) { const b = mesh(G.kugel, mat(0xffffff), 0, -5, s * 14); b.scale.setScalar(p[1] >= 2 ? 4 : 3); g.add(b); }
@@ -336,6 +599,141 @@
       }
       for (let i = 0; i < 3; i++) { const k = mesh(G.kugel, mat(0xffffff), -2 + i * 5, 3, 13); k.scale.setScalar(3); g.add(k); }
     },
+    taucher(g, p, t) {
+      pinguinKoerper(g, t);
+      // Taucherbrille, Schnorchel, Sauerstoffflasche, große Flossen und Dreizack
+      const glas = mesh(G.box, mat(0x7fd6ff, 'phong', { transparent:true, opacity:0.7, shininess:160, specular:0xffffff }), 8.4, 32.5, 0); glas.scale.set(1.6, 5, 9.6); g.add(glas);
+      const rahmen = mesh(G.torus, mat(0xf6c343), 7.6, 32.5, 0); rahmen.scale.set(3.2, 5.6, 6); rahmen.rotation.y = Math.PI / 2; g.add(rahmen);
+      const band = mesh(G.torus, mat(0x2b2f38), 1, 32.5, 0); band.scale.set(8.4, 8.4, 4); band.rotation.x = Math.PI / 2; g.add(band);
+      const sch = mesh(G.zyl, mat(0xf6c343), 2, 40, -8); sch.scale.set(1, 14, 1); g.add(sch);
+      const flasche = mesh(G.zyl, mat(p[1] >= 4 ? 0x5a6573 : 0xf6c343, 'phong', { shininess:90 }), -11, 19, 0); flasche.scale.set(4.2, 16, 4.2); g.add(flasche);
+      for (const z of [-4.5, 4.5]) { const fl = mesh(G.box, mat(0x2f7fe0), 8, 1.2, z); fl.scale.set(12, 1, 6); g.add(fl); }
+      const gold = p[0] >= 4;
+      const schaft = mesh(G.zyl, mat(gold ? 0xffd54a : 0x8a93a3, 'phong', { shininess:100 }), 10, 20, 11); schaft.scale.set(1, 34, 1); schaft.rotation.z = -Math.PI / 2; g.add(schaft);
+      for (const dz of [-2.6, 0, 2.6]) { const z = mesh(G.kegel, mat(gold ? 0xffd54a : 0xdfe6ee, 'phong', { shininess:120 }), 29, 20, 11 + dz); z.scale.set(1, 6, 1); z.rotation.z = -Math.PI / 2; g.add(z); }
+      const quer = mesh(G.box, mat(gold ? 0xffd54a : 0xdfe6ee), 26, 20, 11); quer.scale.set(1, 1, 6.4); g.add(quer);
+      if (p[1] >= 3) for (const z of [-5, 5]) { const tp = mesh(G.zyl, mat(0x5a6573, 'phong', { shininess:80 }), -12, 30, z); tp.scale.set(2.2, 10, 2.2); tp.rotation.z = Math.PI / 2; g.add(tp); }
+      if (p[1] >= 5) { const turm = mesh(G.box, mat(0x3d4a5c), -16, 8, 0); turm.scale.set(10, 14, 6); g.add(turm); const peri = mesh(G.zyl, mat(0x5a6573), -16, 22, 0); peri.scale.set(0.8, 14, 0.8); g.add(peri); }
+      if (p[2] >= 2) { const sonar = mesh(G.halbkugel, mat(0xdfe6ee, 'phong', { shininess:100 }), -2, 41, 4); sonar.scale.set(4, 2, 4); sonar.rotation.z = 0.6; g.add(sonar); t.dreher = sonar; }
+      if (p[2] >= 3) { const beutel = mesh(G.kugel, mat(0x9b6a3c), -6, 8, 10); beutel.scale.set(4, 5, 4); g.add(beutel); for (let i = 0; i < 3; i++) { const perle = mesh(G.kugelGrob, mat(0xfffaf0, 'phong', { shininess:160 }), -6 + i * 1.6, 13.5, 10); perle.scale.setScalar(1.3); g.add(perle); } }
+      if (p[2] >= 5) { const truhe = mesh(G.box, mat(0x8b5a2b), -14, 5, -12); truhe.scale.set(10, 8, 8); g.add(truhe); const deckel = mesh(G.box, mat(0xffd54a), -14, 9.6, -12); deckel.scale.set(10.4, 1.4, 8.4); g.add(deckel); }
+    },
+    eisbaer(g, p, t) {
+      // ein echter Eisbär (kein Pinguin), mit Halstuch des Söldners
+      const fell = mat(0xf6f3ea, 'lambert', { vertexColors:true });
+      const k = mesh(G.kugelAO, fell, -2, 20, 0); k.scale.set(18, 14, 13); g.add(k);
+      const kopf = mesh(G.kugelAO, fell, 15, 30, 0); kopf.scale.set(8.5, 8, 8); g.add(kopf);
+      const schnauze = mesh(G.kugel, mat(0xefe9dc), 22, 27.5, 0); schnauze.scale.set(5, 3.6, 4); g.add(schnauze);
+      const nase = mesh(G.kugelGrob, mat(0x111111, 'phong', { shininess:100 }), 26.6, 29, 0); nase.scale.set(1.4, 1.2, 1.8); g.add(nase);
+      for (const z of [-1, 1]) {
+        const ohr = mesh(G.kugel, mat(0xf6f3ea), 12, 37, z * 5.5); ohr.scale.set(2, 2.4, 2); g.add(ohr);
+        const au = mesh(G.kugelGrob, mat(0x111111), 21, 32.5, z * 3.6); au.scale.setScalar(1.1); g.add(au);
+        const hinten = mesh(G.zyl, mat(0xf6f3ea), -12, 6, z * 7); hinten.scale.set(4.6, 12, 4.6); g.add(hinten);
+        const vorn = new T.Group(); vorn.position.set(8, 13, z * 7);
+        const bein = mesh(G.zyl, mat(0xf6f3ea), 0, -6, 0); bein.scale.set(4.4, 13, 4.4); vorn.add(bein);
+        const pfote = mesh(G.kugel, mat(0xefe9dc), 1.5, -12, 0); pfote.scale.set(5, 2.2, 4.6); vorn.add(pfote);
+        if (p[0] >= 4) for (let i = -1; i <= 1; i++) { const kr = mesh(G.kegel, mat(0xffd54a, 'phong', { shininess:120 }), 6, -12, i * 1.6); kr.scale.set(0.6, 2.6, 0.6); kr.rotation.z = -Math.PI / 2; vorn.add(kr); }
+        g.add(vorn);
+        if (t) t[z < 0 ? 'fluegelL' : 'fluegelR'] = vorn;
+      }
+      const tuch = mesh(G.torus, mat(p[2] >= 4 ? 0x2b2f38 : 0xe2463b), 10, 25, 0); tuch.scale.set(7.6, 7.6, 8); tuch.rotation.y = Math.PI / 2; tuch.rotation.x = 0.3; g.add(tuch);
+      if (p[1] >= 2) { const maul = mesh(G.box, mat(0x6a1a20), 23, 25, 0); maul.scale.set(3, 1.2, 4); g.add(maul); }
+      if (p[2] >= 3) for (const z of [-1, 1]) { const pl = mesh(G.box, mat(0x8a93a3, 'phong', { shininess:100 }), -2, 26, z * 11); pl.scale.set(16, 10, 2); g.add(pl); }
+      if (p[2] >= 4) { const hut = mesh(G.zyl, mat(0x7a4a1e), 14, 38.5, 0); hut.scale.set(10, 1, 10); g.add(hut); const kr = mesh(G.zyl, mat(0x7a4a1e), 14, 41, 0); kr.scale.set(6, 5, 6); g.add(kr); }
+      if (p[0] >= 5) { const krn = mesh(G.zyl, mat(0xffd54a, 'phong', { shininess:140 }), 14, 39, 0); krn.scale.set(5, 3, 5); g.add(krn); }
+    },
+    mecha(g, p, t) {
+      // ein Kampfroboter auf zwei Stampfbeinen, oben in der Glaskuppel sitzt der Pinguin-Pilot
+      const stahl = mat(0x7a8594, 'phong', { shininess:90, specular:0x8899aa });
+      const dunkel = mat(0x3d4a5c, 'phong', { shininess:60, specular:0x445566 });
+      const gold = mat(0xffd54a, 'phong', { shininess:140, specular:0xffffff });
+      const akzent = p[0] >= 5 || p[2] >= 5 ? gold : mat(p[1] >= 5 ? 0xe2463b : 0xf6c343, 'phong', { shininess:80 });
+      const teil = (geo, m, x, y, z, sx, sy, sz, rz = 0, ziel = g) => { const o = mesh(geo, m, x, y, z); o.scale.set(sx, sy, sz); o.rotation.z = rz; ziel.add(o); return o; };
+      // Beine mit Knie und breiten Füßen
+      for (const z of [-7, 7]) {
+        teil(G.kugel, dunkel, -1, 15, z, 3.4, 3.4, 3.4);
+        teil(G.box, stahl, 0, 11, z, 4.6, 8.5, 4.4, 0.28);
+        teil(G.kugel, akzent, 1.6, 7, z, 2.8, 2.8, 2.8);
+        teil(G.box, stahl, 0.6, 3.6, z, 4.2, 7, 4, -0.22);
+        teil(G.box, dunkel, 2.5, 0.9, z, 11, 1.8, 6.2);
+        teil(G.box, akzent, 7.6, 1.2, z, 1.4, 1.6, 6.4);
+        if (p[2] >= 2) teil(G.zyl, mat(0xc8d0da, 'phong', { shininess:120 }), -2.6, 9, z, 0.9, 9, 0.9, -0.15);
+      }
+      // Becken, Rumpf, Brustplatte, Schulterpanzer
+      teil(G.box, dunkel, 0, 15.5, 0, 9, 4, 16);
+      teil(G.box, stahl, 0, 23, 0, 17, 12, 19);
+      teil(G.box, akzent, 8.7, 22, 0, 1, 7, 11);
+      for (const y of [19.5, 22, 24.5]) teil(G.box, dunkel, 9.3, y, 0, 0.6, 1, 7);
+      for (const z of [-1, 1]) teil(G.halbkugel, akzent, 0, 27.5, z * 11, 5.4, 4, 5.4);
+      // Auspuffrohre hinten, ab Gatling mit Flammen
+      for (const z of [-4, 4]) {
+        teil(G.zyl, dunkel, -9.4, 30, z, 1.4, 7, 1.4);
+        if (p[0] >= 3) { const f = teil(G.kegel, mat(0xffb020, 'basic', { transparent:true, opacity:0.8 }), -9.4, 35, z, 1.2, 4, 1.2); f.castShadow = false; }
+      }
+      // Cockpit: Pinguin in der Glaskuppel
+      const pilot = new T.Group();
+      pilot.position.set(1, 22, 0);
+      pinguinKoerper(pilot, null, 0.46);
+      g.add(pilot);
+      const glas = teil(G.halbkugel, mat(0xbfeaff, 'phong', { transparent:true, opacity:0.32, shininess:160, specular:0xffffff, depthWrite:false }), 1, 29, 0, 8.6, 10, 8.6);
+      glas.castShadow = false;
+      const rand = teil(G.torus, akzent, 1, 29.2, 0, 8.8, 8.8, 3);
+      rand.rotation.x = Math.PI / 2;
+      // Arme mit Kanonen; die Läufe (rotor) drehen sich beim Schießen
+      t.rotor = [];
+      const laeufe = p[0] >= 4 ? 4 : p[0] >= 3 ? 3 : 1;
+      for (const z of [-1, 1]) {
+        const arm = new T.Group();
+        arm.position.set(2, 22, z * 13.5);
+        teil(G.kugel, dunkel, -1, 2, 0, 3.4, 3.4, 3.4, 0, arm);
+        teil(G.box, stahl, 1.5, 0, 0, 6, 4.6, 4.6, 0, arm);
+        teil(G.box, stahl, 6, -1, 0, 6, 4.4, 4.4, 0, arm);
+        const rotor = new T.Group();
+        rotor.position.set(10, -1, 0);
+        for (let i = 0; i < laeufe; i++) {
+          const w = i / laeufe * Math.PI * 2, d = laeufe > 1 ? 1.4 : 0;
+          const lauf = teil(G.zyl, dunkel, 4, Math.cos(w) * d, Math.sin(w) * d, 0.8, 9, 0.8, -Math.PI / 2, rotor);
+          lauf.castShadow = false;
+        }
+        const muendung = teil(G.torus, akzent, 8.6, 0, 0, 1.9, 1.9, 2, 0, rotor);
+        muendung.rotation.y = Math.PI / 2;
+        arm.add(rotor);
+        t.rotor.push(rotor);
+        g.add(arm);
+      }
+      // Raketenwerfer auf den Schultern
+      if (p[1] >= 1) {
+        const seiten = p[1] >= 2 ? [-1, 1] : [1];
+        const n = p[1] >= 3 ? 4 : 2;
+        for (const z of seiten) {
+          teil(G.box, p[1] >= 4 ? dunkel : stahl, -3, 32, z * 10, 8, 5, 6.4);
+          for (let i = 0; i < n; i++) {
+            const dz = (n === 4 ? (i % 2) * 2.6 - 1.3 : 0), dy = n === 4 ? Math.floor(i / 2) * 2.2 - 1.1 : (i - 0.5) * 2.4;
+            teil(G.kegel, mat(p[1] >= 4 ? 0x2b2f38 : 0xe2463b, 'phong', { shininess:80 }), 2.4, 32 + dy, z * 10 + dz, 1, 3, 1, -Math.PI / 2);
+          }
+        }
+      }
+      if (p[1] >= 5) {
+        teil(G.box, dunkel, -9, 37, 0, 5, 10, 14);
+        for (let i = 0; i < 6; i++) teil(G.kegel, mat(0xe2463b, 'phong', { shininess:80 }), -9, 44, -5 + i * 2, 0.9, 3.4, 0.9);
+      }
+      // Sensoren: Antenne mit Leuchtspitze und drehende Radarschüssel
+      if (p[2] >= 1) {
+        teil(G.zyl, dunkel, -5, 38, -6, 0.5, 12, 0.5);
+        teil(G.kugelGrob, mat(0xe2463b, 'basic'), -5, 44.5, -6, 1.4, 1.4, 1.4);
+        const schuessel = teil(G.halbkugel, mat(0xdfe6ee, 'phong', { shininess:100 }), -5, 38, 6, 3.6, 1.6, 3.6, 0.7);
+        t.dreher = schuessel;
+      }
+      // Kampfpanzerung: Seitenplatten und Schürze
+      if (p[2] >= 4) {
+        for (const z of [-1, 1]) teil(G.box, dunkel, 0, 22, z * 10, 15, 9, 1.4);
+        teil(G.box, dunkel, 6, 13.5, 0, 2, 5, 15, 0.3);
+      }
+      // Kaiser-Mecha: goldener Kamm auf der Kuppel
+      if (p[2] >= 5) for (let i = 0; i < 5; i++) teil(G.kegel4, gold, -3 + i * 2, 40 - Math.abs(i - 2) * 1.4, 0, 1.2, 4, 1.2);
+      // Titan-Mecha: goldene Leuchtstreifen
+      if (p[0] >= 5) for (const z of [-1, 1]) teil(G.box, mat(0xffe28a, 'basic'), 0, 26, z * 9.6, 16, 0.8, 0.4);
+    },
     polar(g, p, t) {
       pinguinKoerper(g, t);
       const farbe = p[2] >= 5 ? 0x111133 : p[2] >= 4 ? 0x2b1d6b : 0x6b4fd1;
@@ -358,6 +756,25 @@
       if (p[1] >= 3) { const b = mesh(G.kugel, mat(0x8a929c), -6, 10, 9); b.scale.setScalar(3.4); g.add(b); }
       if (p[2] >= 3) for (let i = 0; i < 4; i++) { const b = mesh(G.kugel, mat(i % 2 ? 0xf6c343 : 0x444a55), Math.cos(i - 1.5) * 9, 12, Math.sin(i - 1.5) * 9); b.scale.setScalar(2.2); g.add(b); }
       if (p[1] >= 5 || p[0] >= 5) { const k = mesh(G.kugel, mat(0x6b4fd1, 'basic', { transparent:true, opacity:0.35 }), 0, 18, 0); k.scale.set(15, 20, 15); g.add(k); }
+    },
+    laser(g, p, t) {
+      pinguinKoerper(g, t);
+      // Visier und Raketenrucksack
+      const visier = mesh(G.box, mat(p[2] >= 3 ? 0x5ec8ff : p[0] >= 3 ? 0xffd54a : 0xe2463b, 'phong', { shininess:140, specular:0xffffff, emissive:0x220808 }), 7.8, 32, 0);
+      visier.scale.set(1.6, 2.6, 10); g.add(visier);
+      const ruck = mesh(G.box, mat(0x8a93a3, 'phong', { shininess:90 }), -10, 20, 0); ruck.scale.set(5, 14, 12); g.add(ruck);
+      for (const z of [-4, 4]) { const d = mesh(G.zyl, mat(0x5a6573), -11, 11, z); d.scale.set(2.2, 6, 2.2); g.add(d); const fl = mesh(G.kegel, mat(0xffb020, 'basic', { transparent:true, opacity:0.8 }), -11, 6, z); fl.scale.set(1.8, 5, 1.8); fl.rotation.x = Math.PI; g.add(fl); }
+      const emblem = mesh(G.okta, mat(0xffd54a, 'basic'), 10.2, 20, 0); emblem.scale.set(0.8, 3, 3); g.add(emblem);
+      if (p[1] >= 1) {
+        // Roboarm nach hinten
+        const arm = mesh(G.box, mat(0x6d7682, 'phong', { shininess:100 }), -6, 26, -12); arm.scale.set(16, 3, 3); g.add(arm);
+        const kanone = mesh(G.zyl, mat(0xe2463b, 'basic'), -15, 26, -12); kanone.scale.set(1.6, 6, 1.6); kanone.rotation.z = Math.PI / 2; g.add(kanone);
+      }
+      if (p[1] >= 3) { const helm = mesh(G.halbkugel, mat(0xb8c2cf, 'phong', { shininess:140, specular:0xffffff }), 1, 33, 0); helm.scale.set(9, 7, 9); g.add(helm); const ant = mesh(G.zyl, mat(0x5a6573), 1, 44, 0); ant.scale.set(0.5, 8, 0.5); g.add(ant); const kn = mesh(G.kugelGrob, mat(0xe2463b, 'basic'), 1, 48, 0); kn.scale.setScalar(1.6); g.add(kn); }
+      if (p[1] >= 4) for (const z of [-5, 5]) { const bein = mesh(G.box, mat(0x6d7682, 'phong', { shininess:100 }), 0, 4, z); bein.scale.set(9, 8, 4); g.add(bein); }
+      if (p[0] >= 4) { const k = mesh(G.torus, mat(0xffd54a, 'basic'), 1, 42, 0); k.scale.setScalar(7); k.rotation.x = Math.PI / 2; g.add(k); }
+      if (p[0] >= 5) { const sonne = mesh(G.kugel, mat(0xfff2a8, 'basic'), 0, 58, 0); sonne.scale.setScalar(6); g.add(sonne); t.orb = sonne; t.orbGroesse = 6; }
+      if (p[2] >= 4) { const umhang = mesh(G.kugel, mat(0x2f7fe0, 'phong', { emissive:0x0a2040 }), -5, 18, 0); umhang.scale.set(6, 15, 12); g.add(umhang); }
     },
     markt(g, p, t) {
       const theke = mesh(G.box, mat(0x9b6a3c), 6, 7, 0); theke.scale.set(14, 14, 40); g.add(theke);
@@ -393,6 +810,41 @@
       if (p[1] >= 2) { const st = mesh(G.zyl, mat(0x777777), -10, 30, 10); st.scale.set(0.8, 26, 0.8); g.add(st); const sch = mesh(G.kegel, mat(p[1] >= 4 ? 0xffd54a : 0xdfe6ee), -10, 44, 10); sch.scale.set(6, 4, 6); sch.rotation.x = Math.PI; g.add(sch); t.dreher = sch; }
       if (p[2] >= 3) for (let i = 0; i < 4; i++) { const m = mesh(G.zyl, mat(0xffd54a, 'phong', { shininess:100 }), -14, 2 + i * 1.6, -10); m.scale.set(4, 1.4, 4); g.add(m); }
       if (p[2] >= 5) { const iglu = mesh(G.halbkugel, mat(0xffd54a, 'phong', { shininess:100 }), -16, 0, 10); iglu.scale.setScalar(9); g.add(iglu); }
+    },
+    disco(g, p, t) {
+      pinguinKoerper(g, t);
+      // Afro, Glitzerkragen und Lautsprecher
+      const afroFarbe = p[1] >= 3 ? 0xb36bff : p[0] >= 3 ? 0xe2463b : 0x3a2a1a;
+      for (let i = 0; i < 7; i++) { const w = i / 7 * Math.PI * 2; const a = mesh(G.kugel, mat(afroFarbe), Math.cos(w) * 5, 39 + Math.sin(i) * 1.5, Math.sin(w) * 6); a.scale.setScalar(4.4); g.add(a); }
+      const kr = mesh(G.torus, mat(0xffd54a, 'phong', { shininess:140 }), 1, 23, 0); kr.scale.set(9.6, 9.6, 6); kr.rotation.x = Math.PI / 2; g.add(kr);
+      const gross = p[0] >= 3 ? 1.35 : 1;
+      for (const z of [-1, 1]) {
+        const box = mesh(G.box, mat(0x2b2f38), 4, 9 * gross, z * 18); box.scale.set(10 * gross, 18 * gross, 9 * gross); g.add(box);
+        const mem = mesh(G.zyl, mat(p[0] >= 4 ? 0xff5ec8 : 0x8a93a3, 'phong', { shininess:60 }), 9.2 * gross, 11 * gross, z * 18); mem.scale.set(3.5 * gross, 0.8, 3.5 * gross); mem.rotation.z = Math.PI / 2; g.add(mem);
+      }
+      if (p[1] >= 1) {
+        const kugel = mesh(G.ikosa, mat(0xe8eef6, 'phong', { flatShading:true, shininess:150, specular:0xffffff }), 0, 62, 0); kugel.scale.setScalar(p[1] >= 4 ? 8 : 6); g.add(kugel); t.dreher = kugel;
+        const seil = mesh(G.zyl, mat(0x777777), 0, 72, 0); seil.scale.set(0.3, 14, 0.3); g.add(seil);
+      }
+      if (p[2] >= 1) { const kasse = mesh(G.box, mat(0xe2463b), -14, 6, 14); kasse.scale.set(8, 12, 8); g.add(kasse); const dach = mesh(G.box, mat(0xffd54a), -14, 13, 14); dach.scale.set(10, 2, 10); g.add(dach); }
+      if (p[2] >= 4) for (let i = 0; i < 3; i++) { const m = mesh(G.zyl, mat(0xffd54a, 'phong', { shininess:100 }), -14, 16 + i * 1.6, 14); m.scale.set(3, 1.2, 3); g.add(m); }
+      if (p[0] >= 5 || p[1] >= 5) { const k = mesh(G.torus, mat(0xff5ec8, 'basic', { transparent:true, opacity:0.7 }), 0, 4, 0); k.scale.setScalar(24); k.rotation.x = Math.PI / 2; g.add(k); }
+    },
+    koch(g, p, t) {
+      pinguinKoerper(g, t);
+      // Kochmütze, Schürze, Pfanne und ein Topf mit Fischsuppe
+      const band = mesh(G.zyl, mat(0xffffff), 1, 38, 0); band.scale.set(6.6, 4, 6.6); g.add(band);
+      for (const [x, z] of [[1, 0], [-2, -3], [-2, 3], [3, -2.5], [3, 2.5]]) { const b = mesh(G.kugel, mat(0xffffff), x, 45, z); b.scale.setScalar(4.8); g.add(b); }
+      const schuerze = mesh(G.box, mat(p[0] >= 4 ? 0xffd54a : 0xffffff), 8.6, 13, 0); schuerze.scale.set(1, 14, 10); g.add(schuerze);
+      const pfanne = mesh(G.zyl, mat(0x2b2f38, 'phong', { shininess:90 }), 16, 18, 12); pfanne.scale.set(5, 0.8, 5); g.add(pfanne);
+      const stiel = mesh(G.box, mat(0x5a3420), 9, 18, 12); stiel.scale.set(8, 1, 1.4); g.add(stiel);
+      const fisch = mesh(G.kugel, mat(0xffb347), 16, 19, 12); fisch.scale.set(3, 1, 1.6); g.add(fisch);
+      const topf = mesh(G.zyl, mat(p[2] >= 4 ? 0xffd54a : 0x8a93a3, 'phong', { shininess:100 }), -10, 7, -12); topf.scale.set(7, 12, 7); g.add(topf);
+      const suppe = mesh(G.zyl, mat(p[2] >= 3 ? 0xe2463b : 0xffc87a), -10, 13.2, -12); suppe.scale.set(6.4, 0.4, 6.4); g.add(suppe);
+      const dampf = mesh(G.kugel, mat(0xffffff, 'basic', { transparent:true, opacity:0.5 }), -10, 22, -12); dampf.scale.set(4, 6, 4); dampf.castShadow = false; g.add(dampf); t.orb = dampf; t.orbGroesse = 4;
+      if (p[0] >= 3) for (let i = 0; i < 3; i++) { const sushi = mesh(G.zyl, mat(0xffffff), 14 + i * 3, 2, -12); sushi.scale.set(1.6, 2, 1.6); g.add(sushi); const lachs = mesh(G.box, mat(0xff7f5a), 14 + i * 3, 4.2, -12); lachs.scale.set(2.6, 0.8, 1.8); g.add(lachs); }
+      if (p[1] >= 2) for (let i = 0; i < Math.min(4, p[1]); i++) { const k = mesh(G.box, mat(0xb8773a), -16, 4 + i * 7, 10); k.scale.setScalar(7); g.add(k); }
+      if (p[1] >= 5 || p[0] >= 5) { const stern = mesh(G.okta, mat(0xffd54a, 'basic'), 1, 54, 0); stern.scale.setScalar(3); g.add(stern); }
     },
     fabrik(g, p, t) {
       const wand = p[2] >= 4 ? 0x6d7682 : 0xbfe6f7;
@@ -451,16 +903,27 @@
   };
 
   const MODELL_GROESSE = 1.3;
-  // Ein Pinguin (oder Held) mit Sockel, Stufenpunkten und bei Stufe 5 einer goldenen Aura
-  function pinguinBauen(typ, pfade, stufe = 1) {
+  // Ein Pinguin (oder Held) mit Sockel, Stufenpunkten und bei Stufe 5 einer goldenen Aura.
+  // aussehen: { skin (Pinguin-Pass-Look), farbe (Spielerfarbe im Koop, färbt den Sockel) }
+  function pinguinBauen(typ, pfade, stufe = 1, aussehen = {}) {
     const g = new T.Group();
     const teile = {};
     const held = !!PT.HELDEN[typ];
     const wasser = PT.def(typ).wasser;
-    if (!wasser && typ !== 'flieger') sockel(g, PT.turmRadius(typ), held ? 0xfff2c4 : 0xffffff);
+    let sockelFarbe = held ? 0xfff2c4 : 0xffffff, leuchten = 0;
+    const SO = aussehen.sockel && PT.SOCKEL && PT.SOCKEL[aussehen.sockel];
+    if (SO && aussehen.sockel !== 'standard') { sockelFarbe = SO.farbe; leuchten = SO.leuchten || 0; }
+    if (aussehen.farbe) sockelFarbe = new T.Color(aussehen.farbe).lerp(new T.Color(SO && aussehen.sockel !== 'standard' ? SO.farbe : 0xffffff), 0.35).getHex();
+    if (!wasser && typ !== 'flieger') sockel(g, PT.turmRadius(typ), sockelFarbe, leuchten);
+    if (SO && SO.bunt && !wasser && typ !== 'flieger') {
+      const rr = PT.turmRadius(typ) + 3.2;
+      [0xe2463b, 0xf6c343, 0x35b04a, 0x2f7fe0, 0xb36bff].forEach((f, i) => { const k = mesh(G.torus, mat(f, 'basic'), 0, 1 + i * 0.5, 0); k.scale.set(rr - i * 0.4, rr - i * 0.4, 3); k.rotation.x = Math.PI / 2; k.castShadow = false; g.add(k); });
+    }
     const innen = new T.Group();
+    look = aussehen.skin && aussehen.skin !== 'standard' ? PT.SKINS[aussehen.skin] || null : null;
     if (held) HELDEN_MODELLE[typ](innen, stufe, teile);
     else MODELLE[typ](innen, pfade, teile);
+    look = null;
     const fuenf = pfade.indexOf(5);
     teile.groesse = MODELL_GROESSE * (fuenf >= 0 ? 1.12 : 1) * (held ? 1.08 : 1);
     innen.scale.setScalar(teile.groesse);
@@ -499,6 +962,7 @@
   function geschossArten() {
     const eis = (farbe) => mat(farbe, 'phong', { shininess:90 });
     const zapfenGeo = new T.ConeGeometry(2.4, 15, 6).applyMatrix4(matrix(0, 0, 0, 0, 0, -Math.PI / 2));
+    const laserGeo = new T.CylinderGeometry(1, 1, 18, 6).applyMatrix4(matrix(0, 0, 0, 0, 0, -Math.PI / 2));
     const pfeilGeo = new T.ConeGeometry(1.4, 16, 5).applyMatrix4(matrix(0, 0, 0, 0, 0, -Math.PI / 2));
     const splitterGeo = new T.OctahedronGeometry(1, 0).applyMatrix4(matrix(0, 0, 0, 0, 0, 0, 5, 1.6, 1.6));
     const harpGeo = new T.ConeGeometry(2, 12, 6).applyMatrix4(matrix(0, 0, 0, 0, 0, -Math.PI / 2));
@@ -509,6 +973,10 @@
     const iko = new T.IcosahedronGeometry(1, 1);
     const rak = new T.ConeGeometry(3, 16, 8).applyMatrix4(matrix(0, 0, 0, 0, 0, -Math.PI / 2));
     const vc = (farbe, art = 'phong', extra = {}) => mat(farbe, art, Object.assign({ vertexColors:true }, extra));
+    const dreizackGeo = verschmelzen([[G.zyl, 0x8a93a3, matrix(-3, 0, 0, 0, 0, Math.PI / 2, 0.5, 10, 0.5)],
+      ...[-1.6, 0, 1.6].map(z => [G.kegel, 0xe8eef6, matrix(3.5, 0, z, 0, 0, -Math.PI / 2, 0.7, 4, 0.7)]), [G.box, 0xe8eef6, matrix(1.6, 0, 0, 0, 0, 0, 0.6, 0.6, 4)]]);
+    const torpedoGeo = verschmelzen([[G.kugel, 0x5a6573, matrix(0, 0, 0, 0, 0, 0, 7, 2.2, 2.2)], [G.kugel, 0xe2463b, matrix(5.5, 0, 0, 0, 0, 0, 2, 2, 2)],
+      [G.box, 0x3d4a5c, matrix(-6, 0, 0, 0, 0, 0, 1.5, 5, 0.4)], [G.box, 0x3d4a5c, matrix(-6, 0, 0, 0, 0, 0, 1.5, 0.4, 5)]]);
     return {
       zapfen:{ geo:zapfenGeo, mat:eis(0xcdefff), y:18 },
       zapfenGold:{ geo:zapfenGeo, mat:eis(0xffd54a), y:18 },
@@ -539,7 +1007,17 @@
       pfeil:{ geo:pfeilGeo, mat:eis(0xdff4ff), y:null, flug:true },
       pfeilGold:{ geo:pfeilGeo, mat:eis(0xffd54a), y:null, flug:true },
       stern:{ geo:sternGeo, mat:mat(0xc8d0da, 'phong', { shininess:120 }), y:16, drehen:true },
-      sternGold:{ geo:sternGeo, mat:mat(0xffd54a, 'phong', { shininess:120 }), y:16, drehen:true }
+      laser:{ geo:laserGeo, mat:mat(0xff4a3a, 'basic'), y:24 },
+      laserBlau:{ geo:laserGeo, mat:mat(0x5ec8ff, 'basic'), y:24 },
+      plasma:{ geo:laserGeo, mat:mat(0x7dffb2, 'basic'), y:24 },
+      laserGross:{ geo:laserGeo, mat:mat(0xffd54a, 'basic'), y:24, skala:1.4 },
+      sonnenstrahl:{ geo:laserGeo, mat:mat(0xfff7d6, 'basic'), y:26, skala:2 },
+      bolzen:{ geo:laserGeo, mat:mat(0xffc94a, 'basic'), y:30, skala:0.55 },
+      bolzenGold:{ geo:laserGeo, mat:mat(0xfff2a8, 'basic'), y:30, skala:0.7 },
+      sternGold:{ geo:sternGeo, mat:mat(0xffd54a, 'phong', { shininess:120 }), y:16, drehen:true },
+      dreizack:{ geo:dreizackGeo, mat:vc(0xffffff), y:12 },
+      dreizackGold:{ geo:dreizackGeo, mat:vc(0xffd54a), y:12 },
+      torpedo:{ geo:torpedoGeo, mat:vc(0xffffff), y:8 }
     };
   }
   // Stachelhaufen im Kanal

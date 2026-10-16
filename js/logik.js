@@ -1,5 +1,5 @@
 'use strict';
-// Pingu Towers – Spiellogik. Rechnet auf der flachen Karte (x nach rechts, y nach unten, 1000 × 640),
+// Pinguin Türmchen – Spiellogik. Rechnet auf der flachen Karte (x nach rechts, y nach unten, 1000 × 640),
 // kennt keine Grafik. Was passiert (Schüsse, Treffer, Platzer, Geld …), landet in spiel.ereignisse
 // und wird von der 3D-Darstellung abgeholt. Läuft auch in Node (test/sim.js).
 (function (wurzel) {
@@ -8,7 +8,7 @@
 
   const SCHRITT = 2;          // Abstand der Wegpunkte in Pixeln
   const ZELLE = 64;           // Rastergröße für die Kollisionssuche
-  const TURM_R = { markt:26, haeuptling:19, boot:20, flieger:20, fabrik:21, moerser:19 };
+  const TURM_R = { markt:26, haeuptling:19, boot:20, flieger:20, fabrik:21, moerser:19, eisbaer:24, koch:21, mecha:23 };
   PT.turmRadius = typ => TURM_R[typ] || 17;
   const MAX_HAUFEN = 40;      // so viele Stachelhaufen darf eine Fabrik gleichzeitig liegen haben
 
@@ -63,40 +63,72 @@
   }
   PT.wegBauen = wegBauen;
 
-  // Leben, die ein Fisch kostet, wenn er durchkommt
+  // Leben, die ein Fisch kostet, wenn er durchkommt (ein Boss beendet das Spiel)
   function rbeRest(f) {
     if (FISCHE[f.typ].boss) return 1e9;
     const t = FISCHE[f.typ];
     return Math.max(1, Math.ceil(f.hp)) + t.kinder.reduce((s, k) => s + FISCHE[k].rbe, 0);
   }
   // kleiner Zufallsgenerator mit Startwert, damit Spiele nachvollziehbar bleiben
+  // (Zustand lesbar, damit der Koop-Server ihn an die Browser weitergeben kann)
   function zufallsquelle(seed) {
     let a = seed >>> 0;
-    return () => {
+    const f = () => {
       a = (a + 0x6D2B79F5) >>> 0;
       let t = a;
       t = Math.imul(t ^ (t >>> 15), t | 1);
       t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
+    f.lesen = () => a;
+    f.setzen = v => { a = v >>> 0; };
+    return f;
   }
+  const zahlOk = (v, min, max) => Number.isFinite(v) && v >= min && v <= max;
 
   class Spiel {
-    constructor({ karte = 'scholle', stufe = 'mittel', runden = null, modus = 'standard', held = null, seed = 12345 } = {}) {
-      this.karte = PT.KARTEN[karte] ? karte : 'scholle';
+    // spieler (nur Koop): [{ id, name, held, kraft }], geldModus 'geteilt' oder 'getrennt'.
+    // kraft: Meisterkraft des Helden (Pinguin-Pass) im Einzelspiel.
+    // eigeneKarte: Karte aus dem Karten-Editor (wird mit PT.karteOk geprüft), dann heißt die Karte 'eigen'.
+    // regeln: Einschränkungen der Tages-Herausforderung { erlaubt, ohneHeld, maxTuerme, geld, leben, preis, keinVerkauf, maxStufe, runden }.
+    // boni: dauerhaftes Pinguin-Wissen { geld, leben, rabatt, bonus, heldXp, fk }.
+    constructor({ karte = 'scholle', stufe = 'mittel', runden = null, modus = 'standard', held = null, seed = 12345, kraft = false, spieler = null, geldModus = 'geteilt',
+      eigeneKarte = null, regeln = null, boni = null } = {}) {
+      const eigen = karte === 'eigen' && PT.karteOk(eigeneKarte);
+      this.karte = eigen ? 'eigen' : PT.KARTEN[karte] ? karte : 'scholle';
       this.stufe = PT.STUFEN[stufe] ? stufe : 'mittel';
       this.modus = PT.MODI[modus] ? modus : 'standard';
       const md = PT.MODI[this.modus];
-      this.held = held && PT.HELDEN[held] && !md.ohneHeld ? held : null;
-      this.kartenDaten = PT.KARTEN[this.karte];
+      this.regeln = regeln && typeof regeln === 'object' ? { ...regeln } : null;
+      this.boni = boni && typeof boni === 'object' ? { ...boni } : null;
+      const rg = this.regeln || {}, bo = this.boni || {};
+      this.held = held && PT.HELDEN[held] && !md.ohneHeld && !rg.ohneHeld ? held : null;
+      this.kraft = !!kraft;
+      this.koop = Array.isArray(spieler) && spieler.length > 0;
+      this.geldModus = this.koop && geldModus === 'getrennt' ? 'getrennt' : 'geteilt';
+      this.kartenDaten = eigen || PT.KARTEN[this.karte];
       this.wege = this.kartenDaten.wege.map(w => wegBauen(this.modus === 'umgekehrt' ? w.slice().reverse() : w));
       this.weg = this.wege[0];
+      this.tunnel = this.kartenDaten.tunnel || [];
+      this.schmelzen = this.kartenDaten.schmelzen || [];
       const st = PT.STUFEN[this.stufe];
-      this.zielRunden = runden || md.runden || st.runden;
+      this.zielRunden = runden || rg.runden || md.runden || st.runden;
       this.unendlich = this.modus === 'sandkasten';
-      this.geldFaktor = this.modus === 'halb' ? 0.5 : 1;
-      this.geld = this.unendlich ? 999999 : st.geld;
-      this.leben = this.unendlich ? 999999 : st.leben;
+      const kartenGeld = this.kartenDaten.geld || 1;
+      this.geldFaktor = (this.modus === 'halb' ? 0.5 : 1) * kartenGeld;
+      this.geld = this.unendlich ? 999999 : Math.round((rg.geld || st.geld) * kartenGeld) + (bo.geld || 0);
+      this.leben = this.unendlich ? 999999 : (rg.leben || st.leben) + (st.leben > 1 && !rg.leben ? bo.leben || 0 : 0);
+      // Koop: Startgeld pro Spieler, getrennt hat jeder seine eigene Kasse
+      this.spieler = [];
+      if (this.koop) {
+        this.held = null;
+        this.spieler = spieler.slice(0, PT.KOOP_MAX).map((x, i) => ({
+          id:String(x.id), name:String(x.name || 'Pinguin').slice(0, 16), farbe:i,
+          held:x.held && PT.HELDEN[x.held] && !md.ohneHeld ? x.held : null, kraft:!!x.kraft,
+          geld:this.geldModus === 'getrennt' ? this.geld : 0
+        }));
+        if (this.geldModus === 'geteilt' && !this.unendlich) this.geld *= this.spieler.length;
+      }
       this.startLeben = this.leben;
       this.runde = 0;            // abgeschlossene Runden
       this.laeuft = false;       // gerade kommen Fische
@@ -115,18 +147,44 @@
       this.sabotage = null;
       this.warteschlange = [];
       this.kisten = [];
-      this.statistik = { platzer:0, geleakt:0, verdient:0 };
+      this.statistik = { platzer:0, geleakt:0, verdient:0, zeit:0, faehigkeiten:0, bosse:0, verkauft:0, stufe5:0 };
+      this.koeche = [];
     }
 
-    erlaubt(typ) {
+    /* ---------- Spieler und Kasse (Koop) ---------- */
+    spielerVon(sp) { return this.koop ? this.spieler.find(x => x.id === sp) || null : null; }
+    // Wessen Geld wird ausgegeben? Einzelspiel und geteiltes Geld: die gemeinsame Kasse
+    kasse(sp) {
+      if (this.geldModus !== 'getrennt') return this;
+      return this.spielerVon(sp) || { geld:0 };
+    }
+    heldVon(sp) { if (!this.koop) return this.held; const x = this.spielerVon(sp); return x ? x.held : null; }
+    // Darf dieser Spieler den Pinguin aufrüsten, verkaufen, umstellen? Bei getrenntem Geld nur die eigenen.
+    darf(t, sp) { return !this.koop || this.geldModus !== 'getrennt' || t.besitzer === sp; }
+    erlaubt(typ, sp = null) {
       const md = PT.MODI[this.modus];
-      if (PT.HELDEN[typ]) return typ === this.held;
+      if (PT.HELDEN[typ]) return typ === this.heldVon(sp);
+      if (this.regeln && this.regeln.erlaubt && !this.regeln.erlaubt.includes(typ)) return false;
       return !md.erlaubt || md.erlaubt.includes(typ);
     }
-    heldDa() { return this.tuerme.find(t => PT.HELDEN[t.typ]); }
-    einnahme(betrag) {
+    // Wasserlöcher der Karte und Eisflächen, die schon geschmolzen sind
+    teiche() {
+      const t = this.kartenDaten.wasser || [];
+      if (!this.schmelzen.length) return t;
+      return t.concat(this.schmelzen.filter(z => z[3] <= this.runde).map(z => [z[0], z[1], z[2]]));
+    }
+    // gemeinsamer Rabatt aus Häuptling & Co., Pinguin-Wissen und Herausforderung
+    preisFaktor() { return (this.regeln && this.regeln.preis) || 1; }
+    rabattGesamt(r) { const w = (this.boni && this.boni.rabatt) || 0; return 1 - (1 - r) * (1 - w); }
+    heldDa(sp = null) { return this.tuerme.find(t => PT.HELDEN[t.typ] && (!this.koop || t.besitzer === sp)); }
+    // Einnahmen: an einen bestimmten Spieler (Kisten seines Markts) oder bei getrenntem Geld auf alle verteilt
+    einnahme(betrag, an = null) {
       const b = betrag * this.geldFaktor;
-      this.geld += b;
+      if (this.geldModus === 'getrennt') {
+        const ziel = an != null && this.spielerVon(an);
+        if (ziel) ziel.geld += b;
+        else for (const x of this.spieler) x.geld += b / this.spieler.length;
+      } else this.geld += b;
       this.statistik.verdient += b;
       return b;
     }
@@ -140,14 +198,15 @@
       }
       return r;
     }
-    preisBau(typ, x, y) { return PT.preis(PT.def(typ).preis, this.stufe, x == null ? 0 : this.rabattAn(x, y)); }
+    preisBau(typ, x, y) { return PT.preis(PT.def(typ).preis * this.preisFaktor(), this.stufe, this.rabattGesamt(x == null ? 0 : this.rabattAn(x, y))); }
     preisUpgrade(t, i) {
       const u = PT.PINGUINE[t.typ] && PT.PINGUINE[t.typ].pfade[i][t.pfade[i]];
-      return u ? PT.preis(u.preis, this.stufe, this.rabattAn(t.x, t.y, t)) : Infinity;
+      return u ? PT.preis(u.preis * this.preisFaktor(), this.stufe, this.rabattGesamt(this.rabattAn(t.x, t.y, t))) : Infinity;
     }
     // Stufe 5 gibt es pro Pinguinart und Pfad nur einmal
     upgradeErlaubt(t, i) {
       if (!PT.PINGUINE[t.typ] || !PT.upgradeErlaubt(t.pfade, i)) return false;
+      if (this.regeln && this.regeln.maxStufe && t.pfade[i] >= this.regeln.maxStufe) return false;
       if (t.pfade[i] === 4 && this.tuerme.some(x => x !== t && x.typ === t.typ && x.pfade[i] === 5)) return false;
       return true;
     }
@@ -158,23 +217,29 @@
       if (x < r || y < r || x > PT.BREITE - r || y > PT.HOEHE - r) return false;
       for (const w of this.wege) if (w.abstand(x, y) < PT.WEG_BREITE / 2 + r - 2) return false;
       for (const [hx, hy, hr] of this.kartenDaten.hindernisse) if (Math.hypot(hx - x, hy - y) < hr + r - 4) return false;
-      const teiche = this.kartenDaten.wasser || [];
+      for (const [hx, hy, hr] of this.tunnel) if (Math.hypot(hx - x, hy - y) < hr + r - 4) return false;
+      const teiche = this.teiche();
       if (def.wasser) {
         if (!teiche.some(([wx, wy, wr]) => Math.hypot(wx - x, wy - y) <= wr - r * 0.35)) return false;
       } else if (teiche.some(([wx, wy, wr]) => Math.hypot(wx - x, wy - y) < wr + r - 6)) return false;
       for (const t of this.tuerme) if (t !== ohne && Math.hypot(t.x - x, t.y - y) < PT.turmRadius(t.typ) + r) return false;
       return true;
     }
-    bauen(typ, x, y) {
-      if (this.vorbei || !PT.def(typ) || !this.erlaubt(typ) || !this.platzFrei(typ, x, y)) return null;
-      if (PT.HELDEN[typ] && this.heldDa()) return null;
+    bauen(typ, x, y, sp = null) {
+      if (this.vorbei || !PT.def(typ) || !this.erlaubt(typ, sp) || !this.platzFrei(typ, x, y)) return null;
+      if (this.koop && !this.spielerVon(sp)) return null;
+      if (PT.HELDEN[typ] && this.heldDa(sp)) return null;
+      if (this.regeln && this.regeln.maxTuerme && !PT.HELDEN[typ] && this.tuerme.filter(t => !PT.HELDEN[t.typ]).length >= this.regeln.maxTuerme) return null;
       const preis = this.preisBau(typ, x, y);
-      if (preis > this.geld) return null;
-      if (!this.unendlich) this.geld -= preis;
+      const kasse = this.kasse(sp);
+      if (preis > kasse.geld) return null;
+      if (!this.unendlich) kasse.geld -= preis;
       const def = PT.def(typ);
+      const kraft = !!PT.HELDEN[typ] && (this.koop ? this.spielerVon(sp).kraft : this.kraft);
       const t = {
         id:this.naechsteId++, typ, x, y, pfade:[0, 0, 0], ziel:def.ziele ? def.ziele[0][0] : 'erster', investiert:preis, pops:0,
-        winkel:-Math.PI / 2, dreh:0, cd:[], fcd:{}, stufe:1, xp:0, temp:null, muster:'acht', phase:0, fx:x, fy:y, fw:0
+        winkel:-Math.PI / 2, dreh:0, cd:[], fcd:{}, stufe:1, xp:0, temp:null, muster:'acht', phase:0, fx:x, fy:y, fw:0,
+        besitzer:this.koop ? sp : null, kraft, betaeubt:0, betaeubtArt:null
       };
       if (typ === 'moerser') t.zielPunkt = this.standardZiel(x, y);
       this.tuerme.push(t);
@@ -192,13 +257,15 @@
       }
       return best || [PT.BREITE / 2, PT.HOEHE / 2];
     }
-    upgraden(t, i) {
-      if (this.vorbei || !this.upgradeErlaubt(t, i)) return false;
+    upgraden(t, i, sp = null) {
+      if (this.vorbei || !this.upgradeErlaubt(t, i) || !this.darf(t, sp)) return false;
       const preis = this.preisUpgrade(t, i);
-      if (preis > this.geld) return false;
-      if (!this.unendlich) this.geld -= preis;
+      const kasse = this.kasse(sp);
+      if (preis > kasse.geld) return false;
+      if (!this.unendlich) kasse.geld -= preis;
       t.investiert += preis;
       t.pfade[i]++;
+      if (t.pfade[i] === 5) this.statistik.stufe5++;
       this.neuBerechnen();
       this.ereignisse.push({ art:'upgrade', turm:t, pfad:i });
       return true;
@@ -208,27 +275,29 @@
       if (!PT.HELDEN[t.typ] || t.stufe >= 10) return Infinity;
       return PT.preis(Math.max(5, PT.HELDEN_STUFEN[t.stufe + 1] - t.xp), this.stufe);
     }
-    heldenStufeKaufen(t) {
+    heldenStufeKaufen(t, sp = null) {
       const p = this.preisHeldenStufe(t);
-      if (p > this.geld || this.vorbei) return false;
-      if (!this.unendlich) this.geld -= p;
+      const kasse = this.kasse(sp);
+      if (p > kasse.geld || this.vorbei || !this.darf(t, sp)) return false;
+      if (!this.unendlich) kasse.geld -= p;
       t.investiert += p;
       t.xp = PT.HELDEN_STUFEN[t.stufe + 1];
       this.heldErfahrung(t, 0);
       return true;
     }
     heldErfahrung(t, xp) {
-      t.xp += xp;
+      t.xp += xp * (1 + ((this.boni && this.boni.heldXp) || 0));
       let auf = false;
       while (t.stufe < 10 && t.xp >= PT.HELDEN_STUFEN[t.stufe + 1]) { t.stufe++; auf = true; }
       if (auf) { this.neuBerechnen(); this.ereignisse.push({ art:'aufstieg', turm:t, stufe:t.stufe }); }
     }
     verkaufswert(t) { return Math.floor(t.investiert * PT.VERKAUF); }
-    verkaufen(t) {
+    verkaufen(t, wert = null) {
       const i = this.tuerme.indexOf(t);
       if (i < 0) return;
       this.tuerme.splice(i, 1);
-      if (!this.unendlich) this.geld += this.verkaufswert(t);
+      if (wert == null) this.statistik.verkauft++;
+      if (!this.unendlich) this.kasse(t.besitzer).geld += wert == null ? this.verkaufswert(t) : wert;
       this.haufen = this.haufen.filter(h => h.turm !== t);
       this.neuBerechnen();
       this.ereignisse.push({ art:'verkauft', turm:t });
@@ -236,7 +305,7 @@
 
     // Werte aller Pinguine neu bestimmen (Upgrades, Heldenstufe und Boni aus der Nähe)
     neuBerechnen() {
-      for (const t of this.tuerme) t.werte = PT.werteFuer(t.typ, t.pfade, t.stufe);
+      for (const t of this.tuerme) t.werte = PT.werteFuer(t.typ, t.pfade, t.stufe, t.kraft);
       const quellen = this.tuerme.filter(t => t.werte.buff);
       for (const t of this.tuerme) {
         const e = { ...t.werte, angriffe:t.werte.angriffe.map(a => ({ ...a, haufen:a.haufen ? { ...a.haufen } : null })) };
@@ -274,6 +343,7 @@
       }
       this.entwachsen = this.tuerme.some(t => t.eff.entwachsen);
       this.entpanzern = this.tuerme.some(t => t.eff.entpanzern);
+      this.koeche = this.tuerme.filter(t => t.eff.koch);
     }
 
     /* ---------- Runden ---------- */
@@ -290,7 +360,7 @@
       const wn = this.wege.length;
       r.gruppen.forEach((g, gi) => {
         for (let i = 0; i < g.anzahl; i++) {
-          this.warteschlange.push({ t:g.start + i * g.abstand, typ:g.typ, camo:g.camo, nach:g.nach, fest:g.fest, p:(gi + i) % wn, boss:g.typ === 'krakus' ? r.boss : 0 });
+          this.warteschlange.push({ t:g.start + i * g.abstand, typ:g.typ, camo:g.camo, nach:g.nach, fest:g.fest, p:(gi + i) % wn, boss:g.typ === r.bossTyp ? r.boss : 0 });
         }
         ende = Math.max(ende, g.start + g.anzahl * g.abstand);
       });
@@ -304,7 +374,7 @@
         for (let i = 0; i < g.kisten; i++) this.kisten.push({ t:(i + 1) * dauer / (g.kisten + 1), turm:t, wert:Math.round(g.wert) });
       }
       this.kisten.sort((a, b) => b.t - a.t);
-      this.ereignisse.push({ art:'rundeStart', runde:n, boss:r.boss || 0 });
+      this.ereignisse.push({ art:'rundeStart', runde:n, boss:r.boss || 0, bossTyp:r.bossTyp || null });
       return true;
     }
     // Sandkasten: Fische selbst losschicken
@@ -317,7 +387,7 @@
       const start = this.rundenZeit + 0.1;
       const abstand = FISCHE[typ].riese ? 1.2 : 0.25;
       for (let i = 0; i < anzahl; i++) {
-        this.warteschlange.push({ t:start + i * abstand, typ, camo:!!zusatz.camo, nach:!!zusatz.nach, fest:!!zusatz.fest, p:i % this.wege.length, boss:typ === 'krakus' ? 1 : 0 });
+        this.warteschlange.push({ t:start + i * abstand, typ, camo:!!zusatz.camo, nach:!!zusatz.nach, fest:!!zusatz.fest, p:i % this.wege.length, boss:FISCHE[typ].boss ? 1 : 0 });
       }
       this.warteschlange.sort((a, b) => b.t - a.t);
     }
@@ -326,12 +396,13 @@
       const T = FISCHE[typ];
       const fest = !!mods.fest && PT.kannGepanzert(typ) && !this.entpanzern;
       let hp = T.hp * (fest ? (typ === 'panzer' ? 4 : 2) : 1) * (T.riese && !T.boss ? this.zaeh || 1 : 1);
-      if (T.boss) hp = PT.BOSS_HP[mods.boss || 1];
+      if (T.boss) hp = PT.BOSSE[typ].hp[mods.boss || 1];
       if (T.riese && !T.boss && this.sabotage && this.sabotage.riesen && this.zeit < this.sabotage.bis) hp *= this.sabotage.riesen;
       const f = {
         id:this.naechsteId++, typ, p, hp, dist, camo:!!mods.camo || T.immer === 'camo', fest, boss:T.boss ? mods.boss || 1 : 0, phase:0,
         nach:!!mods.nach && !T.riese, ursprung:mods.ursprung || typ, nachT:0,
-        frost:0, betaeubt:0, langsam:1, langsamT:0, wind:1, x:-100, y:-100, w:0, tot:false, geboren:this.zeit
+        frost:0, betaeubt:0, langsam:1, langsamT:0, wind:1, x:-100, y:-100, w:0, tot:false, geboren:this.zeit,
+        luft:0, sprungT:T.springen ? (this.naechsteId % 9) * 0.29 : 0, gross:0, blasPause:0, tunnel:false, bossT:0
       };
       f.hpMax = f.hp;
       if (vorbild) {
@@ -353,7 +424,9 @@
     }
     treffer(f, a, turm, getroffen) {
       if (f.tot || this.immun(f, a.typ, a)) return false;
+      if (f.gross > 0) return false;   // aufgeblasener Kugelfisch: alles prallt ab
       const T = FISCHE[f.typ], riese = !!T.riese;
+      if (a.helmWeg && f.fest && !f.boss) { f.fest = false; f.hpMax /= 2; f.hp = Math.min(f.hp, f.hpMax); }
       if (a.frost && !riese && !this.immun(f, 'kaelte')) f.frost = Math.max(f.frost, a.frost);
       if (a.verlangsam && !riese) { f.langsam = Math.min(f.langsam, a.verlangsam); f.langsamT = Math.max(f.langsamT, a.verlangsamDauer); }
       if (a.riesenLangsam && riese && !f.boss) { f.langsam = Math.min(f.langsam, a.riesenLangsam); f.langsamT = Math.max(f.langsamT, 1.5); }
@@ -367,28 +440,57 @@
       if (riese) this.ereignisse.push({ art:'riesenTreffer', fisch:f });
       if (f.boss) this.bossPruefen(f);
       if (f.hp <= 0) this.platzen(f, -f.hp, turm, getroffen, a.typ);
+      else if (T.aufblasen && f.blasPause <= 0) { f.gross = T.aufblasen.dauer; f.blasPause = T.aufblasen.dauer + T.aufblasen.pause; this.ereignisse.push({ art:'aufblasen', x:f.x, y:f.y }); }
       return true;
     }
-    // Krakus ruft bei 75, 50 und 25 % Leben Verstärkung
+    // Pinguine im Umkreis betäuben (Flutwelle, Eisatem, Tinte); Eisbären mit dickem Fell und Flieger in der Luft nicht
+    pinguineBetaeuben(x, y, r, dauer, art) {
+      for (const t of this.tuerme) {
+        if (t.eff.unbeirrbar || t.eff.flieger || Math.hypot(t.x - x, t.y - y) > r) continue;
+        if (dauer >= (t.betaeubt || 0)) { t.betaeubt = dauer; t.betaeubtArt = art; }
+      }
+    }
+    // Bosse rufen bei 75, 50 und 25 % Leben Verstärkung; Kaiser Orka betäubt dabei die Pinguine am Ufer
     bossPruefen(f) {
+      const B = PT.BOSSE[f.typ];
       while (f.phase < 3 && f.hp > 0 && f.hp < f.hpMax * (0.75 - 0.25 * f.phase)) {
         f.phase++;
-        const welle = f.boss === 1 ? [['rosa', 6], ['zebra', 1]] : [['regen', 4], ['koffer', 1]];
+        const welle = B.welle[f.boss === 1 ? 0 : 1];
         for (const [typ, n] of welle) for (let i = 0; i < n; i++) this.neuerFisch(typ, Math.max(0, f.dist - 40 - i * 12), {}, null, f.p);
+        if (B.betaeuben) {
+          const dauer = B.betaeuben.dauer[f.boss] || B.betaeuben.dauer[1];
+          this.pinguineBetaeuben(f.x, f.y, B.betaeuben.radius, dauer, 'flut');
+          this.ereignisse.push({ art:'flutwelle', x:f.x, y:f.y, r:B.betaeuben.radius });
+        }
         this.ereignisse.push({ art:'bossPhase', fisch:f, phase:f.phase });
       }
     }
     platzen(f, ueber, turm, getroffen, typ) {
       f.tot = true;
-      this.einnahme(f.boss ? 1500 * f.boss : 1);
+      const T = FISCHE[f.typ];
+      this.einnahme(f.boss ? PT.BOSSE[f.typ].belohnung * f.boss : 1);
       this.statistik.platzer++;
-      if (turm) turm.pops++;
-      this.ereignisse.push({ art:f.boss ? 'bossBesiegt' : 'platzen', x:f.x, y:f.y, typ:f.typ });
+      if (f.boss) { this.statistik.bosse++; this.statistik.bossTypen = { ...(this.statistik.bossTypen || {}), [f.typ]:true }; }
+      if (turm) {
+        turm.pops++;
+        if (T.riese && turm.eff && turm.eff.kopfgeld) this.einnahme(turm.eff.kopfgeld, turm.besitzer);
+      }
+      // Koch-Pinguine in der Nähe machen Fischstäbchen daraus (der beste zählt)
+      if (this.koeche.length) {
+        let best = null;
+        for (const k of this.koeche) if (Math.hypot(k.x - f.x, k.y - f.y) <= k.eff.reichweite && (!best || k.eff.koch > best.eff.koch)) best = k;
+        if (best) { best.verdient = (best.verdient || 0) + this.einnahme(best.eff.koch, best.besitzer); }
+      }
+      if (T.tinte) {
+        this.pinguineBetaeuben(f.x, f.y, T.tinte.radius, T.tinte.dauer, 'tinte');
+        this.ereignisse.push({ art:'tinte', x:f.x, y:f.y, r:T.tinte.radius });
+      }
+      this.ereignisse.push({ art:f.boss ? 'bossBesiegt' : 'platzen', x:f.x, y:f.y, typ:f.typ, boss:f.boss });
       const kinder = FISCHE[f.typ].kinder;
       const neue = [];
       kinder.forEach((k, i) => {
         const c = this.neuerFisch(k, Math.max(0, f.dist - i * (FISCHE[f.typ].riese ? 14 : 7)),
-          { camo:f.camo, nach:f.nach, ursprung:f.ursprung, fest:f.fest && PT.kannGepanzert(k) }, f, f.p);
+          { camo:f.camo && FISCHE[f.typ].immer !== 'camo', nach:f.nach, ursprung:f.ursprung, fest:f.fest && PT.kannGepanzert(k) }, f, f.p);
         if (getroffen) getroffen.add(c.id);
         neue.push(c);
       });
@@ -399,13 +501,20 @@
     }
 
     /* ---------- Ziele ---------- */
-    kannSehen(f, camo) { return !f.tot && (!f.camo || camo) && f.x > -5 && f.x < PT.BREITE + 5 && f.y > -5 && f.y < PT.HOEHE + 5; }
+    // t: der Pinguin, der schauen will – im Tunnel sieht nur der Taucher, springende Fische treffen nur Flieger
+    kannSehen(f, camo, t) {
+      if (f.tot || (f.camo && !camo)) return false;
+      if (f.tunnel && !(t && t.eff && t.eff.tunnel)) return false;
+      if (f.luft > 0 && !(t && t.eff && t.eff.flieger)) return false;
+      return f.x > -5 && f.x < PT.BREITE + 5 && f.y > -5 && f.y < PT.HOEHE + 5;
+    }
+    erreichbar(f, t) { return !(f.tunnel && !(t && t.eff && t.eff.tunnel)) && !(f.luft > 0 && !(t && t.eff && t.eff.flieger)); }
     aufKarte(f) { return !f.tot && f.x > -5 && f.x < PT.BREITE + 5 && f.y > -5 && f.y < PT.HOEHE + 5; }
     zielSuchen(t, a, reichweite, ox, oy, modus) {
       let best = null, bw = -Infinity;
       modus = modus || t.ziel;
       for (const f of this.fische) {
-        if (!this.kannSehen(f, t.eff.camo) || this.immun(f, a.typ, a)) continue;
+        if (!this.kannSehen(f, t.eff.camo, t) || this.immun(f, a.typ, a)) continue;
         if (a.nurRiesen && !FISCHE[f.typ].riese) continue;
         const d = Math.hypot(f.x - ox, f.y - oy);
         if (d > reichweite + FISCHE[f.typ].r * 0.6) continue;
@@ -413,6 +522,8 @@
         if (modus === 'letzter') w = -f.dist;
         else if (modus === 'stark') w = FISCHE[f.typ].rbe * 10000 + f.dist;
         else if (modus === 'nah') w = -d;
+        else if (modus === 'riese') w = (FISCHE[f.typ].riese ? 1e7 : 0) + f.dist / this.wege[f.p].laenge * 1e5;
+        else if (modus === 'camo') w = (f.camo ? 1e7 : 0) + f.dist / this.wege[f.p].laenge * 1e5;
         else w = f.dist / this.wege[f.p].laenge * 1e5;
         if (w > bw) { bw = w; best = f; }
       }
@@ -432,7 +543,7 @@
       if (f.frost > 0 || f.betaeubt > 0) return 0;
       const sab = this.sabotage && this.zeit < this.sabotage.bis ? this.sabotage.faktor : 1;
       if (f.boss) return FISCHE[f.typ].tempo * (1 + sab) / 2;
-      return FISCHE[f.typ].tempo * f.langsam * f.wind * sab;
+      return FISCHE[f.typ].tempo * f.langsam * f.wind * sab * (f.luft > 0 ? 1.5 : 1);
     }
 
     /* ---------- Angriffe ---------- */
@@ -444,7 +555,7 @@
         let n = 0, traf = false;
         for (const f of this.fische) {
           if (n >= a.durchschlag) break;
-          if (!this.kannSehen(f, t.eff.camo)) continue;
+          if (!this.kannSehen(f, t.eff.camo, t)) continue;
           if (Math.hypot(f.x - ox, f.y - oy) > R + FISCHE[f.typ].r * 0.6) continue;
           traf = true;
           if (this.treffer(f, a, t, null)) n++;
@@ -474,7 +585,7 @@
         return true;
       }
       if (a.art === 'abwurf') {
-        if (!this.fische.some(f => this.kannSehen(f, true) && Math.hypot(f.x - ox, f.y - oy) < R)) return false;
+        if (!this.fische.some(f => this.kannSehen(f, true, t) && Math.hypot(f.x - ox, f.y - oy) < R)) return false;
         this.explosion(ox, oy, a, t, null);
         return true;
       }
@@ -500,7 +611,7 @@
           this.treffer(f, a, t, schon);
           let naechst = null, nd = a.kettenWeite;
           for (const g of this.fische) {
-            if (g.tot || schon.has(g.id) || !this.kannSehen(g, true) || this.immun(g, a.typ)) continue;
+            if (g.tot || schon.has(g.id) || !this.kannSehen(g, true, t) || this.immun(g, a.typ)) continue;
             const d = Math.hypot(g.x - fx, g.y - fy);
             if (d < nd) { nd = d; naechst = g; }
           }
@@ -544,7 +655,7 @@
       const r2 = a.splash;
       for (const f of this.fische) {
         if (n >= a.splashDurchschlag) break;
-        if (f.tot || f.id === ohne) continue;
+        if (f.tot || f.id === ohne || !this.erreichbar(f, t)) continue;
         if (Math.hypot(f.x - x, f.y - y) > r2 + FISCHE[f.typ].r * 0.5) continue;
         if (this.treffer(f, a, t, null)) n++;
       }
@@ -559,13 +670,15 @@
       }
     }
 
+    imTunnel(x, y) { for (const [tx, ty, tr] of this.tunnel) if (Math.hypot(tx - x, ty - y) < tr) return true; return false; }
+
     /* ---------- Stachelhaufen ---------- */
     haufenOrte(t, R, anzahl) {
       const kandidaten = [];
       for (const w of this.wege) {
         for (let d = w.vonDist; d <= w.bisDist; d += 12) {
           const [x, y] = w.punkt(d);
-          if (Math.hypot(x - t.x, y - t.y) <= R) kandidaten.push([x, y, d / w.laenge]);
+          if (Math.hypot(x - t.x, y - t.y) <= R && !this.imTunnel(x, y)) kandidaten.push([x, y, d / w.laenge]);
         }
       }
       if (!kandidaten.length) return [];
@@ -588,9 +701,10 @@
     }
 
     /* ---------- Fähigkeiten ---------- */
-    faehigkeitenListe() {
+    faehigkeitenListe(sp = null) {
       const gruppen = new Map();
       for (const t of this.tuerme) {
+        if (!this.darf(t, sp)) continue;
         for (const f of t.eff.faehigkeiten || []) {
           const rest = Math.max(0, t.fcd[f.id] || 0);
           const g = gruppen.get(f.id);
@@ -600,31 +714,33 @@
       }
       return [...gruppen.values()].map(g => ({ ...g, ...PT.FAEHIGKEITEN[g.id], bereit:g.rest <= 0 }));
     }
-    faehigkeitAusloesen(id) {
+    faehigkeitAusloesen(id, sp = null) {
       if (this.vorbei) return false;
-      const kandidaten = this.tuerme.filter(t => (t.eff.faehigkeiten || []).some(f => f.id === id) && (t.fcd[id] || 0) <= 0);
+      const kandidaten = this.tuerme.filter(t => this.darf(t, sp) && (t.eff.faehigkeiten || []).some(f => f.id === id) && (t.fcd[id] || 0) <= 0);
       if (!kandidaten.length) return false;
       const t = kandidaten[0];
       const f = t.eff.faehigkeiten.find(x => x.id === id);
-      t.fcd[id] = f.cd;
+      t.fcd[id] = f.cd * (1 - ((this.boni && this.boni.fk) || 0));
+      this.statistik.faehigkeiten++;
       const sichtbar = () => this.fische.filter(x => this.aufKarte(x));
       const alleTreffen = (schaden, riesen) => {
         for (const x of sichtbar()) this.treffer(x, PT.angriff({ schaden, riesen:riesen || 0, typ:'normal' }), t, null);
       };
       switch (id) {
-        case 'turbo': t.temp = { faktor:f.faktor, bis:this.zeit + f.dauer }; break;
-        case 'schlachtruf': case 'schleier': {
+        case 'turbo': case 'overdrive': t.temp = { faktor:f.faktor, bis:this.zeit + f.dauer }; break;
+        case 'schlachtruf': case 'schleier': case 'party': case 'festmahl': {
           const r = f.radius || t.eff.reichweite;
           for (const x of this.tuerme) if (Math.hypot(x.x - t.x, x.y - t.y) <= r) x.temp = { faktor:f.faktor, bis:this.zeit + f.dauer };
           break;
         }
-        case 'rakete': case 'haken': case 'torpedos': {
+        case 'rakete': case 'haken': case 'torpedos': case 'orbital': case 'anker': {
           const ziele = [];
           for (let i = 0; i < f.anzahl; i++) {
-            const z = this.staerkster(id !== 'torpedos') || this.staerkster(false);
+            const z = this.staerkster(id !== 'torpedos' && id !== 'orbital') || this.staerkster(false);
             if (!z) break;
             ziele.push([z.x, z.y]);
             if (id === 'haken' && !z.boss) z.dist = Math.max(0, z.dist - 120);
+            if (id === 'anker' && !z.boss) z.betaeubt = Math.max(z.betaeubt, f.betaeuben);
             this.treffer(z, PT.angriff({ schaden:f.schaden, typ:'normal' }), t, null);
           }
           this.ereignisse.push({ art:'geschossFaehigkeit', id, turm:t, ziele });
@@ -637,7 +753,27 @@
           }
           if (f.schaden) alleTreffen(f.schaden, f.schaden * 4);
           break;
-        case 'geldregen': this.einnahme(f.betrag); this.ereignisse.push({ art:'kiste', turm:t, wert:Math.round(f.betrag * this.geldFaktor) }); break;
+        case 'geldregen': this.einnahme(f.betrag, t.besitzer); this.ereignisse.push({ art:'kiste', turm:t, wert:Math.round(f.betrag * this.geldFaktor) }); break;
+        case 'nordlicht':
+          for (const x of sichtbar()) {
+            if (FISCHE[x.typ].riese) { if (!x.boss) { x.langsam = Math.min(x.langsam, 0.4); x.langsamT = Math.max(x.langsamT, f.dauer + 2); } }
+            else x.frost = Math.max(x.frost, f.dauer);
+          }
+          alleTreffen(f.schaden, f.riesen);
+          break;
+        case 'tanz':
+          for (const x of sichtbar()) if (!x.boss) x.betaeubt = Math.max(x.betaeubt, FISCHE[x.typ].riese ? f.dauer / 2 : f.dauer);
+          this.ereignisse.push({ art:'ring', x:t.x, y:t.y, r:400, bild:'schallGross', turm:t });
+          break;
+        case 'sternschnuppe':
+          for (const x of sichtbar()) { x.camo = false; x.enttarnt = true; }
+          alleTreffen(f.schaden, f.riesen);
+          break;
+        case 'eiszeit':
+          for (const x of sichtbar()) if (!x.boss) { x.langsam = Math.min(x.langsam, 0.5); x.langsamT = Math.max(x.langsamT, f.dauer); }
+          for (const x of this.tuerme) if (Math.hypot(x.x - t.x, x.y - t.y) <= f.radius) x.temp = { faktor:f.faktor, bis:this.zeit + f.dauer };
+          this.ereignisse.push({ art:'ring', x:t.x, y:t.y, r:f.radius, bild:'frostStark', turm:t });
+          break;
         case 'sabotage': this.sabotage = { faktor:f.faktor, bis:this.zeit + f.dauer, riesen:f.riesen || 0 }; break;
         case 'bombenteppich': case 'himmelsfeuer': case 'himmelsblitz': alleTreffen(f.schaden, f.riesen); break;
         case 'stachelsturm': {
@@ -667,6 +803,34 @@
           for (const x of sichtbar()) x.betaeubt = Math.max(x.betaeubt, x.boss ? 0 : FISCHE[x.typ].riese ? f.betaeuben / 2 : f.betaeuben);
           break;
         }
+        case 'raketenhagel': {
+          const a = PT.angriff({ schaden:f.schaden, riesen:f.riesen, typ:'normal', splash:55, splashDurchschlag:40, bild:'rakete' });
+          for (const w of this.wege) for (let i = 0; i < 12; i++) {
+            const [x, y] = w.punkt(w.vonDist + (w.bisDist - w.vonDist) * (i + 0.5) / 12);
+            this.explosion(x, y, a, t, null);
+          }
+          break;
+        }
+        case 'beben':
+          for (const x of sichtbar()) {
+            if (!x.boss) x.betaeubt = Math.max(x.betaeubt, FISCHE[x.typ].riese ? f.dauer / 2 : f.dauer);
+            this.treffer(x, PT.angriff({ schaden:f.schaden, riesen:f.riesen, typ:'normal' }), t, null);
+          }
+          this.ereignisse.push({ art:'ring', x:t.x, y:t.y, r:520, bild:'stampfer', turm:t });
+          break;
+        case 'tsunami':
+          for (const x of sichtbar()) if (!x.boss) x.dist = Math.max(0, x.dist - (FISCHE[x.typ].riese ? f.weite / 2 : f.weite));
+          alleTreffen(f.schaden, f.riesen);
+          this.ereignisse.push({ art:'ring', x:t.x, y:t.y, r:500, bild:'strudel', turm:t });
+          break;
+        case 'stampf':
+          for (const x of sichtbar()) {
+            if (Math.hypot(x.x - t.x, x.y - t.y) > f.radius) continue;
+            if (!x.boss) x.betaeubt = Math.max(x.betaeubt, FISCHE[x.typ].riese ? f.dauer / 2 : f.dauer);
+            this.treffer(x, PT.angriff({ schaden:f.schaden, riesen:f.riesen, typ:'normal' }), t, null);
+          }
+          this.ereignisse.push({ art:'ring', x:t.x, y:t.y, r:f.radius, bild:'bruell', turm:t });
+          break;
         case 'netz':
           for (const x of sichtbar()) {
             if (Math.hypot(x.x - t.x, x.y - t.y) > f.radius) continue;
@@ -707,6 +871,7 @@
       this.zeit += dt;
       if (this.laeuft) {
         this.rundenZeit += dt;
+        this.statistik.zeit += dt;
         const q = this.warteschlange;
         while (q.length && q[q.length - 1].t <= this.rundenZeit) {
           const s = q.pop();
@@ -716,7 +881,7 @@
         while (k.length && k[k.length - 1].t <= this.rundenZeit) {
           const s = k.pop();
           if (!this.tuerme.includes(s.turm)) continue;
-          const b = this.einnahme(s.wert);
+          const b = this.einnahme(s.wert, s.turm.besitzer);
           this.ereignisse.push({ art:'kiste', turm:s.turm, wert:Math.round(b) });
         }
         // Fischflut: die nächste Runde kommt, sobald diese ganz losgeschwommen ist
@@ -741,10 +906,19 @@
         for (const t of wind) {
           if (Math.hypot(f.x - t.x, f.y - t.y) <= t.eff.reichweite) f.wind = Math.min(f.wind, T.riese ? (t.eff.windRiesen || Math.max(t.eff.wind, 0.8)) : t.eff.wind);
         }
-        if (f.camo && T.immer !== 'camo' && (ueberall || leucht.some(t => Math.hypot(f.x - t.x, f.y - t.y) <= t.eff.reichweite))) f.camo = false;
-        if (f.camo && T.immer === 'camo' && ueberall) f.camo = false;
+        // Schattenrochen: taucht alle 5 s für 1,6 s auf, dann trifft ihn jeder Pinguin (Sternschnuppen enttarnen ihn ganz)
+        if (T.immer === 'camo' && !f.enttarnt) { f.tauchT = (f.tauchT || 0) + dt; f.camo = f.tauchT % 5 < 3.4; }
+        if (f.camo && (ueberall || leucht.some(t => Math.hypot(f.x - t.x, f.y - t.y) <= t.eff.reichweite))) f.camo = false;
         if (this.entwachsen) f.nach = false;
         if (this.entpanzern && f.fest) { f.fest = false; f.hpMax /= 2; f.hp = Math.min(f.hp, f.hpMax); }
+        // Kugelfisch bläst sich auf, Fliegender Fisch springt, Bosse setzen ihre Kräfte ein
+        if (f.gross > 0) f.gross -= dt;
+        if (f.blasPause > 0) f.blasPause -= dt;
+        if (T.springen && f.frost <= 0 && f.betaeubt <= 0) {
+          if (f.luft > 0) f.luft -= dt;
+          else if ((f.sprungT += dt) >= T.springen.alle) { f.sprungT = 0; f.luft = T.springen.dauer; this.ereignisse.push({ art:'sprung', x:f.x, y:f.y }); }
+        }
+        if (f.boss) this.bossKraft(f, dt);
         // Nachwachsen
         if (f.nach && f.typ !== f.ursprung) {
           f.nachT += dt;
@@ -774,6 +948,7 @@
         }
         const p = w.punkt(f.dist);
         f.x = p[0]; f.y = p[1]; f.w = p[2];
+        f.tunnel = this.tunnel.length > 0 && this.imTunnel(f.x, f.y);
       }
       if (this.leben <= 0) {
         this.leben = 0;
@@ -786,6 +961,7 @@
       // Pinguine greifen an
       for (const t of this.tuerme) {
         if (t.eff.flieger) this.fliegerBewegen(t, dt);
+        if (t.betaeubt > 0) { t.betaeubt -= dt; if (t.betaeubt <= 0) t.betaeubtArt = null; continue; }   // Flutwelle, Eisatem oder Tinte
         const tempo = t.temp && this.zeit < t.temp.bis ? t.temp.faktor : 1;
         const angriffe = t.eff.angriffe;
         for (let i = 0; i < angriffe.length; i++) {
@@ -853,7 +1029,7 @@
         if (g.rest <= 0 || g.x < -60 || g.y < -60 || g.x > PT.BREITE + 60 || g.y > PT.HOEHE + 60) { g.weg = true; this.zerfallen(g); continue; }
         const weite = g.groesse > 20 ? 2 : 1;
         for (const f of nachbarn(g.x, g.y, weite)) {
-          if (f.tot || g.getroffen.has(f.id)) continue;
+          if (f.tot || g.getroffen.has(f.id) || !this.erreichbar(f, g.turm)) continue;
           const r = FISCHE[f.typ].r + g.groesse;
           if ((f.x - g.x) ** 2 + (f.y - g.y) ** 2 > r * r) continue;
           if (g.a.splash) {
@@ -876,7 +1052,7 @@
           if (this.laeuft) h.leben -= dt;
           if (h.leben <= 0) { h.weg = true; continue; }
           for (const f of nachbarn(h.x, h.y)) {
-            if (f.tot || h.getroffen.has(f.id)) continue;
+            if (f.tot || h.getroffen.has(f.id) || f.luft > 0) continue;
             if (Math.hypot(f.x - h.x, f.y - h.y) > h.radius + FISCHE[f.typ].r * 0.7) continue;
             h.getroffen.add(f.id);
             if (this.treffer(f, h.a, h.turm, h.getroffen) && --h.durchschlag <= 0) {
@@ -907,16 +1083,46 @@
         }
       }
     }
+    // Bosse mit Dauerkraft: Eisatem (friert Pinguine ein) und Ruf (holt Fische herbei)
+    bossKraft(f, dt) {
+      const B = PT.BOSSE[f.typ];
+      if (!B || (!B.eisatem && !B.ruf)) return;
+      f.bossT += dt;
+      if (B.eisatem && f.bossT >= B.eisatem.alle) {
+        f.bossT = 0;
+        this.pinguineBetaeuben(f.x, f.y, B.eisatem.radius, B.eisatem.dauer[f.boss] || B.eisatem.dauer[1], 'eis');
+        this.ereignisse.push({ art:'eisatem', x:f.x, y:f.y, r:B.eisatem.radius });
+      }
+      if (B.ruf && f.bossT >= B.ruf.alle) {
+        f.bossT = 0;
+        const welle = B.ruf.welle[f.boss === 1 ? 0 : 1];
+        for (const [typ, n] of welle) for (let i = 0; i < n; i++) this.neuerFisch(typ, Math.max(0, f.dist - 50 - i * 14), {}, null, f.p);
+        this.ereignisse.push({ art:'bossRuf', fisch:f });
+      }
+    }
+    // Schmelzscholle: Eisflächen werden zu Wasser; wer dort steht, bekommt alles zurück
+    schmelzPruefen() {
+      for (const z of this.schmelzen) {
+        if (z[3] === this.runde + 1) this.ereignisse.push({ art:'schmelzWarnung', x:z[0], y:z[1], r:z[2] });
+        if (z[3] !== this.runde) continue;
+        for (const t of this.tuerme.slice()) {
+          if (PT.def(t.typ).wasser || Math.hypot(t.x - z[0], t.y - z[1]) > z[2] + 4) continue;
+          this.verkaufen(t, t.investiert);
+        }
+        this.haufen = this.haufen.filter(h => Math.hypot(h.x - z[0], h.y - z[1]) > z[2]);
+        this.ereignisse.push({ art:'geschmolzen', x:z[0], y:z[1], r:z[2] });
+      }
+    }
     // Geld, Heldenerfahrung und Kisten am Ende einer Runde
     rundeAbschliessen() {
       this.runde++;
-      let bonus = PT.rundenBonus(this.runde);
-      for (const t of this.tuerme) if (t.eff.geld && t.eff.geld.flat) bonus += t.eff.geld.flat;
-      for (const k of this.kisten) if (this.tuerme.includes(k.turm)) bonus += k.wert;   // übrige Kisten
+      let bonus = this.einnahme(PT.rundenBonus(this.runde) + ((this.boni && this.boni.bonus) || 0));
+      // Geld pro Runde und übrige Kisten gehen an den Besitzer des Pinguins
+      for (const t of this.tuerme) if (t.eff.geld && t.eff.geld.flat) bonus += this.einnahme(t.eff.geld.flat, t.besitzer);
+      for (const k of this.kisten) if (this.tuerme.includes(k.turm)) bonus += this.einnahme(k.wert, k.turm.besitzer);
       this.kisten = [];
-      bonus = this.einnahme(bonus);
-      const held = this.heldDa();
-      if (held) this.heldErfahrung(held, PT.heldenXp(this.runde));
+      for (const held of this.tuerme) if (PT.HELDEN[held.typ]) this.heldErfahrung(held, PT.heldenXp(this.runde));
+      this.schmelzPruefen();
       this.ereignisse.push({ art:'rundeEnde', runde:this.runde, bonus:Math.round(bonus) });
     }
 
@@ -932,23 +1138,125 @@
       };
     }
 
+    /* ---------- Befehle ----------
+       Alles, was ein Spieler tut, läuft über befehl(). Im Einzelspiel ruft die Oberfläche es direkt auf,
+       im Koop schickt der Browser den Befehl an den Server, und Server und alle Browser führen ihn im
+       selben Takt aus. Deshalb wird hier alles geprüft, was von außen kommt. sp = Spieler-Kennung (Koop). */
+    befehl(sp, b) {
+      if (!b || typeof b.t !== 'string') return null;
+      const t = Number.isInteger(b.id) ? this.tuerme.find(x => x.id === b.id) : null;
+      switch (b.t) {
+        case 'bau':
+          if (typeof b.typ !== 'string' || !zahlOk(b.x, 0, PT.BREITE) || !zahlOk(b.y, 0, PT.HOEHE)) return null;
+          return this.bauen(b.typ, b.x, b.y, sp);
+        case 'up': return !!t && [0, 1, 2].includes(b.pfad) && this.upgraden(t, b.pfad, sp);
+        case 'stufe': return !!t && this.heldenStufeKaufen(t, sp);
+        case 'verkauf':
+          if (!t || !this.darf(t, sp) || this.vorbei || (this.regeln && this.regeln.keinVerkauf)) return false;
+          this.verkaufen(t); return true;
+        case 'ziel': {
+          if (!t || !this.darf(t, sp)) return false;
+          const ziele = (PT.def(t.typ).ziele || PT.ZIELE).map(z => z[0]);
+          if (!ziele.includes(b.ziel)) return false;
+          t.ziel = b.ziel; return true;
+        }
+        case 'muster':
+          if (!t || !this.darf(t, sp) || !PT.MUSTER.some(m => m[0] === b.muster)) return false;
+          t.muster = b.muster; t.musterGesetzt = true; return true;
+        case 'zielpunkt':
+          if (!t || !this.darf(t, sp) || t.typ !== 'moerser' || !zahlOk(b.x, -50, PT.BREITE + 50) || !zahlOk(b.y, -50, PT.HOEHE + 50)) return false;
+          t.zielPunkt = [Math.max(0, Math.min(PT.BREITE, b.x)), Math.max(0, Math.min(PT.HOEHE, b.y))]; return true;
+        case 'fk': return typeof b.fk === 'string' && !!PT.FAEHIGKEITEN[b.fk] && this.faehigkeitAusloesen(b.fk, sp);
+        case 'start':
+          // Nur die nächste Runde; wenn zwei Spieler gleichzeitig drücken, startet sie trotzdem nur einmal
+          if (b.runde != null && b.runde !== this.runde + 1) return false;
+          return this.rundeStarten();
+        case 'endlos': if (this.gewonnen) this.endlos = true; return this.endlos;
+        case 'sand': {
+          if (this.modus !== 'sandkasten' || typeof b.typ !== 'string' || !FISCHE[b.typ]) return false;
+          const n = FISCHE[b.typ].boss ? 1 : Math.max(1, Math.min(50, b.n | 0));
+          this.sandFische(b.typ, n, { camo:!!b.camo, nach:!!b.nach, fest:!!b.fest });
+          return true;
+        }
+        case 'leeren':
+          if (this.modus !== 'sandkasten') return false;
+          for (const f of this.fische) f.tot = true;
+          this.warteschlange = [];
+          return true;
+      }
+      return null;
+    }
+
+    /* ---------- Zustand für den Koop ----------
+       Der komplette Spielstand mitten in der Runde, als JSON-taugliches Objekt. Der Server schickt ihn
+       beim Start, beim Wiederverbinden und wenn ein Browser vom Server-Spiel abweicht. */
+    zustand() {
+      const tid = t => (t ? t.id : null);
+      const ohneTurm = ({ turm, getroffen, ...rest }) => rest;
+      return {
+        v:1, karte:this.karte, stufe:this.stufe, modus:this.modus, held:this.held, kraft:this.kraft, zielRunden:this.zielRunden,
+        eigeneKarte:this.karte === 'eigen' ? this.kartenDaten : null, regeln:this.regeln, boni:this.boni,
+        geldModus:this.geldModus, spieler:this.spieler.map(x => ({ ...x })),
+        geld:this.geld, leben:this.leben, startLeben:this.startLeben, runde:this.runde, laeuft:this.laeuft, vorbei:this.vorbei,
+        gewonnen:this.gewonnen, endlos:this.endlos, naechsteId:this.naechsteId, zeit:this.zeit, zufall:this.zufall.lesen(),
+        sabotage:this.sabotage, rundenZeit:this.rundenZeit || 0, zaeh:this.zaeh || 1, sandWelle:!!this.sandWelle, statistik:{ ...this.statistik },
+        warteschlange:this.warteschlange, kisten:this.kisten.map(k => ({ t:k.t, turm:tid(k.turm), wert:k.wert })),
+        tuerme:this.tuerme.map(({ werte, eff, ...t }) => ({ ...t })),
+        fische:this.fische,
+        geschosse:this.geschosse.map(g => ({ ...ohneTurm(g), turm:tid(g.turm), getroffen:[...g.getroffen] })),
+        granaten:this.granaten.map(g => ({ ...ohneTurm(g), turm:tid(g.turm) })),
+        haufen:this.haufen.map(h => ({ ...ohneTurm(h), turm:tid(h.turm), getroffen:[...h.getroffen] }))
+      };
+    }
+    static ausZustand(z) {
+      const kopie = JSON.parse(JSON.stringify(z));
+      const s = new Spiel({ karte:kopie.karte, stufe:kopie.stufe, runden:kopie.zielRunden, modus:kopie.modus, held:kopie.held, kraft:kopie.kraft,
+        spieler:kopie.spieler.length ? kopie.spieler : null, geldModus:kopie.geldModus, eigeneKarte:kopie.eigeneKarte, regeln:kopie.regeln, boni:kopie.boni });
+      for (const k of ['geld', 'leben', 'startLeben', 'runde', 'laeuft', 'vorbei', 'gewonnen', 'endlos', 'naechsteId', 'zeit', 'sabotage',
+        'rundenZeit', 'zaeh', 'sandWelle', 'statistik', 'warteschlange', 'fische']) s[k] = kopie[k];
+      s.spieler = kopie.spieler;
+      s.zufall.setzen(kopie.zufall);
+      s.tuerme = kopie.tuerme;
+      s.neuBerechnen();
+      const turm = id => (id == null ? null : s.tuerme.find(t => t.id === id) || null);
+      s.kisten = kopie.kisten.map(k => ({ ...k, turm:turm(k.turm) })).filter(k => k.turm);
+      s.geschosse = kopie.geschosse.map(g => ({ ...g, turm:turm(g.turm), getroffen:new Set(g.getroffen) }));
+      s.granaten = kopie.granaten.map(g => ({ ...g, turm:turm(g.turm) }));
+      s.haufen = kopie.haufen.map(h => ({ ...h, turm:turm(h.turm), getroffen:new Set(h.getroffen) }));
+      return s;
+    }
+    // Kurze Prüfsumme: weichen Server und Browser voneinander ab? (gerundet, damit winzige Rechenunterschiede nicht zählen)
+    pruefsumme() {
+      let h = 2166136261;
+      const dazu = v => { h = Math.imul(h ^ (Math.round(v * 100) | 0), 16777619) >>> 0; };
+      dazu(this.geld); dazu(this.leben); dazu(this.runde); dazu(this.naechsteId); dazu(this.fische.length); dazu(this.tuerme.length);
+      for (const x of this.spieler) dazu(x.geld);
+      let d = 0, hp = 0;
+      for (const f of this.fische) { d += f.dist; hp += f.hp; }
+      dazu(d); dazu(hp);
+      return h;
+    }
+
     /* ---------- Speichern (nur zwischen den Runden) ---------- */
     speichern() {
       return {
         v:2, karte:this.karte, stufe:this.stufe, modus:this.modus, held:this.held, zielRunden:this.zielRunden, runde:this.runde, geld:this.geld,
-        leben:this.leben, gewonnen:this.gewonnen, endlos:this.endlos, statistik:this.statistik,
-        tuerme:this.tuerme.map(t => ({ typ:t.typ, x:t.x, y:t.y, pfade:t.pfade, ziel:t.ziel, investiert:t.investiert, pops:t.pops, stufe:t.stufe, xp:t.xp, zielPunkt:t.zielPunkt, muster:t.muster, fcd:t.fcd })),
+        eigeneKarte:this.karte === 'eigen' ? this.kartenDaten : null, regeln:this.regeln, boni:this.boni,
+        leben:this.leben, gewonnen:this.gewonnen, endlos:this.endlos, statistik:this.statistik, kraft:this.kraft,
+        tuerme:this.tuerme.map(t => ({ typ:t.typ, x:t.x, y:t.y, pfade:t.pfade, ziel:t.ziel, investiert:t.investiert, pops:t.pops, stufe:t.stufe, xp:t.xp, zielPunkt:t.zielPunkt, muster:t.muster, fcd:t.fcd, kraft:!!t.kraft, verdient:t.verdient || 0 })),
         haufen:this.haufen.filter(h => h.bleibt && h.turm).map(h => ({ x:h.x, y:h.y, durchschlag:h.durchschlag, leben:h.leben, turm:this.tuerme.indexOf(h.turm) }))
       };
     }
     static laden(d) {
-      const s = new Spiel({ karte:d.karte, stufe:d.stufe, runden:d.zielRunden, modus:d.modus || 'standard', held:d.held || null });
+      const s = new Spiel({ karte:d.karte, stufe:d.stufe, runden:d.zielRunden, modus:d.modus || 'standard', held:d.held || null, kraft:!!d.kraft,
+        eigeneKarte:d.eigeneKarte, regeln:d.regeln, boni:d.boni });
       Object.assign(s, { runde:d.runde, geld:d.geld, leben:d.leben, gewonnen:!!d.gewonnen, endlos:!!d.endlos, statistik:{ ...s.statistik, ...(d.statistik || {}) } });
       for (const t of d.tuerme || []) {
         if (!PT.def(t.typ)) continue;
         s.tuerme.push({
           id:s.naechsteId++, typ:t.typ, x:t.x, y:t.y, pfade:t.pfade.slice(0, 3), ziel:t.ziel || 'erster', investiert:t.investiert, pops:t.pops || 0,
-          winkel:-Math.PI / 2, dreh:0, cd:[], fcd:t.fcd || {}, stufe:t.stufe || 1, xp:t.xp || 0, temp:null, zielPunkt:t.zielPunkt, muster:t.muster || 'acht', phase:0, fx:t.x, fy:t.y, fw:0
+          winkel:-Math.PI / 2, dreh:0, cd:[], fcd:t.fcd || {}, stufe:t.stufe || 1, xp:t.xp || 0, temp:null, zielPunkt:t.zielPunkt, muster:t.muster || 'acht', phase:0, fx:t.x, fy:t.y, fw:0,
+          besitzer:null, kraft:!!t.kraft, betaeubt:0, betaeubtArt:null, verdient:t.verdient || 0
         });
       }
       s.neuBerechnen();
@@ -962,7 +1270,7 @@
     }
   }
   PT.Spiel = Spiel;
-  PT.ZIELE = [['erster', 'Erster'], ['letzter', 'Letzter'], ['stark', 'Stärkster'], ['nah', 'Nächster']];
+  PT.ZIELE = [['erster', 'Erster'], ['letzter', 'Letzter'], ['stark', 'Stärkster'], ['nah', 'Nächster'], ['riese', 'Riesen zuerst'], ['camo', 'Getarnte zuerst']];
   PT.MUSTER = [['acht', 'Acht'], ['oval', 'Oval'], ['kreis', 'Kreis']];
 
   if (typeof module !== 'undefined' && module.exports) module.exports = PT;
