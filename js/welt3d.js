@@ -1034,10 +1034,10 @@
 
     /* ---------- Ereignisse aus der Logik ---------- */
     ereignisse(liste) {
-      const ringFarben = { ring:0xbfeaff, ringLila:0xb36bff, sonne:0xffb020, frost:0x7fd6ff, frostStark:0x5ec8ff, saeule:0x9ff3ff, netz:0xd9c49a, schall:0xff5ec8, schallGross:0xffd54a, strudel:0x2fa8e0, bruell:0xfff2c4 };
+      const ringFarben = { ring:0xbfeaff, ringLila:0xb36bff, sonne:0xffb020, frost:0x7fd6ff, frostStark:0x5ec8ff, saeule:0x9ff3ff, netz:0xd9c49a, schall:0xff5ec8, schallGross:0xffd54a, strudel:0x2fa8e0, bruell:0xfff2c4, stampfer:0xffb020 };
       const flashFarben = { schneesturm:'#dff6ff', kaelteschock:'#9ff3ff', himmelsfeuer:'#ff9a4a', himmelsblitz:'#7dffb2', bombenteppich:'#ffb37a', knall:'#ffd29a', sabotage:'#b49bff', geldregen:'#ffd54a', stachelsturm:'#dff6ff',
         nordlicht:'#5effc8', orbital:'#fff2a8', party:'#ff5ec8', tanz:'#b36bff', sternschnuppe:'#ffe066', eiszeit:'#bfeaff', anker:'#8a93a3',
-        tsunami:'#5ec8ff', stampf:'#fff2c4', festmahl:'#ffb347' };
+        tsunami:'#5ec8ff', stampf:'#fff2c4', festmahl:'#ffb347', overdrive:'#ff6a3a', raketenhagel:'#ffb37a', beben:'#ffd29a' };
       for (const e of liste) {
         switch (e.art) {
           case 'platzen': {
@@ -1352,6 +1352,7 @@
         const gr = p.teile.groesse;
         p.innen.scale.set(s * gr, (1 + (s - 1) * 1.2 + Math.sin(this.zeit * 3 + t.id) * 0.012) * gr, s * gr);
         if (p.teile.dreher) p.teile.dreher.rotation.y += dt * 1.6;
+        if (p.teile.rotor) for (const r of p.teile.rotor) r.rotation.x += dt * (p.anim > 0 ? 28 : 1.5);
         if (p.teile.aura) p.teile.aura.rotation.y -= dt * 0.9;
         // weicher Heiligenschein am Boden: Stufe 5 in der Pfadfarbe, Helden golden
         if (p.teile.aura) this.halo(X(t.x), 7, Z(t.y), PT.M3.PFAD_FARBEN[Math.max(0, t.pfade.indexOf(5))], 80 + Math.sin(this.zeit * 3 + t.id) * 9, 0.4);

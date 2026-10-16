@@ -642,6 +642,98 @@
       if (p[2] >= 4) { const hut = mesh(G.zyl, mat(0x7a4a1e), 14, 38.5, 0); hut.scale.set(10, 1, 10); g.add(hut); const kr = mesh(G.zyl, mat(0x7a4a1e), 14, 41, 0); kr.scale.set(6, 5, 6); g.add(kr); }
       if (p[0] >= 5) { const krn = mesh(G.zyl, mat(0xffd54a, 'phong', { shininess:140 }), 14, 39, 0); krn.scale.set(5, 3, 5); g.add(krn); }
     },
+    mecha(g, p, t) {
+      // ein Kampfroboter auf zwei Stampfbeinen, oben in der Glaskuppel sitzt der Pinguin-Pilot
+      const stahl = mat(0x7a8594, 'phong', { shininess:90, specular:0x8899aa });
+      const dunkel = mat(0x3d4a5c, 'phong', { shininess:60, specular:0x445566 });
+      const gold = mat(0xffd54a, 'phong', { shininess:140, specular:0xffffff });
+      const akzent = p[0] >= 5 || p[2] >= 5 ? gold : mat(p[1] >= 5 ? 0xe2463b : 0xf6c343, 'phong', { shininess:80 });
+      const teil = (geo, m, x, y, z, sx, sy, sz, rz = 0, ziel = g) => { const o = mesh(geo, m, x, y, z); o.scale.set(sx, sy, sz); o.rotation.z = rz; ziel.add(o); return o; };
+      // Beine mit Knie und breiten Füßen
+      for (const z of [-7, 7]) {
+        teil(G.kugel, dunkel, -1, 15, z, 3.4, 3.4, 3.4);
+        teil(G.box, stahl, 0, 11, z, 4.6, 8.5, 4.4, 0.28);
+        teil(G.kugel, akzent, 1.6, 7, z, 2.8, 2.8, 2.8);
+        teil(G.box, stahl, 0.6, 3.6, z, 4.2, 7, 4, -0.22);
+        teil(G.box, dunkel, 2.5, 0.9, z, 11, 1.8, 6.2);
+        teil(G.box, akzent, 7.6, 1.2, z, 1.4, 1.6, 6.4);
+        if (p[2] >= 2) teil(G.zyl, mat(0xc8d0da, 'phong', { shininess:120 }), -2.6, 9, z, 0.9, 9, 0.9, -0.15);
+      }
+      // Becken, Rumpf, Brustplatte, Schulterpanzer
+      teil(G.box, dunkel, 0, 15.5, 0, 9, 4, 16);
+      teil(G.box, stahl, 0, 23, 0, 17, 12, 19);
+      teil(G.box, akzent, 8.7, 22, 0, 1, 7, 11);
+      for (const y of [19.5, 22, 24.5]) teil(G.box, dunkel, 9.3, y, 0, 0.6, 1, 7);
+      for (const z of [-1, 1]) teil(G.halbkugel, akzent, 0, 27.5, z * 11, 5.4, 4, 5.4);
+      // Auspuffrohre hinten, ab Gatling mit Flammen
+      for (const z of [-4, 4]) {
+        teil(G.zyl, dunkel, -9.4, 30, z, 1.4, 7, 1.4);
+        if (p[0] >= 3) { const f = teil(G.kegel, mat(0xffb020, 'basic', { transparent:true, opacity:0.8 }), -9.4, 35, z, 1.2, 4, 1.2); f.castShadow = false; }
+      }
+      // Cockpit: Pinguin in der Glaskuppel
+      const pilot = new T.Group();
+      pilot.position.set(1, 22, 0);
+      pinguinKoerper(pilot, null, 0.46);
+      g.add(pilot);
+      const glas = teil(G.halbkugel, mat(0xbfeaff, 'phong', { transparent:true, opacity:0.32, shininess:160, specular:0xffffff, depthWrite:false }), 1, 29, 0, 8.6, 10, 8.6);
+      glas.castShadow = false;
+      const rand = teil(G.torus, akzent, 1, 29.2, 0, 8.8, 8.8, 3);
+      rand.rotation.x = Math.PI / 2;
+      // Arme mit Kanonen; die Läufe (rotor) drehen sich beim Schießen
+      t.rotor = [];
+      const laeufe = p[0] >= 4 ? 4 : p[0] >= 3 ? 3 : 1;
+      for (const z of [-1, 1]) {
+        const arm = new T.Group();
+        arm.position.set(2, 22, z * 13.5);
+        teil(G.kugel, dunkel, -1, 2, 0, 3.4, 3.4, 3.4, 0, arm);
+        teil(G.box, stahl, 1.5, 0, 0, 6, 4.6, 4.6, 0, arm);
+        teil(G.box, stahl, 6, -1, 0, 6, 4.4, 4.4, 0, arm);
+        const rotor = new T.Group();
+        rotor.position.set(10, -1, 0);
+        for (let i = 0; i < laeufe; i++) {
+          const w = i / laeufe * Math.PI * 2, d = laeufe > 1 ? 1.4 : 0;
+          const lauf = teil(G.zyl, dunkel, 4, Math.cos(w) * d, Math.sin(w) * d, 0.8, 9, 0.8, -Math.PI / 2, rotor);
+          lauf.castShadow = false;
+        }
+        const muendung = teil(G.torus, akzent, 8.6, 0, 0, 1.9, 1.9, 2, 0, rotor);
+        muendung.rotation.y = Math.PI / 2;
+        arm.add(rotor);
+        t.rotor.push(rotor);
+        g.add(arm);
+      }
+      // Raketenwerfer auf den Schultern
+      if (p[1] >= 1) {
+        const seiten = p[1] >= 2 ? [-1, 1] : [1];
+        const n = p[1] >= 3 ? 4 : 2;
+        for (const z of seiten) {
+          teil(G.box, p[1] >= 4 ? dunkel : stahl, -3, 32, z * 10, 8, 5, 6.4);
+          for (let i = 0; i < n; i++) {
+            const dz = (n === 4 ? (i % 2) * 2.6 - 1.3 : 0), dy = n === 4 ? Math.floor(i / 2) * 2.2 - 1.1 : (i - 0.5) * 2.4;
+            teil(G.kegel, mat(p[1] >= 4 ? 0x2b2f38 : 0xe2463b, 'phong', { shininess:80 }), 2.4, 32 + dy, z * 10 + dz, 1, 3, 1, -Math.PI / 2);
+          }
+        }
+      }
+      if (p[1] >= 5) {
+        teil(G.box, dunkel, -9, 37, 0, 5, 10, 14);
+        for (let i = 0; i < 6; i++) teil(G.kegel, mat(0xe2463b, 'phong', { shininess:80 }), -9, 44, -5 + i * 2, 0.9, 3.4, 0.9);
+      }
+      // Sensoren: Antenne mit Leuchtspitze und drehende Radarschüssel
+      if (p[2] >= 1) {
+        teil(G.zyl, dunkel, -5, 38, -6, 0.5, 12, 0.5);
+        teil(G.kugelGrob, mat(0xe2463b, 'basic'), -5, 44.5, -6, 1.4, 1.4, 1.4);
+        const schuessel = teil(G.halbkugel, mat(0xdfe6ee, 'phong', { shininess:100 }), -5, 38, 6, 3.6, 1.6, 3.6, 0.7);
+        t.dreher = schuessel;
+      }
+      // Kampfpanzerung: Seitenplatten und Schürze
+      if (p[2] >= 4) {
+        for (const z of [-1, 1]) teil(G.box, dunkel, 0, 22, z * 10, 15, 9, 1.4);
+        teil(G.box, dunkel, 6, 13.5, 0, 2, 5, 15, 0.3);
+      }
+      // Kaiser-Mecha: goldener Kamm auf der Kuppel
+      if (p[2] >= 5) for (let i = 0; i < 5; i++) teil(G.kegel4, gold, -3 + i * 2, 40 - Math.abs(i - 2) * 1.4, 0, 1.2, 4, 1.2);
+      // Titan-Mecha: goldene Leuchtstreifen
+      if (p[0] >= 5) for (const z of [-1, 1]) teil(G.box, mat(0xffe28a, 'basic'), 0, 26, z * 9.6, 16, 0.8, 0.4);
+    },
     polar(g, p, t) {
       pinguinKoerper(g, t);
       const farbe = p[2] >= 5 ? 0x111133 : p[2] >= 4 ? 0x2b1d6b : 0x6b4fd1;
@@ -920,6 +1012,8 @@
       plasma:{ geo:laserGeo, mat:mat(0x7dffb2, 'basic'), y:24 },
       laserGross:{ geo:laserGeo, mat:mat(0xffd54a, 'basic'), y:24, skala:1.4 },
       sonnenstrahl:{ geo:laserGeo, mat:mat(0xfff7d6, 'basic'), y:26, skala:2 },
+      bolzen:{ geo:laserGeo, mat:mat(0xffc94a, 'basic'), y:30, skala:0.55 },
+      bolzenGold:{ geo:laserGeo, mat:mat(0xfff2a8, 'basic'), y:30, skala:0.7 },
       sternGold:{ geo:sternGeo, mat:mat(0xffd54a, 'phong', { shininess:120 }), y:16, drehen:true },
       dreizack:{ geo:dreizackGeo, mat:vc(0xffffff), y:12 },
       dreizackGold:{ geo:dreizackGeo, mat:vc(0xffd54a), y:12 },

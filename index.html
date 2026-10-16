@@ -656,6 +656,112 @@
   }
   .einst-oben { margin-left: auto; align-self: flex-start; font-size: 1rem; padding: 10px 16px; }
   @media (max-width: 600px) { .einst-oben span { display: none; } }
+
+  /* ================= Design-Upgrade 2: Medaillen-Münzen, Auswahl-Schritte, Start-Leiste, Upgrade-Karten ================= */
+  /* Medaillen als Münzen: Farbe = schwerste geschaffte Stufe */
+  .muenze { --m1: #f4f7fb; --m2: #9aa8b8; display: inline-grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 50%;
+    font-style: normal; font-size: .82rem; line-height: 1; position: relative;
+    background: radial-gradient(circle at 32% 28%, rgba(255,255,255,.95) 0 9%, transparent 10%), linear-gradient(145deg, var(--m1), var(--m2));
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.55), inset 0 -2px 0 rgba(0,0,0,.2), 0 2px 5px rgba(19,49,92,.28); }
+  .muenze.m-leicht { --m1: #f6c08e; --m2: #a35f26; }
+  .muenze.m-mittel { --m1: #ffffff; --m2: #93a2b4; }
+  .muenze.m-schwer { --m1: #ffe58f; --m2: #cf9410; }
+  .muenze.m-extrem { --m1: #dcf8ff; --m2: #3fa9e0; box-shadow: inset 0 0 0 2px rgba(255,255,255,.7), inset 0 -2px 0 rgba(0,0,0,.18), 0 0 10px rgba(94,200,255,.65); }
+  .muenze.aus { background: rgba(19,49,92,.05); box-shadow: inset 0 0 0 1.5px var(--linie); filter: grayscale(1); opacity: .5; }
+  .muenze.gross { width: 96px; height: 96px; font-size: 3rem; margin: 0 auto;
+    box-shadow: inset 0 0 0 5px rgba(255,255,255,.55), inset 0 -6px 0 rgba(0,0,0,.2), 0 10px 26px rgba(19,49,92,.35); }
+  .medaillen { display: grid; gap: 6px; margin-top: 10px; padding: 8px 10px; border-radius: 14px; background: var(--eis); border: 1px solid var(--linie); }
+  .kartenwahl .medaillen { padding: 8px; }
+  .medaillen .med-reihe.modi { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); justify-items: center; }
+  .medaillen .modi .muenze { width: 100%; max-width: 22px; height: auto; aspect-ratio: 1; }
+  .medaillen .med-reihe { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; padding: 0; }
+  .medaillen .muenze { width: 22px; height: 22px; font-size: .7rem; }
+  .medaillen .stufen-med { font-style: normal; font-size: 1.2rem; line-height: 1; filter: drop-shadow(0 1px 1px rgba(19,49,92,.25)); }
+  .medaillen .stufen-med.aus { filter: grayscale(1); opacity: .25; }
+  .medaillen .med-zahl { margin-left: auto; font-weight: 800; font-size: .78rem; color: var(--tinte-weich); font-variant-numeric: tabular-nums; }
+  .medaillen.komplett { background: linear-gradient(135deg, rgba(246,195,67,.35), var(--eis)); border-color: #e6b422; }
+  .medaillen.komplett .med-zahl { color: #a77a00; }
+  .medaillen.komplett .med-zahl::before { content: '👑 '; }
+  .modus .muenze { position: absolute; top: 10px; right: 10px; }
+  .modus { position: relative; padding-right: 44px; }
+
+  /* Karten-Auswahl: farbige Schwierigkeits-Chips, Haken bei der gewählten Karte */
+  .kartenwahl { position: relative; }
+  .kartenwahl canvas { border-bottom: 1px solid var(--linie); }
+  .kartenwahl[aria-pressed="true"]::after { content: '✓'; position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+    background: linear-gradient(180deg, #ffd45e, #f6c343); color: #13315c; font-weight: 900; font-size: 1.1rem; box-shadow: 0 3px 10px rgba(0,0,0,.3); }
+  .chip.st-leicht { background: #d9f5df; color: #1e6b2d; border-color: #9bd8a7; }
+  .chip.st-mittel { background: #fff0cf; color: #7a5200; border-color: #f0cf7c; }
+  .chip.st-profi { background: #ffe0dd; color: #a3241b; border-color: #f2a39c; }
+  .chip.st-eigen { background: #ece6ff; color: #4a32a8; border-color: #c4b5ff; }
+
+  /* Nummerierte Auswahl-Schritte */
+  .menue-innen { counter-reset: schritt; }
+  #normalMenue > h2, #heldBereich > h2 { counter-increment: schritt; }
+  #normalMenue > h2::before, #heldBereich > h2::before { content: counter(schritt); width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; align-self: center;
+    font-size: .95rem; font-weight: 900; color: #fff; background: linear-gradient(145deg, #3cc2e0, #2f7fe0); box-shadow: 0 3px 8px rgba(47,127,224,.4); }
+
+  /* Schwierigkeit: Farbkante je Stufe, Haken wenn auf der Karte geschafft */
+  .stufe { position: relative; border-left-width: 5px !important; }
+  #stufen .stufe:nth-child(1) { border-left-color: #c67a3a; }
+  #stufen .stufe:nth-child(2) { border-left-color: #9aa8b8; }
+  #stufen .stufe:nth-child(3) { border-left-color: #e6b422; }
+  #stufen .stufe:nth-child(4) { border-left-color: #3fa9e0; }
+  .stufe .haken { position: absolute; top: 8px; right: 10px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: .8rem; font-weight: 900;
+    background: var(--erfolg); color: #fff; box-shadow: 0 2px 6px rgba(46,157,68,.4); }
+  .modus b::before { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; background: var(--eis); border: 1px solid var(--linie); vertical-align: middle; }
+  .modus[aria-pressed="true"] b::before, .stufe[aria-pressed="true"] .haken { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.25); }
+
+  /* Schwebende Start-Leiste mit Zusammenfassung der Auswahl */
+  #losReihe { position: sticky; bottom: max(12px, env(safe-area-inset-bottom)); z-index: 5; margin-top: 28px; padding: 10px 10px 10px 18px; border-radius: 22px;
+    background: rgba(255,255,255,.82); border: 1px solid var(--linie); box-shadow: var(--schatten-hoch); -webkit-backdrop-filter: blur(12px) saturate(1.4); backdrop-filter: blur(12px) saturate(1.4); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #losReihe { background: rgba(14,42,68,.85); } }
+  :root[data-theme="dark"] #losReihe { background: rgba(14,42,68,.85); }
+  .los-info { flex: 1 1 220px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
+  .los-info span { font-size: .88rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--eis); border: 1px solid var(--linie); white-space: nowrap; }
+  #los { min-width: min(100%, 240px); }
+
+  /* Spiel: Laden-Karten mit Preis-Pille */
+  .pingu-kauf { padding: 6px 4px 7px; }
+  .pingu-kauf img { filter: drop-shadow(0 3px 4px rgba(0,0,0,.35)); }
+  .pingu-kauf span { margin-top: 2px; padding: 1px 8px; border-radius: 999px; background: rgba(0,0,0,.28); border: 1px solid rgba(246,195,67,.35); font-size: .8rem; }
+  .pingu-kauf.teuer span { border-color: rgba(255,138,128,.4); }
+  .pingu-kauf:not(.teuer):hover { border-color: rgba(246,195,67,.55); }
+  .gruppe { color: #c9dcf0; }
+
+  /* Turm-Leiste: Kopf, Werte und Upgrade-Karten */
+  .turm-kopf { background: linear-gradient(135deg, rgba(255,255,255,.12), rgba(255,255,255,.04)); }
+  .turm-kopf img { border-radius: 14px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
+  .turm-kopf h3 { letter-spacing: -.01em; }
+  .pfad { position: relative; padding: 8px 8px 8px 10px; background: linear-gradient(90deg, color-mix(in srgb, var(--pf) 16%, transparent), rgba(255,255,255,.04) 60%); }
+  .pfad-kopf { font-weight: 700; }
+  .pfad-kopf span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pips i { height: 9px; border-radius: 4px; }
+  .pfad button { position: relative; overflow: hidden; }
+  .pfad button.leistbar { background: rgba(53,176,74,.16); border-color: rgba(125,220,138,.55); box-shadow: 0 0 0 1px rgba(125,220,138,.15), 0 4px 14px rgba(53,176,74,.18); }
+  .pfad button.leistbar em { color: #ffe28a; }
+  .pfad button.leistbar:hover { background: rgba(53,176,74,.26); }
+  .pfad button.teuer { background: rgba(255,255,255,.06); }
+  .pfad button.teuer b { opacity: .8; }
+  .pfad button.fuenf.leistbar { background: linear-gradient(110deg, rgba(246,195,67,.22) 20%, rgba(255,240,180,.42) 40%, rgba(246,195,67,.22) 60%); background-size: 250% 100%; animation: glanz 3s linear infinite; border-color: rgba(246,195,67,.7); }
+  .pfad button.voll { background: color-mix(in srgb, var(--pf) 22%, transparent); opacity: .9; }
+  .pfad button.voll b { color: #fff; }
+  .verkauf { box-shadow: 0 4px 12px rgba(201,51,41,.3); }
+
+  /* HUD-Werte mit Zahlenwechsel ohne Springen, Fähigkeiten mit Glanzkante */
+  .wert span { min-width: 2.2ch; display: inline-block; text-align: right; }
+  .fk.bereit::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(160deg, rgba(255,255,255,.28), transparent 45%); pointer-events: none; }
+
+  /* Ergebnis: Modus-Medaille hüpft wie die Emojis */
+  #endeEmoji .muenze { animation: huepf 1.4s .3s ease-in-out 2; }
+  @media (max-width: 600px) {
+    #losReihe { padding: 10px; }
+    .los-info { display: none; }
+    .muenze { width: 24px; height: 24px; font-size: .75rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pfad button.fuenf.leistbar, #endeEmoji .muenze { animation: none; }
+  }
 </style>
 </head>
 <body>
@@ -772,6 +878,7 @@
     </div>
 
     <div class="los-reihe" id="losReihe">
+      <div class="los-info" id="losInfo" aria-label="Deine Auswahl"></div>
       <button class="knopf haupt" id="los">Los geht's!</button>
     </div>
 
@@ -935,8 +1042,11 @@
 window.SLRangAdapter=function(){
   var m={};try{m=JSON.parse(localStorage.getItem('pt-medaillen'))||{}}catch(e){}
   var f={};try{f=JSON.parse(localStorage.getItem('pt-fortschritt'))||{}}catch(e){}
-  var ks=Object.keys(m),n=ks.filter(function(k){return /\|standard$/.test(k)}).length,e=Object.keys(f.erfolge||{}).length;
-  return{punkte:ks.length*100+e*50,progress:Math.min(100,n/44*100)}
+  // Progress: pro Karte eine Medaille je Schwierigkeit (Standard) und eine je Spielmodus (ohne Sandkasten)
+  var ks=Object.keys(m),e=Object.keys(f.erfolge||{}).length,P=window.PT,med={};
+  ks.forEach(function(k){var t=k.split('|');if(!P.KARTEN[t[0]]||t[2]==='sandkasten')return;med[t[2]==='standard'?k:t[0]+'|'+t[2]]=1;});
+  var alle=P.KARTEN_REIHE.length*(Object.keys(P.STUFEN).length+P.MODI_REIHE.length-2);
+  return{punkte:ks.length*100+e*50,progress:Math.min(100,Object.keys(med).length/alle*100)}
 };
 </script>
 <script src="https://rangliste-aoee.onrender.com/melder.js" data-spiel="Pinguin Türmchen" defer></script>
