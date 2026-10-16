@@ -100,7 +100,8 @@
      wege: ein oder mehrere Kanäle (Eckpunkte, werden abgerundet). Endet ein Kanal mitten auf der Karte,
      verschwinden die Fische dort in einem Eisloch. hindernisse: Kreise, auf die nichts darf.
      wasser: Wasserlöcher, in die nur Boot-Pinguine dürfen. tunnel: Eisberge über dem Kanal (x, y, r) – darunter sieht
-     nur der Taucher-Pinguin die Fische. schmelzen: Eisflächen (x, y, r, runde), die nach dieser Runde zu Wasser werden. */
+     nur der Taucher-Pinguin die Fische. schmelzen: Eisflächen (x, y, r, runde), die nach dieser Runde zu Wasser werden.
+     geld: Faktor auf Startgeld und alle Einnahmen (Karten mit mehreren Kanälen, weil sich die Fische dort aufteilen). */
   PT.KARTEN = {
     scholle: {
       name:'Eisscholle', stufe:'Anfänger', thema:'tag',
@@ -127,8 +128,8 @@
       deko:'gletscher'
     },
     doppel: {
-      name:'Doppelstrom', stufe:'Profi', thema:'daemmerung',
-      text:'Zwei Kanäle, zwei Fischschwärme. Die Fische teilen sich abwechselnd auf.',
+      name:'Doppelstrom', stufe:'Profi', thema:'daemmerung', geld:1.5,
+      text:'Zwei Kanäle, zwei Fischschwärme. Die Fische teilen sich abwechselnd auf – dafür gibt es mehr Geld.',
       wege:[
         [[-40, 65], [880, 65], [880, 235], [-40, 235]],
         [[-40, 575], [880, 575], [880, 405], [-40, 405]]
@@ -180,15 +181,15 @@
     deko:'tunnel'
   };
   PT.KARTEN.dreizack = {
-    name:'Dreizack', stufe:'Profi', thema:'nacht',
-    text:'Drei Kanäle von oben nach unten. Die Fische teilen sich auf – überall muss jemand stehen.',
+    name:'Dreizack', stufe:'Profi', thema:'nacht', geld:1.8,
+    text:'Drei Schlangen-Kanäle von oben nach unten. Die Fische teilen sich auf – dafür gibt es mehr Geld.',
     wege:[
-      [[160, -40], [160, 250], [300, 250], [300, 680]],
-      [[500, -40], [500, 180], [420, 180], [420, 450], [580, 450], [580, 680]],
-      [[840, -40], [840, 330], [700, 330], [700, 680]]
+      [[70, -40], [70, 150], [250, 150], [250, 320], [70, 320], [70, 490], [250, 490], [250, 680]],
+      [[580, -40], [580, 150], [400, 150], [400, 320], [580, 320], [580, 490], [400, 490], [400, 680]],
+      [[750, -40], [750, 150], [930, 150], [930, 320], [750, 320], [750, 490], [930, 490], [930, 680]]
     ],
-    hindernisse:[[60, 420, 34], [940, 140, 30], [500, 330, 26], [230, 560, 24], [640, 120, 26], [950, 520, 30]],
-    wasser:[[60, 100, 30], [950, 360, 28], [790, 560, 26]],
+    hindernisse:[[325, 70, 22], [665, 590, 22], [160, 600, 20], [840, 60, 20]],
+    wasser:[[325, 420, 26], [665, 240, 26]],
     deko:'nacht'
   };
   PT.KARTEN.schmelze = {
@@ -226,7 +227,8 @@
       name:String(d.name || 'Eigene Karte').replace(/[\u0000-\u001f<>&"]/g, '').trim().slice(0, 24) || 'Eigene Karte',
       stufe:'Eigene', thema:PT.THEMEN_REIHE.includes(d.thema) ? d.thema : 'tag', text:'Selbst gebaut im Karten-Editor.',
       wege, hindernisse:kreise(d.hindernisse, 16, 14, 60), wasser:kreise(d.wasser, 8, 20, 60), tunnel:kreise(d.tunnel, 4, 30, 90),
-      deko:d.thema === 'vulkan' ? 'vulkan' : d.thema === 'nacht' ? 'nacht' : 'gletscher', eigen:true
+      deko:d.thema === 'vulkan' ? 'vulkan' : d.thema === 'nacht' ? 'nacht' : 'gletscher', eigen:true,
+      geld:[1, 1, 1.5, 1.8][wege.length]
     };
   };
   PT.WEG_BREITE = 40;
