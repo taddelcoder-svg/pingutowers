@@ -421,10 +421,39 @@
     }
   }
   PT.kartenVorschau = kartenVorschau;
+  /* ---------- Medaillen ----------
+     Pro Karte eine Medaille je Schwierigkeit (im Standardmodus) und eine je Spielmodus. Die Modus-Medaille
+     hat die Farbe der schwersten Stufe, auf der der Modus dort geschafft wurde. */
+  const STUFEN_REIHE = Object.keys(PT.STUFEN);
+  const medModi = () => PT.MODI_REIHE.filter(m => m !== 'standard' && m !== 'sandkasten');
+  function besteStufe(karte, modus) {
+    let beste = null;
+    for (const id of STUFEN_REIHE) if (medaillen[`${karte}|${id}|${modus}`]) beste = id;
+    return beste;
+  }
+  function modusMuenze(karte, modus, gross) {
+    const m = PT.MODI[modus], beste = besteStufe(karte, modus);
+    const titel = `${m.name}: ${beste ? 'geschafft auf ' + PT.STUFEN[beste].name : 'noch nicht geschafft'}`;
+    return `<i class="muenze ${beste ? 'm-' + beste : 'aus'}${gross ? ' gross' : ''}" title="${esc(titel)}" aria-label="${esc(titel)}">${m.symbol}</i>`;
+  }
   function medaillenText(karte) {
-    const stufen = Object.entries(PT.STUFEN).map(([id, st]) => `<i class="${medaillen[`${karte}|${id}|standard`] ? '' : 'aus'}" title="${esc(st.name)}">${st.medaille}</i>`).join('');
-    const modi = new Set(Object.keys(medaillen).filter(k => k.startsWith(karte + '|') && !k.endsWith('|standard') && !k.endsWith('|sandkasten')).map(k => k.split('|')[2]));
-    return `<div class="medaillen">${stufen}${modi.size ? `<em>+${modi.size} ${modi.size === 1 ? 'Modus' : 'Modi'}</em>` : ''}</div>`;
+    const stufen = STUFEN_REIHE.map(id => {
+      const st = PT.STUFEN[id], an = !!medaillen[`${karte}|${id}|standard`];
+      return `<i class="stufen-med${an ? '' : ' aus'}" title="${esc(st.name)}: ${an ? 'geschafft' : 'noch nicht geschafft'}">${st.medaille}</i>`;
+    }).join('');
+    const modi = medModi();
+    const anz = STUFEN_REIHE.filter(id => medaillen[`${karte}|${id}|standard`]).length + modi.filter(m => besteStufe(karte, m)).length;
+    const alle = STUFEN_REIHE.length + modi.length;
+    return `<div class="medaillen${anz === alle ? ' komplett' : ''}"><div class="med-reihe">${stufen}<small class="med-zahl">${anz}/${alle}</small></div>
+      <div class="med-reihe modi">${modi.map(m => modusMuenze(karte, m)).join('')}</div></div>`;
+  }
+  const CHIP_KLASSE = { 'Anfänger':'st-leicht', Mittel:'st-mittel', Profi:'st-profi', Eigene:'st-eigen' };
+  // Zusammenfassung der Auswahl in der Start-Leiste
+  function losInfoZeigen(E, held) {
+    const k = E.karte === 'eigen' ? E.eigen : String(E.karte).startsWith('eigen:') ? eigeneKarten.find(x => 'eigen:' + x.id === E.karte) : PT.KARTEN[E.karte];
+    const st = PT.STUFEN[E.stufe], m = PT.MODI[olymp ? 'standard' : E.modus];
+    const teile = [k && '🗺️ ' + k.name, st && st.medaille + ' ' + st.name, m && m.symbol + ' ' + m.name, held && PT.HELDEN[held] ? '⭐ ' + PT.HELDEN[held].name : '🚫 Ohne Held'];
+    $('#losInfo').innerHTML = teile.filter(Boolean).map(t => `<span>${esc(t)}</span>`).join('');
   }
   // Was im Menü ausgewählt ist: eigene Wahl oder (im Koop) die Einstellungen des Raums
   function einst() { return koopReiter && netz && netz.raum ? netz.raum.einst : wahl; }
@@ -446,7 +475,7 @@
       b.className = 'kartenwahl';
       b.setAttribute('aria-pressed', E.karte === id);
       b.disabled = aus;
-      b.innerHTML = `<canvas></canvas><div><b>${esc(k.name)}<span class="chip">${esc(k.stufe)}</span></b><small>${esc(k.text)}</small>${medaillenText(id)}</div>`;
+      b.innerHTML = `<canvas></canvas><div><b>${esc(k.name)}<span class="chip ${CHIP_KLASSE[k.stufe] || ''}">${esc(k.stufe)}</span></b><small>${esc(k.text)}</small>${medaillenText(id)}</div>`;
       kartenVorschau(b.querySelector('canvas'), id);
       b.onclick = () => waehle('karte', id);
       karten.appendChild(b);
@@ -455,7 +484,7 @@
     if (koopReiter && E.karte === 'eigen' && E.eigen && !binHost()) {
       const b = document.createElement('button');
       b.className = 'kartenwahl'; b.setAttribute('aria-pressed', 'true'); b.disabled = true;
-      b.innerHTML = `<canvas></canvas><div><b>${esc(E.eigen.name)}<span class="chip">Eigene</span></b><small>Karte des Gastgebers.</small></div>`;
+      b.innerHTML = `<canvas></canvas><div><b>${esc(E.eigen.name)}<span class="chip st-eigen">Eigene</span></b><small>Karte des Gastgebers.</small></div>`;
       kartenVorschau(b.querySelector('canvas'), E.eigen);
       karten.appendChild(b);
     }
@@ -466,7 +495,7 @@
         const b = document.createElement('button');
         b.className = 'kartenwahl';
         b.setAttribute('aria-pressed', koopReiter ? E.karte === 'eigen' && !!E.eigen && E.eigen.name === k.name : E.karte === id);
-        b.innerHTML = `<canvas></canvas><div><b>${esc(k.name)}<span class="chip">Eigene</span></b><small>${k.wege.length} ${k.wege.length === 1 ? 'Kanal' : 'Kanäle'} · selbst gebaut</small>
+        b.innerHTML = `<canvas></canvas><div><b>${esc(k.name)}<span class="chip st-eigen">Eigene</span></b><small>${k.wege.length} ${k.wege.length === 1 ? 'Kanal' : 'Kanäle'} · selbst gebaut</small>
           <div class="karten-knoepfe"><span data-aktion="bearbeiten" role="button" tabindex="0">✏️ Bearbeiten</span><span data-aktion="teilen" role="button" tabindex="0">🔗 Teilen</span><span data-aktion="weg" role="button" tabindex="0">🗑️</span></div></div>`;
         kartenVorschau(b.querySelector('canvas'), k);
         b.onclick = e => {
@@ -496,7 +525,9 @@
       b.className = 'stufe';
       b.setAttribute('aria-pressed', E.stufe === id);
       b.disabled = aus;
-      b.innerHTML = `<b>${st.medaille} ${esc(st.name)}</b><small>${st.runden} Runden · ${st.leben} ${st.leben === 1 ? 'Leben' : 'Leben'}${st.preis !== 1 ? ` · Preise ${st.preis < 1 ? '−' : '+'}${Math.round(Math.abs(1 - st.preis) * 100)} %` : ''}</small>`;
+      const geschafft = !!medaillen[`${E.karte}|${id}|standard`];
+      b.classList.toggle('geschafft', geschafft);
+      b.innerHTML = `${geschafft ? '<span class="haken" title="Auf dieser Karte geschafft">✓</span>' : ''}<b>${st.medaille} ${esc(st.name)}</b><small>${st.runden} Runden · ${st.leben} ${st.leben === 1 ? 'Leben' : 'Leben'}${st.preis !== 1 ? ` · Preise ${st.preis < 1 ? '−' : '+'}${Math.round(Math.abs(1 - st.preis) * 100)} %` : ''}</small>`;
       b.onclick = () => waehle('stufe', id);
       stufen.appendChild(b);
     }
@@ -508,7 +539,8 @@
       b.className = 'modus';
       b.setAttribute('aria-pressed', E.modus === id);
       b.disabled = aus;
-      b.innerHTML = `<b data-symbol="${m.symbol}">${esc(m.name)}</b><small>${esc(m.text)}</small>`;
+      const medaille = id !== 'standard' && id !== 'sandkasten' && PT.KARTEN[E.karte] ? modusMuenze(E.karte, id) : '';
+      b.innerHTML = `${medaille}<b data-symbol="${m.symbol}">${esc(m.name)}</b><small>${esc(m.text)}</small>`;
       b.onclick = () => waehle('modus', id);
       modi.appendChild(b);
     }
@@ -603,6 +635,7 @@
     $('#kraftReihe').hidden = !frei;
     $('#kraftAn').checked = wahl.kraft !== false;
     if (frei) $('#kraftText').textContent = PT.HELDEN[meiner].kraft.text;
+    losInfoZeigen(E, ohne ? null : meiner);
   }
 
   /* ---------- Koop im Menü ---------- */
@@ -653,7 +686,7 @@
       schwarz:'Explosionen machen ihm nichts.', weiss:'Kälte macht ihm nichts.', panzer:'Spitzes prallt ab – braucht Explosionen, Magie oder schwere Waffen.',
       zebra:'Weder Explosionen noch Kälte.', regen:'Zerfällt in zwei Zebrafische.', koffer:'Harte Schale: 10 Treffer.',
       wal:'Riesig: 200 Treffer, dann 4 Kofferfische.', mega:'700 Treffer, dann 4 Walhaie.',
-      rochen:'Immer getarnt, schnell, nichts Spitzes und keine Explosionen. 400 Treffer, dann 6 Kofferfische.',
+      rochen:'Getarnt, taucht aber alle paar Sekunden kurz auf – dann trifft ihn jeder. Nachtsicht und Leuchtfeuer sehen ihn immer. Keine Explosionen. 320 Treffer, dann 6 Kofferfische.',
       krake:'4000 Treffer, dann 4 Megalodons.', krakus:'Der Boss der Boss-Jagd. Ruft Verstärkung. Darf nie durchkommen!'
     };
     beschr.orka = 'Der Boss des Orka-Angriffs. Seine Flutwellen betäuben Pinguine am Ufer. Darf nie durchkommen!';
@@ -922,61 +955,84 @@
     }
     return `<div class="werte">${teile.filter(Boolean).map(x => `<span>${esc(x)}</span>`).join('')}</div>`;
   }
+  // Die Leiste wird nur neu gebaut, wenn sich ihr Aufbau ändert. Geld, Fischzahl und Erfahrung ändern sich während
+  // der Runde ständig – würde dafür jedes Mal das HTML ersetzt, ginge ein Klick zwischen Drücken und Loslassen verloren.
+  let turmInfoHtml = '';
   function turmInfoBauen() {
     const t = auswahl, d = PT.def(t.typ);
     const el = $('#turmInfo');
     const held = !!PT.HELDEN[t.typ];
     const farben = ['#e2463b', '#2f7fe0', '#35b04a'];
     const tasten = [',', '.', '-'];
-    const geld = meinGeld();
     const meins = spiel.darf(t, ich());
     const besitzer = spiel.koop && spiel.spielerVon(t.besitzer);
-    let html = `<div class="turm-kopf"><img src="${bilder[t.typ] || ''}" alt=""><div><h3>${held ? '⭐ ' : ''}${esc(d.name)}</h3><small>${zahl(t.pops)} Fische erwischt</small>
+    let html = `<div class="turm-kopf" data-turm="${t.id}"><img src="${bilder[t.typ] || ''}" alt=""><div><h3>${held ? '⭐ ' : ''}${esc(d.name)}</h3><small data-wert="pops"></small>
       ${besitzer ? `<small class="besitzer" style="--f:${PT.KOOP_FARBEN[besitzer.farbe]}"><i></i>${besitzer.id === netz.id ? 'Dein Pinguin' : 'Gehört ' + esc(besitzer.name)}</small>` : ''}</div>
       <button class="lknopf schliessen" id="tiZu" aria-label="Schließen">✕</button></div>`;
     html += kennzahlenText(t);
     if (t.betaeubt > 0) html += `<p class="hinweis">${{ eis:'🧊 Vom Eisatem eingefroren.', tinte:'🦑 Voller Tinte – sieht gerade nichts.' }[t.betaeubtArt] || '💫 Von einer Flutwelle betäubt.'}</p>`;
-    if (t.verdient) html += `<p class="hinweis">🍤 Schon ${zahl(t.verdient)} Geld mit Fischstäbchen verdient.</p>`;
+    if (t.verdient) html += '<p class="hinweis" data-wert="verdient"></p>';
     if (!meins) {
       // Getrenntes Geld: fremde Pinguine nur anschauen
       html += `<p class="hinweis">Bei getrennter Kasse kann nur ${esc(besitzer ? besitzer.name : 'der Besitzer')} diesen Pinguin aufrüsten oder verkaufen.</p>`;
+    } else {
+      html += zielKnoepfe(t, d);
+      if (held) {
+        const S = PT.HELDEN_STUFEN;
+        const preis = spiel.preisHeldenStufe(t);
+        html += `<div class="held-info"><b>Stufe ${t.stufe} / 10</b>${t.stufe < 10 ? ` <small style="color:var(--panel-leise)" data-wert="xpText"></small>` : ''}
+          <div class="xp"><i data-wert="xp"></i></div>
+          ${t.stufe < 10 ? `<button class="kaufen" id="tiStufe" data-preis="${preis}">Stufe ${t.stufe + 1} kaufen · ${zahl(preis)} 💰</button>` : ''}
+          <ul class="held-stufen">${d.stufen.map((s, i) => `<li class="${i < t.stufe ? 'da' : ''}"><b>${i + 1}</b>${esc(s)}</li>`).join('')}</ul></div>`;
+      } else {
+        for (let i = 0; i < 3; i++) {
+          const stufe = t.pfade[i];
+          const u = d.pfade[i][stufe];
+          const erlaubt = spiel.upgradeErlaubt(t, i);
+          const preis = u ? spiel.preisUpgrade(t, i) : 0;
+          const letzte = stufe > 0 ? d.pfade[i][stufe - 1].name : 'Pfad ' + (i + 1);
+          html += `<div class="pfad" style="--pf:${farben[i]}"><div class="pfad-kopf"><div class="pips">${[0, 1, 2, 3, 4].map(k => `<i class="${k < stufe ? 'an' : ''}"></i>`).join('')}</div><span>${esc(letzte)}</span></div>`;
+          if (!u) html += `<button disabled class="voll"><b>✔ Voll ausgebaut</b><small>Stärker geht's nicht.</small></button>`;
+          else if (spiel.stufe5Vergeben(t, i)) html += `<button disabled><b>🔒 ${esc(u.name)}</b><small>Diese Stufe 5 gibt es nur einmal – ein anderer ${esc(d.name)} hat sie schon.</small></button>`;
+          else if (!erlaubt) html += `<button disabled><b>🔒 ${esc(u.name)}</b><small>Gesperrt: höchstens zwei Pfade, nur einer über Stufe 2.</small></button>`;
+          else html += `<button data-pfad="${i}" data-preis="${preis}" class="${stufe === 4 ? 'fuenf' : ''}"><b>${stufe === 4 ? '✨ ' : ''}${esc(u.name)}<kbd>${tasten[i]}</kbd></b><em>${zahl(preis)} 💰</em><small>${esc(u.text)}</small></button>`;
+          html += '</div>';
+        }
+      }
+      html += `<button class="verkauf" id="tiVerkauf">Verkaufen für ${zahl(spiel.verkaufswert(t))} 💰</button>`;
+    }
+    if (html !== turmInfoHtml || !el.firstChild) {
+      turmInfoHtml = html;
       el.innerHTML = html;
       $('#tiZu').onclick = () => turmWaehlen(null);
-      return;
-    }
-    html += zielKnoepfe(t, d);
-    if (held) {
-      const S = PT.HELDEN_STUFEN;
-      const anteil = t.stufe >= 10 ? 1 : (t.xp - S[t.stufe]) / (S[t.stufe + 1] - S[t.stufe]);
-      const preis = spiel.preisHeldenStufe(t);
-      html += `<div class="held-info"><b>Stufe ${t.stufe} / 10</b>${t.stufe < 10 ? ` <small style="color:var(--panel-leise)">· ${zahl(t.xp)} / ${zahl(S[t.stufe + 1])} Erfahrung</small>` : ''}
-        <div class="xp"><i style="width:${Math.round(Math.max(0, Math.min(1, anteil)) * 100)}%"></i></div>
-        ${t.stufe < 10 ? `<button class="kaufen" id="tiStufe" ${preis > geld ? 'disabled' : ''}>Stufe ${t.stufe + 1} kaufen · ${zahl(preis)} 💰</button>` : ''}
-        <ul class="held-stufen">${d.stufen.map((s, i) => `<li class="${i < t.stufe ? 'da' : ''}"><b>${i + 1}</b>${esc(s)}</li>`).join('')}</ul></div>`;
-    } else {
-      for (let i = 0; i < 3; i++) {
-        const stufe = t.pfade[i];
-        const u = d.pfade[i][stufe];
-        const erlaubt = spiel.upgradeErlaubt(t, i);
-        const preis = u ? spiel.preisUpgrade(t, i) : 0;
-        const letzte = stufe > 0 ? d.pfade[i][stufe - 1].name : 'Pfad ' + (i + 1);
-        html += `<div class="pfad" style="--pf:${farben[i]}"><div class="pfad-kopf"><div class="pips">${[0, 1, 2, 3, 4].map(k => `<i class="${k < stufe ? 'an' : ''}"></i>`).join('')}</div>${esc(letzte)}</div>`;
-        if (!u) html += `<button disabled><b>Voll ausgebaut</b><small>Stärker geht's nicht.</small></button>`;
-        else if (spiel.stufe5Vergeben(t, i)) html += `<button disabled><b>🔒 ${esc(u.name)}</b><small>Diese Stufe 5 gibt es nur einmal – ein anderer ${esc(d.name)} hat sie schon.</small></button>`;
-        else if (!erlaubt) html += `<button disabled><b>🔒 ${esc(u.name)}</b><small>Gesperrt: höchstens zwei Pfade, nur einer über Stufe 2.</small></button>`;
-        else html += `<button data-pfad="${i}" class="${preis > geld ? 'teuer' : ''} ${stufe === 4 ? 'fuenf' : ''}"><b>${stufe === 4 ? '✨ ' : ''}${esc(u.name)}<kbd>${tasten[i]}</kbd></b><em>${zahl(preis)} 💰</em><small>${esc(u.text)}</small></button>`;
-        html += '</div>';
+      if (meins) {
+        $('#tiVerkauf').onclick = () => verkaufen();
+        if ($('#tiZiel')) $('#tiZiel').onclick = () => { zielModus = zielModus === t ? null : t; welt.zielModus = !!zielModus; kurzTipp(zielModus ? 'Tippe auf die Stelle, die der Mörser treffen soll.' : ''); letzteAnzeige = ''; anzeigen(); };
+        if ($('#tiStufe')) $('#tiStufe').onclick = () => tun({ t:'stufe', id:t.id });
+        for (const b of el.querySelectorAll('[data-ziel]')) b.onclick = () => { PT.Ton.klick(); tun({ t:'ziel', id:t.id, ziel:b.dataset.ziel }); };
+        for (const b of el.querySelectorAll('[data-muster]')) b.onclick = () => { PT.Ton.klick(); tun({ t:'muster', id:t.id, muster:b.dataset.muster }); };
+        for (const b of el.querySelectorAll('[data-pfad]')) b.onclick = () => upgraden(+b.dataset.pfad);
       }
     }
-    html += `<button class="verkauf" id="tiVerkauf">Verkaufen für ${zahl(spiel.verkaufswert(t))} 💰</button>`;
-    el.innerHTML = html;
-    $('#tiZu').onclick = () => turmWaehlen(null);
-    $('#tiVerkauf').onclick = () => verkaufen();
-    if ($('#tiZiel')) $('#tiZiel').onclick = () => { zielModus = zielModus === t ? null : t; welt.zielModus = !!zielModus; kurzTipp(zielModus ? 'Tippe auf die Stelle, die der Mörser treffen soll.' : ''); letzteAnzeige = ''; anzeigen(); };
-    if ($('#tiStufe')) $('#tiStufe').onclick = () => tun({ t:'stufe', id:t.id });
-    for (const b of el.querySelectorAll('[data-ziel]')) b.onclick = () => { PT.Ton.klick(); tun({ t:'ziel', id:t.id, ziel:b.dataset.ziel }); };
-    for (const b of el.querySelectorAll('[data-muster]')) b.onclick = () => { PT.Ton.klick(); tun({ t:'muster', id:t.id, muster:b.dataset.muster }); };
-    for (const b of el.querySelectorAll('[data-pfad]')) b.onclick = () => upgraden(+b.dataset.pfad);
+    turmInfoWerte(t, el, held);
+  }
+  // Werte, die sich während der Runde laufend ändern, direkt in die bestehenden Knöpfe schreiben
+  function turmInfoWerte(t, el, held) {
+    const geld = meinGeld();
+    const setze = (w, f) => { const x = el.querySelector(`[data-wert="${w}"]`); if (x) f(x); };
+    setze('pops', x => { x.textContent = `${zahl(t.pops)} Fische erwischt`; });
+    setze('verdient', x => { x.textContent = `🍤 Schon ${zahl(t.verdient)} Geld mit Fischstäbchen verdient.`; });
+    if (held && t.stufe < 10) {
+      const S = PT.HELDEN_STUFEN;
+      const anteil = (t.xp - S[t.stufe]) / (S[t.stufe + 1] - S[t.stufe]);
+      setze('xp', x => { x.style.width = Math.round(Math.max(0, Math.min(1, anteil)) * 100) + '%'; });
+      setze('xpText', x => { x.textContent = `· ${zahl(t.xp)} / ${zahl(S[t.stufe + 1])} Erfahrung`; });
+    } else setze('xp', x => { x.style.width = '100%'; });
+    for (const b of el.querySelectorAll('[data-preis]')) {
+      const zuTeuer = +b.dataset.preis > geld;
+      if (b.id === 'tiStufe') b.disabled = zuTeuer;
+      else { b.classList.toggle('teuer', zuTeuer); b.classList.toggle('leistbar', !zuTeuer); }
+    }
   }
   function turmWaehlen(t) {
     auswahl = t;
@@ -1300,7 +1356,7 @@
     const r = PT.runde(n, spiel.modus);
     const typen = [...new Set(r.gruppen.map(g => g.typ))];
     const neu = { 17:'Nachwachsende Fische! Grüne Algen = sie wachsen nach.', 20:'Anglerfische! Explosionen helfen nicht.', 22:'Eisfische! Kälte hilft nicht.', 24:'Getarnte Fische!',
-      26:'Zebrafische!', 28:'Panzerwelse! Spitzes prallt ab.', 38:'Kofferfische!', 40:'Ein Walhai!', 46:'Gepanzerte Fische mit Helm!', 55:'Der Megalodon kommt!', 60:'Ein Schattenrochen – immer getarnt!', 65:'Die Riesenkrake!',
+      26:'Zebrafische!', 28:'Panzerwelse! Spitzes prallt ab.', 38:'Kofferfische!', 40:'Ein Walhai!', 46:'Gepanzerte Fische mit Helm!', 55:'Der Megalodon kommt!', 60:'Ein Schattenrochen! Er taucht nur kurz auf – mit Nachtsicht trifft man ihn immer.', 65:'Die Riesenkrake!',
       21:'Fliegende Fische! In der Luft treffen sie nur Flieger.', 31:'Tintenfische! Ihre Tinte blendet Pinguine.', 42:'Kugelfische! Nach einem Treffer prallt kurz alles ab.' }[n];
     if (neu) return neu;
     return typen.map(t => PT.FISCHE[t].name).join(' · ');
@@ -1324,7 +1380,8 @@
       const zaehlt = spiel.modus !== 'sandkasten' && spiel.karte !== 'eigen' && !tagesAktiv;
       const neu = !medaillen[schluessel] && zaehlt;
       if (zaehlt) { medaillen[schluessel] = true; speicher.schreiben('pt-medaillen', medaillen); }
-      $('#endeEmoji').textContent = spiel.modus === 'standard' ? st.medaille : '🏆';
+      if (spiel.modus === 'standard' || spiel.modus === 'sandkasten' || !zaehlt) $('#endeEmoji').textContent = spiel.modus === 'standard' ? st.medaille : '🏆';
+      else $('#endeEmoji').innerHTML = modusMuenze(spiel.karte, spiel.modus, true);
       $('#endeTitel').textContent = 'Gewonnen!';
       $('#endeText').textContent = `${tagesAktiv ? 'Tages-Herausforderung geschafft! ' : ''}Alle ${spiel.zielRunden} Runden auf ${spiel.kartenDaten.name} (${st.name}${spiel.modus !== 'standard' ? ', ' + PT.MODI[spiel.modus].name : ''}) mit ${Math.ceil(spiel.leben)} Leben übrig.${neu ? ' Neue Medaille!' : ''}`;
       k.innerHTML = '<button class="knopf haupt" id="eEndlos">Endlos weiterspielen</button><button class="knopf" id="eNeu">Nochmal</button><button class="knopf" id="eMenue">Hauptmenü</button>';
@@ -1592,7 +1649,7 @@
           spiel.geld = 1e6;
           plaene = plaene || [['zapfen', [0, 2, 5]], ['rundum', [2, 0, 5]], ['schneeball', [5, 2, 0]], ['frost', [0, 5, 2]], ['harpune', [2, 0, 5]], ['polar', [0, 5, 2]],
             ['markt', [5, 0, 2]], ['haeuptling', [2, 5, 0]], ['ninja', [5, 2, 0]], ['flieger', [5, 2, 0]], ['moerser', [0, 5, 2]], ['fabrik', [2, 0, 5]], ['boot', [5, 0, 2]],
-            ['laser', [2, 5, 0]], ['disco', [5, 0, 2]], ['taucher', [5, 2, 0]], ['eisbaer', [2, 0, 5]], ['koch', [0, 2, 5]], [spiel.held || 'kiel', [0, 0, 0]]];
+            ['laser', [2, 5, 0]], ['disco', [5, 0, 2]], ['taucher', [5, 2, 0]], ['eisbaer', [2, 0, 5]], ['mecha', [5, 2, 0]], ['koch', [0, 2, 5]], [spiel.held || 'kiel', [0, 0, 0]]];
           let n = 0;
           for (const [typ, pf] of plaene) {
             if (!spiel.erlaubt(typ)) continue;

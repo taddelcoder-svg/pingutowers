@@ -8,7 +8,7 @@
 
   const SCHRITT = 2;          // Abstand der Wegpunkte in Pixeln
   const ZELLE = 64;           // Rastergröße für die Kollisionssuche
-  const TURM_R = { markt:26, haeuptling:19, boot:20, flieger:20, fabrik:21, moerser:19, eisbaer:24, koch:21 };
+  const TURM_R = { markt:26, haeuptling:19, boot:20, flieger:20, fabrik:21, moerser:19, eisbaer:24, koch:21, mecha:23 };
   PT.turmRadius = typ => TURM_R[typ] || 17;
   const MAX_HAUFEN = 40;      // so viele Stachelhaufen darf eine Fabrik gleichzeitig liegen haben
 
@@ -490,7 +490,7 @@
       const neue = [];
       kinder.forEach((k, i) => {
         const c = this.neuerFisch(k, Math.max(0, f.dist - i * (FISCHE[f.typ].riese ? 14 : 7)),
-          { camo:f.camo, nach:f.nach, ursprung:f.ursprung, fest:f.fest && PT.kannGepanzert(k) }, f, f.p);
+          { camo:f.camo && FISCHE[f.typ].immer !== 'camo', nach:f.nach, ursprung:f.ursprung, fest:f.fest && PT.kannGepanzert(k) }, f, f.p);
         if (getroffen) getroffen.add(c.id);
         neue.push(c);
       });
@@ -727,7 +727,7 @@
         for (const x of sichtbar()) this.treffer(x, PT.angriff({ schaden, riesen:riesen || 0, typ:'normal' }), t, null);
       };
       switch (id) {
-        case 'turbo': t.temp = { faktor:f.faktor, bis:this.zeit + f.dauer }; break;
+        case 'turbo': case 'overdrive': t.temp = { faktor:f.faktor, bis:this.zeit + f.dauer }; break;
         case 'schlachtruf': case 'schleier': case 'party': case 'festmahl': {
           const r = f.radius || t.eff.reichweite;
           for (const x of this.tuerme) if (Math.hypot(x.x - t.x, x.y - t.y) <= r) x.temp = { faktor:f.faktor, bis:this.zeit + f.dauer };
@@ -766,7 +766,7 @@
           this.ereignisse.push({ art:'ring', x:t.x, y:t.y, r:400, bild:'schallGross', turm:t });
           break;
         case 'sternschnuppe':
-          for (const x of sichtbar()) x.camo = false;
+          for (const x of sichtbar()) { x.camo = false; x.enttarnt = true; }
           alleTreffen(f.schaden, f.riesen);
           break;
         case 'eiszeit':
@@ -803,6 +803,21 @@
           for (const x of sichtbar()) x.betaeubt = Math.max(x.betaeubt, x.boss ? 0 : FISCHE[x.typ].riese ? f.betaeuben / 2 : f.betaeuben);
           break;
         }
+        case 'raketenhagel': {
+          const a = PT.angriff({ schaden:f.schaden, riesen:f.riesen, typ:'normal', splash:55, splashDurchschlag:40, bild:'rakete' });
+          for (const w of this.wege) for (let i = 0; i < 12; i++) {
+            const [x, y] = w.punkt(w.vonDist + (w.bisDist - w.vonDist) * (i + 0.5) / 12);
+            this.explosion(x, y, a, t, null);
+          }
+          break;
+        }
+        case 'beben':
+          for (const x of sichtbar()) {
+            if (!x.boss) x.betaeubt = Math.max(x.betaeubt, FISCHE[x.typ].riese ? f.dauer / 2 : f.dauer);
+            this.treffer(x, PT.angriff({ schaden:f.schaden, riesen:f.riesen, typ:'normal' }), t, null);
+          }
+          this.ereignisse.push({ art:'ring', x:t.x, y:t.y, r:520, bild:'stampfer', turm:t });
+          break;
         case 'tsunami':
           for (const x of sichtbar()) if (!x.boss) x.dist = Math.max(0, x.dist - (FISCHE[x.typ].riese ? f.weite / 2 : f.weite));
           alleTreffen(f.schaden, f.riesen);
@@ -891,8 +906,9 @@
         for (const t of wind) {
           if (Math.hypot(f.x - t.x, f.y - t.y) <= t.eff.reichweite) f.wind = Math.min(f.wind, T.riese ? (t.eff.windRiesen || Math.max(t.eff.wind, 0.8)) : t.eff.wind);
         }
-        if (f.camo && T.immer !== 'camo' && (ueberall || leucht.some(t => Math.hypot(f.x - t.x, f.y - t.y) <= t.eff.reichweite))) f.camo = false;
-        if (f.camo && T.immer === 'camo' && ueberall) f.camo = false;
+        // Schattenrochen: taucht alle 5 s für 1,6 s auf, dann trifft ihn jeder Pinguin (Sternschnuppen enttarnen ihn ganz)
+        if (T.immer === 'camo' && !f.enttarnt) { f.tauchT = (f.tauchT || 0) + dt; f.camo = f.tauchT % 5 < 3.4; }
+        if (f.camo && (ueberall || leucht.some(t => Math.hypot(f.x - t.x, f.y - t.y) <= t.eff.reichweite))) f.camo = false;
         if (this.entwachsen) f.nach = false;
         if (this.entpanzern && f.fest) { f.fest = false; f.hpMax /= 2; f.hp = Math.min(f.hp, f.hpMax); }
         // Kugelfisch bläst sich auf, Fliegender Fisch springt, Bosse setzen ihre Kräfte ein

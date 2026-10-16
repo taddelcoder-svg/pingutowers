@@ -55,6 +55,9 @@
     orbital:      { name:'Orbital-Laser', symbol:'🛰️', text:'Ein Laser aus dem All trifft die stärksten Fische.' },
     nordlicht:    { name:'Nordlicht-Sturm', symbol:'🌠', text:'Trifft jeden Fisch, friert die kleinen ein und bremst die Riesen.' },
     tanz:         { name:'Tanzfieber', symbol:'🕺', text:'Alle Fische tanzen kurz statt zu schwimmen.' },
+    overdrive:    { name:'Overdrive', symbol:'🤖', text:'Der Mecha läuft heiß: kurz dreimal so schnelles Dauerfeuer.' },
+    raketenhagel: { name:'Raketenhagel', symbol:'🚀', text:'Raketen schlagen entlang aller Kanäle ein.' },
+    beben:        { name:'Mecha-Beben', symbol:'🦾', text:'Der Mecha springt und landet: alle Fische sind kurz betäubt und verletzt.' },
     party:        { name:'Party-Zeit', symbol:'🎉', text:'Pinguine in der Nähe greifen kurz doppelt so schnell an.' },
     anker:        { name:'Ankerwurf', symbol:'⚓', text:'Trifft die stärksten Riesen schwer und hält sie kurz fest.' },
     sternschnuppe:{ name:'Sternschnuppen', symbol:'💫', text:'Trifft jeden Fisch und enttarnt alle.' },
@@ -390,6 +393,44 @@
       ]
     },
 
+    mecha: {
+      name:'Mecha-Pingu', preis:1150, gruppe:'Militär', taste:'m', kurz:'Ein Pinguin steuert einen Kampfroboter: zwei Arm-Kanonen im Dauerfeuer, später Raketen und ein Stampfer.',
+      basis:() => ({ reichweite:140, camo:false, angriffe:[angriff({ intervall:0.6, schaden:1, durchschlag:2, anzahl:2, streuung:0.06, tempo:720, flug:280, groesse:4, bild:'bolzen' })] }),
+      pfade:[
+        [
+          { name:'Schnellfeuer-Arme', preis:350, text:'Feuert 25 % schneller.', fx:s => { A(s).intervall *= 0.75; } },
+          { name:'Stahlkern-Munition', preis:600, text:'Trifft auch Panzerwelse, Durchschlag +1.', fx:s => { const a = A(s); a.typ = 'normal'; a.durchschlag += 1; } },
+          { name:'Gatling-Arme', preis:2200, text:'Drehende Läufe: mehr als doppelt so schnell, +1 Schaden.', fx:s => { const a = A(s); a.intervall *= 0.45; a.schaden += 1; a.bild = 'bolzenGold'; } },
+          { name:'Hyper-Gatling', preis:7800, text:'Vier Läufe gleichzeitig, +2 Schaden, +8 gegen Riesen.', fx:s => { const a = A(s); a.anzahl = 4; a.streuung = 0.12; a.schaden += 2; a.riesen += 8; } },
+          { name:'Titan-Mecha', preis:52000, text:'+12 Schaden, +60 gegen Riesen, noch schneller. Fähigkeit Overdrive: kurz dreifaches Tempo.', fx:s => {
+            const a = A(s); a.schaden += 12; a.riesen += 60; a.intervall *= 0.6; a.durchschlag += 4; F(s, { id:'overdrive', cd:40, faktor:3, dauer:8 }); } }
+        ],
+        [
+          { name:'Schulterrakete', preis:500, text:'Feuert zusätzlich zielsuchende Raketen, die explodieren.', fx:s => {
+            s.angriffe.push(angriff({ id:'rakete', intervall:1.7, schaden:2, typ:'explosion', tempo:420, flug:380, groesse:5, bild:'rakete', splash:32, splashDurchschlag:12, zielsuchend:true, reichweite:s.reichweite + 60 })); } },
+          { name:'Doppelraketen', preis:900, text:'Zwei Raketen auf einmal.', fx:s => { const b = A(s, 'rakete'); if (b) { b.anzahl = 2; b.streuung = 0.25; } } },
+          { name:'Raketenschwarm', preis:3000, text:'Vier Raketen, schneller, +2 Schaden, +6 gegen Riesen.', fx:s => {
+            const b = A(s, 'rakete'); if (b) { b.anzahl = 4; b.streuung = 0.4; b.intervall *= 0.7; b.schaden += 2; b.riesen += 6; } } },
+          { name:'Bunkerbrecher', preis:9000, text:'Raketen treffen auch Anglerfische, +6 Schaden, +30 gegen Riesen, größere Explosion.', fx:s => {
+            const b = A(s, 'rakete'); if (b) { b.typ = 'normal'; b.schaden += 6; b.riesen += 30; b.splash += 20; b.splashDurchschlag += 18; } } },
+          { name:'Raketen-Festung', preis:34000, text:'Raketen +12 Schaden, +80 gegen Riesen. Fähigkeit Raketenhagel: Explosionen entlang aller Kanäle.', fx:s => {
+            const b = A(s, 'rakete'); if (b) { b.schaden += 12; b.riesen += 80; b.splash += 10; b.splashDurchschlag += 20; } F(s, { id:'raketenhagel', cd:45, schaden:30, riesen:600 }); } }
+        ],
+        [
+          { name:'Zielsensoren', preis:300, text:'Sieht getarnte Fische, Reichweite +20.', fx:s => { s.camo = true; s.reichweite += 20; for (const a of s.angriffe) a.flug += 20; } },
+          { name:'Stampf-Schritt', preis:750, text:'Der Mecha stampft: Fische in der Nähe sind kurz betäubt.', fx:s => {
+            s.angriffe.push(angriff({ id:'stampfer', art:'ring', intervall:2.4, schaden:1, durchschlag:25, typ:'normal', bild:'stampfer', betaeuben:0.45, reichweite:Math.round(s.reichweite * 0.55) })); } },
+          { name:'Magnet-Greifer', preis:2400, text:'Reißt gepanzerten Fischen den Helm ab, der Stampfer zieht Fische zurück.', fx:s => {
+            for (const a of s.angriffe) a.helmWeg = true; const b = A(s, 'stampfer'); if (b) { b.ablenken = 0.3; b.schaden += 1; } } },
+          { name:'Kampfpanzerung', preis:6500, text:'Lässt sich von Flutwelle, Eisatem und Tinte nicht stören. Stampfer +4 Schaden und bremst Riesen.', fx:s => {
+            s.unbeirrbar = true; const b = A(s, 'stampfer'); if (b) { b.schaden += 4; b.riesen += 20; b.riesenBetaeuben = 0.3; b.durchschlag += 20; } } },
+          { name:'Kaiser-Mecha', preis:30000, text:'Stampfer +15 Schaden, Arme +6. Fähigkeit Mecha-Beben: alle Fische betäubt und verletzt.', fx:s => {
+            A(s).schaden += 6; const b = A(s, 'stampfer'); if (b) { b.schaden += 15; b.riesen += 60; b.reichweite += 30; }
+            F(s, { id:'beben', cd:45, dauer:2.2, schaden:120, riesen:1800 }); } }
+        ]
+      ]
+    },
+
     /* ===== Magie ===== */
     polar: {
       name:'Polarlicht-Pinguin', preis:375, gruppe:'Magie', taste:'z', kurz:'Zaubert Polarlicht-Blitze. Trifft alle Fischarten.',
@@ -475,10 +516,10 @@
             s.angriffe.push(angriff({ ...A(s), id:'arm', hinten:true })); } },
           { name:'Turbo-Prozessor', preis:1800, text:'Beide Arme schießen 25 % schneller.', fx:s => { for (const a of s.angriffe) a.intervall *= 0.75; } },
           { name:'Robo-Pinguin', preis:7500, text:'+2 Schaden auf beiden Armen, sieht getarnte Fische.', fx:s => { s.camo = true; for (const a of s.angriffe) { a.schaden += 2; a.bild = 'plasma'; } } },
-          { name:'Mecha-Pinguin', preis:28000, text:'+5 Schaden, +15 gegen Riesen. Fähigkeit Orbital-Laser.', fx:s => {
+          { name:'Cyber-Pinguin', preis:28000, text:'+5 Schaden, +15 gegen Riesen. Fähigkeit Orbital-Laser.', fx:s => {
             for (const a of s.angriffe) { a.schaden += 5; a.riesen += 15; a.durchschlag += 3; }
             F(s, { id:'orbital', cd:45, schaden:3000, anzahl:3 }); } },
-          { name:'Giga-Mecha', preis:85000, text:'Vier Arme, +15 Schaden, Orbital-Laser viel stärker.', fx:s => {
+          { name:'Laser-Titan', preis:85000, text:'Vier Arme, +15 Schaden, Orbital-Laser viel stärker.', fx:s => {
             for (const a of s.angriffe) { a.schaden += 15; a.riesen += 40; a.anzahl = Math.max(a.anzahl, 2); a.streuung = 0.1; }
             F(s, { id:'orbital', cd:35, schaden:14000, anzahl:4 }); } }
         ],
@@ -645,7 +686,7 @@
   };
   for (const id of Object.keys(PINGUINE)) PINGUINE[id].id = id;
   PT.PINGUINE = PINGUINE;
-  PT.PINGUIN_REIHE = ['zapfen', 'rundum', 'schneeball', 'frost', 'harpune', 'boot', 'flieger', 'moerser', 'taucher', 'eisbaer', 'polar', 'ninja', 'laser', 'markt', 'haeuptling', 'disco', 'koch', 'fabrik'];
+  PT.PINGUIN_REIHE = ['zapfen', 'rundum', 'schneeball', 'frost', 'harpune', 'boot', 'flieger', 'moerser', 'taucher', 'eisbaer', 'mecha', 'polar', 'ninja', 'laser', 'markt', 'haeuptling', 'disco', 'koch', 'fabrik'];
   PT.GRUPPEN = ['Primär', 'Militär', 'Magie', 'Unterstützung'];
 
   /* ---------- Helden ----------

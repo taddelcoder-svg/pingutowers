@@ -32,7 +32,7 @@
     koffer:  { name:'Kofferfisch',        hp:10,   tempo:175, r:15, farbe:'#b8773a', kinder:['regen', 'regen'] },
     wal:     { name:'Walhai',             hp:200,  tempo:45,  r:34, farbe:'#3b5f8a', kinder:['koffer', 'koffer', 'koffer', 'koffer'], riese:true },
     mega:    { name:'Megalodon',          hp:700,  tempo:22,  r:48, farbe:'#56606e', kinder:['wal', 'wal', 'wal', 'wal'], riese:true },
-    rochen:  { name:'Schattenrochen',     hp:400,  tempo:170, r:26, farbe:'#2a2f3d', kinder:['koffer', 'koffer', 'koffer', 'koffer', 'koffer', 'koffer'], riese:true, immer:'camo', immun:['spitz', 'explosion'] },
+    rochen:  { name:'Schattenrochen',     hp:320,  tempo:60,  r:26, farbe:'#2a2f3d', kinder:['koffer', 'koffer', 'koffer', 'koffer', 'koffer', 'koffer'], riese:true, immer:'camo', immun:['explosion'] },
     krake:   { name:'Riesenkrake',        hp:4000, tempo:18,  r:62, farbe:'#8e3fb8', kinder:['mega', 'mega', 'mega', 'mega'], riese:true },
     krakus:  { name:'Krakus der Boss',    hp:6000, tempo:13,  r:72, farbe:'#c0392b', kinder:[], riese:true, boss:true },
     orka:    { name:'Kaiser Orka',        hp:9000, tempo:19,  r:64, farbe:'#1b1d24', kinder:[], riese:true, boss:true },
@@ -128,13 +128,13 @@
       deko:'gletscher'
     },
     doppel: {
-      name:'Doppelstrom', stufe:'Profi', thema:'daemmerung', geld:1.5,
+      name:'Doppelstrom', stufe:'Profi', thema:'daemmerung', geld:1.3,
       text:'Zwei Kanäle, zwei Fischschwärme. Die Fische teilen sich abwechselnd auf – dafür gibt es mehr Geld.',
       wege:[
         [[-40, 65], [880, 65], [880, 235], [-40, 235]],
         [[-40, 575], [880, 575], [880, 405], [-40, 405]]
       ],
-      hindernisse:[[500, 320, 38], [960, 320, 26], [330, 150, 28], [330, 490, 28], [700, 150, 24], [700, 490, 24]],
+      hindernisse:[[500, 320, 38], [960, 320, 26], [330, 150, 28], [330, 490, 28], [700, 150, 24], [700, 490, 24], [100, 320, 30], [380, 320, 26], [630, 320, 26]],
       wasser:[[230, 320, 30], [760, 320, 30]],
       deko:'gletscher'
     },
@@ -181,14 +181,14 @@
     deko:'tunnel'
   };
   PT.KARTEN.dreizack = {
-    name:'Dreizack', stufe:'Profi', thema:'nacht', geld:1.8,
+    name:'Dreizack', stufe:'Profi', thema:'nacht', geld:1.5,
     text:'Drei Schlangen-Kanäle von oben nach unten. Die Fische teilen sich auf – dafür gibt es mehr Geld.',
     wege:[
       [[70, -40], [70, 150], [250, 150], [250, 320], [70, 320], [70, 490], [250, 490], [250, 680]],
       [[580, -40], [580, 150], [400, 150], [400, 320], [580, 320], [580, 490], [400, 490], [400, 680]],
       [[750, -40], [750, 150], [930, 150], [930, 320], [750, 320], [750, 490], [930, 490], [930, 680]]
     ],
-    hindernisse:[[325, 70, 22], [665, 590, 22], [160, 600, 20], [840, 60, 20]],
+    hindernisse:[[325, 70, 22], [665, 590, 22], [160, 600, 20], [840, 60, 20], [325, 240, 22], [665, 420, 22]],
     wasser:[[325, 420, 26], [665, 240, 26]],
     deko:'nacht'
   };
@@ -228,7 +228,7 @@
       stufe:'Eigene', thema:PT.THEMEN_REIHE.includes(d.thema) ? d.thema : 'tag', text:'Selbst gebaut im Karten-Editor.',
       wege, hindernisse:kreise(d.hindernisse, 16, 14, 60), wasser:kreise(d.wasser, 8, 20, 60), tunnel:kreise(d.tunnel, 4, 30, 90),
       deko:d.thema === 'vulkan' ? 'vulkan' : d.thema === 'nacht' ? 'nacht' : 'gletscher', eigen:true,
-      geld:[1, 1, 1.5, 1.8][wege.length]
+      geld:[1, 1, 1.3, 1.5][wege.length]
     };
   };
   PT.WEG_BREITE = 40;

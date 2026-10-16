@@ -13,7 +13,8 @@ Fisch – vom Rotbarsch bis zur Riesenkrake, zu Krakus und Kaiser Orka. Allein o
   Geld zurück, danach dürfen Boote hin), Erebus-Krater (Mittel, mit Vulkan und Lavaspalten), Polarnacht,
   Doppelstrom (Profi, zwei Kanäle), Treibeis-Inseln (Profi, viele Wasserlöcher) und Dreizack (Profi, drei
   Schlangen-Kanäle). Weil sich die Fische auf mehrere Kanäle aufteilen, gibt es dort mehr Geld (Startgeld und
-  alle Einnahmen × 1,5 bei zwei, × 1,8 bei drei Kanälen; gilt auch für eigene Karten).
+  alle Einnahmen × 1,3 bei zwei, × 1,5 bei drei Kanälen; gilt auch für eigene Karten). Eisberge zwischen den
+  Kanälen verhindern, dass ein einziger Platz in der Mitte alles abdeckt.
 - **Karten-Editor:** Kanäle (bis zu drei) zeichnen, Eisberge, Wasserlöcher und Tunnel setzen, Thema wählen,
   speichern, spielen und als Link teilen (`?karte=…`). Eigene Karten gehen auch im Koop (der Gastgeber wählt sie).
 - **4 Stufen:** Leicht (30 Runden, 200 Leben, Preise −15 %), Mittel (40 Runden, 150 Leben),
@@ -23,13 +24,15 @@ Fisch – vom Rotbarsch bis zur Riesenkrake, zu Krakus und Kaiser Orka. Allein o
   Flutwellen betäuben Pinguine am Ufer), Hai-König (Runde 20 und 40, ruft ständig Fische herbei),
   Leviathan-Erwachen (Eis-Leviathan in Runde 30 und 60, sein Eisatem friert Pinguine ein) und
   Sandkasten (unendlich Geld, Fische selbst losschicken).
-- **18 Pinguine** in vier Gruppen, je 3 Upgrade-Pfade mit 5 Stufen (höchstens 5-2-0, und jede
+- **19 Pinguine** in vier Gruppen, je 3 Upgrade-Pfade mit 5 Stufen (höchstens 5-2-0, und jede
   Stufe 5 nur einmal pro Pinguinart und Pfad):
   - Primär: Zapfen-, Stachel-, Schneeball- und Frost-Pinguin
   - Militär: Harpunen-Pinguin, Boot-Pinguin (nur in Wasserlöchern), Albatros-Pilot (fliegt Acht, Oval
     oder Kreis), Schneemörser (Zielpunkt frei wählbar), Taucher-Pinguin (Dreizack, sieht Getarnte und
     trifft im Tunnel; Strudel, Torpedos, Perlen und Fähigkeit Tsunami), Eisbär-Söldner (Prankenhiebe gegen
-    Riesen, Gebrüll, Panzerknacker, dickes Fell gegen Flutwelle/Eisatem/Tinte, Kopfgeld, Fähigkeit Bärenstampfer)
+    Riesen, Gebrüll, Panzerknacker, dickes Fell gegen Flutwelle/Eisatem/Tinte, Kopfgeld, Fähigkeit Bärenstampfer),
+    Mecha-Pingu (ein Pinguin im Kampfroboter: Arm-Kanonen bis zur Hyper-Gatling, Schulterraketen bis zum
+    Raketenhagel, Stampfer mit Magnet-Greifer und Mecha-Beben)
   - Magie: Polarlicht-Pinguin, Ninja-Pinguin, Laser-Pinguin (Laserstrahlen, Roboarm, Orbitalschlag)
   - Unterstützung: Fischmarkt, Häuptlings-Pinguin, Disco-Pinguin (Schallwellen bremsen, Party-Buffs, Geld),
     Koch-Pinguin (Fische, die in seiner Nähe platzen, bringen Extra-Geld; Restaurants, Suppen-Buffs,
@@ -44,7 +47,7 @@ Fisch – vom Rotbarsch bis zur Riesenkrake, zu Krakus und Kaiser Orka. Allein o
   Luft treffen ihn nur Flieger), Anglerfisch (immun gegen Explosionen), Eisfisch (immun gegen Kälte),
   Tintenfisch (blendet beim Platzen Pinguine in der Nähe), Panzerwels (immun gegen Spitzes), Zebrafisch,
   Regenbogenforelle, Kugelfisch (bläht sich nach einem Treffer auf, dann prallt kurz alles ab), Kofferfisch (10),
-  Walhai (200), Schattenrochen (400, immer getarnt), Megalodon (700), Riesenkrake (4000) und die Bosse
+  Walhai (200), Schattenrochen (320, getarnt, taucht alle 5 s kurz auf, immun gegen Explosionen), Megalodon (700), Riesenkrake (4000) und die Bosse
   Krakus, Kaiser Orka, Hai-König und Eis-Leviathan. Dazu die Zusätze getarnt, nachwachsend (grüne Algen) und
   gepanzert (Helm, doppelt so zäh).
 - **Ziele:** Erster, Letzter, Stärkster, Nächster, Riesen zuerst, Getarnte zuerst.
@@ -68,10 +71,11 @@ Fisch – vom Rotbarsch bis zur Riesenkrake, zu Krakus und Kaiser Orka. Allein o
 - **Rundenvorschau** (welche Fische als Nächstes kommen), **Statistik** im Ergebnisbild (beste Pinguine,
   Spielzeit, Geld, Belohnungen) und **Einstellungen** (Lautstärke, Grafik, Menü-Design hell/dunkel,
   Vorschau, Lebensbalken, schwebende Texte, Kamerawackeln, Auto-Start).
-- Medaillen pro Karte, Stufe und Modus, Kamera-Zoom (Mausrad, zwei Finger, Knöpfe), Tempo 1×/2×/3×,
-  automatischer Rundenstart, Spielstand nach jeder Runde im Browser gespeichert.
+- **Medaillen:** pro Karte eine je Schwierigkeit (Standardmodus) und eine je Spielmodus; die Modus-Medaille
+  hat die Farbe der schwersten geschafften Stufe (Bronze, Silber, Gold, Diamant). Dazu Kamera-Zoom (Mausrad, zwei Finger,
+  Knöpfe), Tempo 1×/2×/3×, automatischer Rundenstart, Spielstand nach jeder Runde im Browser gespeichert.
 
-Tasten: Buchstaben am Pinguin im Laden (`Q W E R T S P O V B Z N L U I D K A`), Held `H`, Fähigkeiten `1`–`9`,
+Tasten: Buchstaben am Pinguin im Laden (`Q W E R T S P O V B M Z N L U I D K A`), Held `H`, Fähigkeiten `1`–`9`,
 `Leertaste` Runde/Tempo, `,` `.` `-` Upgrades, `Entf` verkaufen, `Tab` Ziel bzw. Flugbahn wechseln,
 `Esc` abbrechen/Pause. Mit gedrückter Umschalttaste mehrere gleiche Pinguine setzen.
 
