@@ -285,6 +285,21 @@
         x.fillStyle = '#0d2c45'; x.beginPath(); x.arc(px, py, 34, 0, Math.PI * 2); x.fill();
       }
     }
+    // Schmelzscholle: dünnes, rissiges Eis, das bald zu Wasser wird
+    for (const [sx, sy, sr] of karte.schmelzen || []) {
+      const rg = x.createRadialGradient(sx, sy, 0, sx, sy, sr);
+      rg.addColorStop(0, 'rgba(110,190,235,0.55)'); rg.addColorStop(0.8, 'rgba(150,210,240,0.4)'); rg.addColorStop(1, 'rgba(150,210,240,0)');
+      x.fillStyle = rg; x.beginPath(); x.arc(sx, sy, sr, 0, Math.PI * 2); x.fill();
+      x.strokeStyle = 'rgba(255,255,255,0.85)'; x.lineWidth = 1.4;
+      for (let k = 0; k < 9; k++) {
+        let px = sx, py = sy; const w = k / 9 * Math.PI * 2 + rnd();
+        x.beginPath(); x.moveTo(px, py);
+        for (let j = 1; j <= 4; j++) { px = sx + Math.cos(w + (rnd() - 0.5) * 0.5) * sr * j / 4.2; py = sy + Math.sin(w + (rnd() - 0.5) * 0.5) * sr * j / 4.2; x.lineTo(px, py); }
+        x.stroke();
+      }
+      x.setLineDash([5, 4]); x.strokeStyle = 'rgba(40,110,170,0.6)'; x.lineWidth = 2;
+      x.beginPath(); x.arc(sx, sy, sr, 0, Math.PI * 2); x.stroke(); x.setLineDash([]);
+    }
     for (const [hx, hy, hr] of karte.hindernisse) {
       const rg = x.createRadialGradient(hx + 6, hy + 6, hr * 0.5, hx + 6, hy + 6, hr * 1.4);
       rg.addColorStop(0, 'rgba(40,60,90,0.3)'); rg.addColorStop(1, 'rgba(40,60,90,0)');
@@ -413,6 +428,8 @@
       this.blitz = 0;
       this.flash = null;
       this.wackeln = 0;
+      // Einstellungen (setzt die Oberfläche)
+      this.lebensbalken = true; this.kameraWackeln = true; this.texteAn = true;
       this.zoom = 1;
       this.schwenk = new T.Vector2(0, 0);
       this.kartenMitte = new T.Vector3(0, 0, 18);
@@ -588,6 +605,49 @@
       }
 
       this.dekoBauen(karte, thema);
+
+      // Eistunnel: ein Eisberg über dem Kanal, an den Rändern dunkle Tunnelöffnungen
+      for (const [tx, ty, tr] of karte.tunnel || []) {
+        const berg = mesh(new T.DodecahedronGeometry(tr, 1), mat(0xe4f5ff, 'phong', { flatShading:true, shininess:70, specular:0x88bbdd }), X(tx), tr * 0.18, Z(ty));
+        berg.scale.set(1.02, 0.62, 1.02); berg.receiveShadow = true; sc.add(berg);
+        const kappe = mesh(G.kugel, mat(0xffffff), X(tx), tr * 0.62, Z(ty)); kappe.scale.set(tr * 0.62, tr * 0.12, tr * 0.55); sc.add(kappe);
+        const nacht = karte.thema === 'nacht';
+        for (let k = 0; k < 5; k++) {
+          const w = k * 1.3 + tx * 0.01, d = tr * 0.55;
+          const c = mesh(G.kegel, mat(nacht ? 0x7dffe0 : 0xa8ecff, 'phong', { flatShading:true, shininess:140, emissive:nacht ? 0x1d8a7a : 0x1a6a88, transparent:true, opacity:0.9 }), X(tx) + Math.cos(w) * d, tr * 0.55, Z(ty) + Math.sin(w) * d);
+          c.scale.set(tr * 0.08, tr * 0.35, tr * 0.08); sc.add(c);
+        }
+        for (const w of spiel.wege) {
+          let drin = Math.hypot(w.pts[0][0] - tx, w.pts[0][1] - ty) < tr;
+          for (let i = 1; i < w.pts.length; i++) {
+            const jetzt = Math.hypot(w.pts[i][0] - tx, w.pts[i][1] - ty) < tr;
+            if (jetzt !== drin) {
+              const p = w.punkt(i * 2);
+              const bogen = mesh(new T.TorusGeometry(b + 9, 6, 8, 16, Math.PI), mat(0xcdeaf8, 'phong', { shininess:60 }), X(p[0]), 0, Z(p[1]));
+              bogen.rotation.y = -p[2] + Math.PI / 2; sc.add(bogen);
+              const loch = new T.Mesh(new T.CircleGeometry(b + 4, 18, 0, Math.PI), new T.MeshBasicMaterial({ color:0x0d2c45, side:T.DoubleSide }));
+              loch.position.set(X(p[0]), WASSER_Y, Z(p[1])); loch.rotation.y = -p[2] + Math.PI / 2; sc.add(loch);
+            }
+            drin = jetzt;
+          }
+        }
+      }
+      // Schmelzscholle: Wasser erscheint, sobald die Fläche geschmolzen ist; davor pulsiert ein Warnring
+      this.schmelzFlaechen = (karte.schmelzen || []).map(([sx, sy, sr, runde]) => {
+        const g = new T.Group();
+        const wasser = new T.Mesh(new T.CircleGeometry(sr, 40), wasserMat);
+        wasser.rotation.x = -Math.PI / 2; wasser.position.set(X(sx), WASSER_Y, Z(sy)); wasser.receiveShadow = true;
+        const rand = mesh(G.torus, mat(0xeaf6fd, 'lambert'), X(sx), 2.4, Z(sy)); rand.scale.set(sr + 3, sr + 3, 22); rand.rotation.x = Math.PI / 2;
+        for (let k = 0; k < 6; k++) {
+          const w = k / 6 * Math.PI * 2 + sx;
+          const sch = mesh(new T.CylinderGeometry(1, 0.9, 1, 6), mat(0xf2faff, 'lambert', { flatShading:true }), X(sx) + Math.cos(w) * sr * 0.55, WASSER_Y + 0.6, Z(sy) + Math.sin(w) * sr * 0.55);
+          sch.scale.set(sr * 0.14, 2, sr * 0.11); sch.rotation.y = k; g.add(sch);
+        }
+        g.add(wasser, rand); g.visible = false; sc.add(g);
+        const warn = new T.Mesh(EBENE, new T.MeshBasicMaterial({ map:ringTextur(), color:0x5ec8ff, transparent:true, opacity:0, depthWrite:false, blending:T.AdditiveBlending }));
+        warn.rotation.x = -Math.PI / 2; warn.position.set(X(sx), 3, Z(sy)); warn.scale.setScalar(sr * 1.1); sc.add(warn);
+        return { g, warn, runde };
+      });
 
       // Polarlicht in der Nacht, Glut am Vulkan
       this.lichter = [];
@@ -974,9 +1034,10 @@
 
     /* ---------- Ereignisse aus der Logik ---------- */
     ereignisse(liste) {
-      const ringFarben = { ring:0xbfeaff, ringLila:0xb36bff, sonne:0xffb020, frost:0x7fd6ff, frostStark:0x5ec8ff, saeule:0x9ff3ff, netz:0xd9c49a, schall:0xff5ec8, schallGross:0xffd54a };
+      const ringFarben = { ring:0xbfeaff, ringLila:0xb36bff, sonne:0xffb020, frost:0x7fd6ff, frostStark:0x5ec8ff, saeule:0x9ff3ff, netz:0xd9c49a, schall:0xff5ec8, schallGross:0xffd54a, strudel:0x2fa8e0, bruell:0xfff2c4 };
       const flashFarben = { schneesturm:'#dff6ff', kaelteschock:'#9ff3ff', himmelsfeuer:'#ff9a4a', himmelsblitz:'#7dffb2', bombenteppich:'#ffb37a', knall:'#ffd29a', sabotage:'#b49bff', geldregen:'#ffd54a', stachelsturm:'#dff6ff',
-        nordlicht:'#5effc8', orbital:'#fff2a8', party:'#ff5ec8', tanz:'#b36bff', sternschnuppe:'#ffe066', eiszeit:'#bfeaff', anker:'#8a93a3' };
+        nordlicht:'#5effc8', orbital:'#fff2a8', party:'#ff5ec8', tanz:'#b36bff', sternschnuppe:'#ffe066', eiszeit:'#bfeaff', anker:'#8a93a3',
+        tsunami:'#5ec8ff', stampf:'#fff2c4', festmahl:'#ffb347' };
       for (const e of liste) {
         switch (e.art) {
           case 'platzen': {
@@ -1010,6 +1071,33 @@
             this.effekte.push({ art:'welle', x:e.x, y:e.y, r:e.r, t:0, dauer:0.9, farbe:0xdff6ff });
             this.texte.push({ x:e.x, y:e.y, h:70, text:'🌊 Flutwelle!', farbe:'#9fe4ff', t:0, dauer:1.6, gross:24 });
             break;
+          case 'aufblasen':
+            this.funken(e.x, e.y, 14, 0xffe08a, 6, { tempo:60, hoch:40, groesse:5, dauer:0.35 });
+            break;
+          case 'sprung':
+            for (let i = 0; i < 6; i++) this.teilchenDazu(e.x, e.y, WASSER_Y + 2, 0xdff5ff, 1.4, 60);
+            this.effekte.push({ art:'welle', x:e.x, y:e.y, r:22, t:0, dauer:0.5, farbe:0xffffff });
+            break;
+          case 'tinte':
+            this.staubWolke(e.x, e.y, 8, 0x2a1630, 10, { groesse:36, tempo:e.r * 0.9, hoch:16, dauer:1.3 });
+            this.effekte.push({ art:'welle', x:e.x, y:e.y, r:e.r, t:0, dauer:0.9, farbe:0x3a1a4a });
+            break;
+          case 'eisatem':
+            this.effekte.push({ art:'ring', x:e.x, y:e.y, r:e.r, t:0, dauer:0.7, farbe:0x9ff3ff });
+            this.funken(e.x, e.y, 20, 0xdff8ff, 30, { streu:e.r * 0.8, tempo:40, hoch:90, groesse:8, dauer:1 });
+            for (let i = 0; i < 24; i++) { const w = Math.random() * Math.PI * 2, d = Math.random() * e.r; this.teilchenDazu(e.x + Math.cos(w) * d, e.y + Math.sin(w) * d, 6, 0xe6f8ff, 2, 40); }
+            this.texte.push({ x:e.x, y:e.y, h:70, text:'❄️ Eisatem!', farbe:'#9ff3ff', t:0, dauer:1.4, gross:22 });
+            break;
+          case 'bossRuf':
+            this.effekte.push({ art:'welle', x:e.fisch.x, y:e.fisch.y, r:90, t:0, dauer:0.7, farbe:0xffffff });
+            this.funken(e.fisch.x, e.fisch.y, 16, 0x5ec8ff, 12, { tempo:90, hoch:60, groesse:7, dauer:0.6 });
+            break;
+          case 'geschmolzen':
+            this.wackeln = 0.3;
+            for (let i = 0; i < 40; i++) { const w = Math.random() * Math.PI * 2, d = Math.random() * e.r; this.teilchenDazu(e.x + Math.cos(w) * d, e.y + Math.sin(w) * d, 6, 0xdff5ff, 2.2, 70); }
+            this.effekte.push({ art:'welle', x:e.x, y:e.y, r:e.r * 1.3, t:0, dauer:1, farbe:0xffffff });
+            this.texte.push({ x:e.x, y:e.y, h:40, text:'💧 geschmolzen!', farbe:'#9fe4ff', t:0, dauer:1.8, gross:20 });
+            break;
           case 'bossPhase':
             this.wackeln = 0.5;
             this.effekte.push({ art:'ring', x:e.fisch.x, y:e.fisch.y, r:160, t:0, dauer:0.6, farbe:0xc0392b });
@@ -1034,6 +1122,13 @@
             this.animieren(e.turm, 0.2);
             break;
           case 'strahl':
+            if (e.bild === 'pranke' || e.bild === 'prankeGold') {
+              // Prankenhieb statt Strahl
+              this.effekte.push({ art:'kugel', x:e.x2, y:e.y2, r:22, t:0, dauer:0.2, farbe:e.bild === 'prankeGold' ? 0xffd54a : 0xffffff });
+              this.funken(e.x2, e.y2, 12, e.bild === 'prankeGold' ? 0xffd54a : 0xfff2c4, 8, { tempo:110, hoch:60, groesse:6, dauer:0.35 });
+              this.animieren(e.turm, 0.25);
+              break;
+            }
             this.effekte.push({ art:'strahl', x1:e.x1, y1:e.y1, x2:e.x2, y2:e.y2, t:0, dauer:0.12, farbe:e.bild === 'harpuneGold' ? 0xffd54a : e.bild === 'haft' ? 0xff6a3a : 0xe8f0ff, h1:e.turm && e.turm.eff && e.turm.eff.flieger ? FLUGHOEHE : 22 });
             this.animieren(e.turm, 0.12);
             break;
@@ -1125,6 +1220,7 @@
       if (this.wasserTex) this.wasserTex.offset.x -= dt * 0.35;
       if (this.strudel) for (const s of this.strudel) s.rotation.z += dt * 1.5;
       if (this.schollen) for (const s of this.schollen) { s.g.rotation.x = Math.sin(this.zeit * 0.9 + s.i) * 0.03; s.g.rotation.z = Math.cos(this.zeit * 0.7 + s.i) * 0.03; }
+      if (this.wackeln > 0 && !this.kameraWackeln) { this.wackeln = 0; this.kameraSetzen(); }
       if (this.wackeln > 0) { this.wackeln = Math.max(0, this.wackeln - dt); this.kameraSetzen(); }
       if (this.bodenMat && this.thema.lava) this.bodenMat.emissiveIntensity = 0.75 + Math.sin(this.zeit * 1.7) * 0.25;
       if (this.lavaLicht) this.lavaLicht.intensity = 1.2 + Math.sin(this.zeit * 3) * 0.3;
@@ -1135,6 +1231,10 @@
         r.m.material.opacity = 0.5 * (1 - r.t);
       }
 
+      for (const z of this.schmelzFlaechen || []) {
+        z.g.visible = z.runde <= spiel.runde;
+        z.warn.material.opacity = z.runde === spiel.runde + 1 ? 0.35 + Math.sin(this.zeit * 5) * 0.3 : 0;
+      }
       this.pinguineZeichnen(spiel, dt);
       this.fischeZeichnen(spiel);
       this.geschosseZeichnen(spiel);
@@ -1310,14 +1410,17 @@
         const typ = PT.FISCHE[f.typ];
         const zielMesh = f.camo ? fm.camo : fm.normal;
         const n = f.camo ? zaehlerC[f.typ] : zaehler[f.typ];
-        if (n >= fm.max || f.x < -4 || f.x > W + 4 || f.y < -4 || f.y > H + 4) continue;
+        if (n >= fm.max || f.x < -4 || f.x > W + 4 || f.y < -4 || f.y > H + 4 || f.tunnel) continue;
         const steht = f.frost > 0 || f.betaeubt > 0;
         eu.set(0, -f.w, steht ? 0 : Math.sin(this.zeit * 7 + f.id) * 0.06);
         q.setFromEuler(eu);
-        const h = WASSER_Y + typ.r * (typ.riese ? 0.15 : 0.35) + Math.sin(this.zeit * 4 + f.id * 1.3) * 0.8;
+        // springende Fische fliegen im Bogen, Kugelfische blähen sich auf
+        const sprung = f.luft > 0 && typ.springen ? Math.sin(Math.PI * Math.min(1, 1 - f.luft / typ.springen.dauer)) : 0;
+        const h = WASSER_Y + typ.r * (typ.riese ? 0.15 : 0.35) + Math.sin(this.zeit * 4 + f.id * 1.3) * 0.8 + sprung * 46;
+        if (sprung) { eu.set(0, -f.w, Math.cos(Math.PI * (1 - f.luft / typ.springen.dauer)) * 0.6); q.setFromEuler(eu); }
         v.set(X(f.x), h, Z(f.y));
         const auftauchen = Math.min(1, (spiel.zeit - f.geboren) * 6 + 0.3);
-        const gross = auftauchen * (typ.riese ? 1.15 : 1.45);
+        const gross = auftauchen * (typ.riese ? 1.15 : 1.45) * (f.gross > 0 ? 1.7 : 1);
         sk.setScalar(gross);
         m4.compose(v, q, sk);
         zielMesh.setMatrixAt(n, m4);
@@ -1481,7 +1584,7 @@
       for (const f of spiel.fische) {
         const typ = PT.FISCHE[f.typ];
         if (f.boss) { boss = f; continue; }
-        if (typ.hp < 10 || f.camo) continue;
+        if (typ.hp < 10 || f.camo || f.tunnel || !this.lebensbalken) continue;
         const [sx, sy] = this.bildschirm(f.x, f.y, typ.r * 1.4 + 6);
         const b = typ.riese ? Math.min(80, 30 + typ.r) : 24;
         x.fillStyle = 'rgba(10,20,40,0.7)'; x.fillRect(sx - b / 2 - 1, sy - 1, b + 2, 6);
@@ -1505,7 +1608,7 @@
         if (t.betaeubt > 0) {
           const [sx, sy] = this.bildschirm(t.x, t.y, 58);
           x.font = schrift(18); x.textAlign = 'center';
-          x.fillText('💫', sx + Math.sin(this.zeit * 6 + t.id) * 4, sy);
+          x.fillText(t.betaeubtArt === 'eis' ? '🧊' : t.betaeubtArt === 'tinte' ? '🦑' : '💫', sx + Math.sin(this.zeit * 6 + t.id) * 4, sy);
         }
         if (koop && t.besitzer != null && this.namenZeigen) {
           const sp = spiel.spielerVon(t.besitzer);
@@ -1527,6 +1630,7 @@
       // schwebende Texte
       x.textAlign = 'center';
       this.texte = this.texte.filter(t => (t.t += dt) < t.dauer);
+      if (!this.texteAn) this.texte.length = 0;
       for (const t of this.texte) {
         const [sx, sy] = this.bildschirm(t.x, t.y, t.h + t.t * 40);
         x.globalAlpha = 1 - t.t / t.dauer;
@@ -1553,7 +1657,7 @@
 
     /* ---------- Vorschaubilder für Laden und Lexikon ---------- */
     // skin: Look für die Pinguine; looks: diese Looks zusätzlich am Zapfen-Pinguin zeigen (Pinguin-Pass)
-    static bilder(typen, fische, skin = null, looks = []) {
+    static bilder(typen, fische, skin = null, looks = [], sockel = null, sockelListe = []) {
       const groesse = 192;
       const c = document.createElement('canvas');
       c.width = c.height = groesse;
@@ -1567,7 +1671,7 @@
       for (const typ of typen) {
         let g;
         if (typ === 'flieger') { g = albatros([0, 0, 0], skin); g.rotation.y = 0.9; g.position.y = 20; }
-        else { const b = pinguinBauen(typ, [0, 0, 0], 1, { skin }); g = b.g; b.innen.rotation.y = typ === 'markt' || typ === 'fabrik' ? Math.PI / 2 + 0.6 : 0.9; }
+        else { const b = pinguinBauen(typ, [0, 0, 0], 1, { skin, sockel }); g = b.g; b.innen.rotation.y = typ === 'markt' || typ === 'fabrik' ? Math.PI / 2 + 0.6 : 0.9; }
         sc.add(g);
         const boot = typ === 'boot';
         k.position.set(68, boot ? 70 : 72, 88); k.lookAt(0, boot ? 14 : 24, 0);
@@ -1586,12 +1690,22 @@
         look[id] = c.toDataURL('image/png');
         sc.remove(b.g);
       }
+      const sockelBild = {};
+      for (const id of sockelListe) {
+        const b = pinguinBauen('zapfen', [0, 0, 0], 1, { skin, sockel:id });
+        b.innen.rotation.y = 0.9;
+        sc.add(b.g);
+        k.position.set(52, 42, 66); k.lookAt(0, 8, 0);
+        r.render(sc, k);
+        sockelBild[id] = c.toDataURL('image/png');
+        sc.remove(b.g);
+      }
       for (const typ of fische) {
         const f = PT.FISCHE[typ];
         const m = new T.Mesh(fischGeo(typ), new T.MeshPhongMaterial({ vertexColors:true, shininess:50 }));
         m.rotation.y = -0.5;
         sc.add(m);
-        const d = f.r * (typ === 'krake' || typ === 'krakus' || typ === 'rochen' ? 6.5 : typ === 'orka' ? 7.2 : 5.2);
+        const d = f.r * (typ === 'krake' || typ === 'krakus' || typ === 'rochen' ? 6.5 : typ === 'orka' || typ === 'haikoenig' ? 7.2 : typ === 'leviathan' ? 8.5 : typ === 'flug' ? 6.2 : 5.2);
         k.position.set(d * 0.2, d * 0.45, d); k.lookAt(0, 0, 0);
         r.render(sc, k);
         fisch[typ] = c.toDataURL('image/png');
@@ -1599,7 +1713,7 @@
       }
       r.dispose();
       if (r.forceContextLoss) r.forceContextLoss();
-      return { pingu, fisch, look };
+      return { pingu, fisch, look, sockel:sockelBild };
     }
   }
 

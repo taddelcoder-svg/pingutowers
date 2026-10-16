@@ -66,6 +66,13 @@ pruefe(b.raum && b.raum.mitglieder.length === 2, 'Ben ist im Raum');
 b.schicken({ t:'einst', karte:'nacht' });
 a.verarbeiten();
 pruefe(a.raum.einst.karte === 'scholle', 'nur der Gastgeber stellt die Karte ein');
+// eigene Karte des Gastgebers wird geprüft und an alle verteilt; kaputte Karten werden ignoriert
+a.schicken({ t:'einst', karte:'eigen', eigen:{ name:'Testkanal', wege:[[[-40, 300], [1040, 300]]] } });
+a.verarbeiten(); b.verarbeiten();
+pruefe(b.raum.einst.karte === 'eigen' && b.raum.einst.eigen.name === 'Testkanal', 'eigene Karte im Koop');
+a.schicken({ t:'einst', karte:'eigen', eigen:{ wege:[[[0, 0]]] } });
+a.verarbeiten();
+pruefe(a.raum.einst.eigen.name === 'Testkanal', 'kaputte Karte abgelehnt');
 a.schicken({ t:'einst', karte:'kreuz', stufe:'leicht', modus:'standard', geldModus:'getrennt' });
 a.schicken({ t:'wahl', held:'aurora', kraft:true, skin:'gold' });
 b.schicken({ t:'wahl', held:'kiel', kraft:false, skin:'standard' });

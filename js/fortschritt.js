@@ -121,7 +121,7 @@
     { titel:'Teure Zeiten', text:'Alles kostet 40 % mehr, dafür 1.200 Startgeld.', regeln:() => ({ preis:1.4, geld:1200 }) },
     { titel:'Glaskanone', text:'Nur 25 Leben.', regeln:() => ({ leben:25 }) },
     { titel:'Allein gegen alle', text:'Kein Held.', regeln:() => ({ ohneHeld:true }) },
-    { titel:'Knappe Kasse', text:'Nur 350 Startgeld.', regeln:() => ({ geld:350 }) }
+    { titel:'Knappe Kasse', text:'Nur 450 Startgeld.', regeln:() => ({ geld:450 }) }
   ];
   PT.tagesHerausforderung = function (datum) {
     const z = zufallAus('tag|' + datum);

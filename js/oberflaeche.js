@@ -15,7 +15,10 @@
   let welt = null, spiel = null, auswahl = null, bauTyp = null, zeiger = null, zielModus = null;
   let tempo = 1, pausiert = false, zeitRest = 0, letzte = 0, autoWarte = 0;
   let wahl = Object.assign({ karte:'scholle', stufe:'mittel', modus:'standard', held:'kiel', kraft:true }, speicher.lesen('pt-wahl') || {});
-  if (!PT.KARTEN[wahl.karte]) wahl.karte = 'scholle';
+  // eigene Karten aus dem Editor: [{ id, ...Karte }]
+  let eigeneKarten = (speicher.lesen('pt-karten') || []).map(k => { const ok = PT.karteOk(k); return ok && k.id ? { ...ok, id:String(k.id) } : null; }).filter(Boolean);
+  const eigeneKarte = id => eigeneKarten.find(k => 'eigen:' + k.id === id) || null;
+  if (!PT.KARTEN[wahl.karte] && !eigeneKarte(wahl.karte)) wahl.karte = 'scholle';
   if (!PT.STUFEN[wahl.stufe]) wahl.stufe = 'mittel';
   if (!PT.MODI[wahl.modus]) wahl.modus = 'standard';
   if (wahl.held && !PT.HELDEN[wahl.held]) wahl.held = 'kiel';
@@ -24,23 +27,108 @@
   let olymp = null;   // { ticket, info, einst } wenn als Olympia-Disziplin gespielt wird
   const medaillen = speicher.lesen('pt-medaillen') || {};
 
+  /* ---------- Einstellungen ---------- */
+  const einstellung = Object.assign({ laut:60, design:'auto', vorschau:true, balken:true, texte:true, wackeln:true, autoStart:false }, speicher.lesen('pt-einst') || {});
+  function einstAnwenden() {
+    if (einstellung.design === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', einstellung.design);
+    if (PT.Ton.lautstaerke) PT.Ton.lautstaerke(einstellung.laut / 100);
+    if (welt) { welt.lebensbalken = einstellung.balken; welt.texteAn = einstellung.texte; welt.kameraWackeln = einstellung.wackeln; }
+  }
+
+  /* ---------- Fortschritt: Fischmünzen, Wissen, Erfolge, Aufträge, Tages-Herausforderung ---------- */
+  const fort = Object.assign({ muenzen:0, wissen:{}, wissenAn:true, erfolge:{}, lebenslang:{ platzer:0, tage:0, siege:0 }, auftraege:null, tage:{} }, speicher.lesen('pt-fortschritt') || {});
+  fort.lebenslang = Object.assign({ platzer:0, tage:0, siege:0 }, fort.lebenslang);
+  const fortMerken = () => speicher.schreiben('pt-fortschritt', fort);
+  let tagesAktiv = null;          // Datum der Tages-Herausforderung, die gerade gespielt wird
+  let spielLohn = { xp:0, muenzen:0, erfolge:[] };   // was dieses Spiel gebracht hat (fürs Ergebnisbild)
+  let zaehler = null;             // Stand der Zähler beim letzten Melden (Aufträge, lebenslange Fische)
+  function auftraegeHeute() {
+    const d = PT.heute();
+    if (!fort.auftraege || fort.auftraege.datum !== d) { fort.auftraege = { datum:d, stand:{}, fertig:{} }; fortMerken(); }
+    return PT.tagesAuftraege(d);
+  }
+  function muenzenDazu(n, warum) {
+    if (!n) return;
+    fort.muenzen += n; spielLohn.muenzen += n; fortMerken();
+    if (warum) kurzTipp(`🪙 +${n} Fischmünzen – ${warum}`);
+  }
+  const boniAktiv = () => (!olymp && !tagesAktiv && fort.wissenAn !== false ? PT.boniAus(fort.wissen) : null);
+
   /* ---------- Pinguin-Pass ---------- */
-  const pass = Object.assign({ xp:0, skin:'standard' }, speicher.lesen('pt-pass') || {});
+  const pass = Object.assign({ xp:0, skin:'standard', sockel:'standard' }, speicher.lesen('pt-pass') || {});
   const passStufe = () => PT.passStufe(pass.xp).stufe;
   if (!PT.SKINS[pass.skin] || !PT.skinFrei(pass.skin, passStufe())) pass.skin = 'standard';
-  let lookBilder = {};
-  function belohnungText(b) { return b.skin ? `Neuer Look: ${PT.SKINS[b.skin].name}` : `Meisterkraft für ${PT.HELDEN[b.kraft].name}`; }
+  if (!PT.SOCKEL[pass.sockel] || !PT.sockelFrei(pass.sockel, passStufe())) pass.sockel = 'standard';
+  let lookBilder = {}, sockelBilder = {};
+  function belohnungText(b) {
+    if (b.skin) return `Neuer Look: ${PT.SKINS[b.skin].name}`;
+    if (b.sockel) return `Neuer Sockel: ${PT.SOCKEL[b.sockel].name}`;
+    if (b.muenzen) return `${b.muenzen} Fischmünzen`;
+    return `Meisterkraft für ${PT.HELDEN[b.kraft].name}`;
+  }
   function xpDazu(n) {
     if (!n || !spiel || spiel.unendlich) return;
     const vor = passStufe();
     pass.xp += n;
+    spielLohn.xp += n;
     speicher.schreiben('pt-pass', pass);
     const nach = passStufe();
     for (let st = vor + 1; st <= nach; st++) {
       const b = PT.PASS_BELOHNUNG[st];
       banner(`🎖️ Pinguin-Pass Stufe ${st}!`, b ? belohnungText(b) : 'Weiter so!', 3);
+      if (b && b.muenzen) muenzenDazu(b.muenzen);
       PT.Ton.upgrade();
     }
+  }
+  // Zähler seit dem letzten Melden: Aufträge, lebenslange Fische (nach jeder Runde und am Spielende)
+  function zaehlerStand() {
+    const pops = {};
+    for (const t of spiel.tuerme) pops[t.typ] = (pops[t.typ] || 0) + t.pops;
+    return { platzer:spiel.statistik.platzer, faehigkeiten:spiel.statistik.faehigkeiten || 0, stufe5:spiel.statistik.stufe5 || 0, pops };
+  }
+  function fortschrittMelden(art) {
+    if (!spiel || spiel.unendlich || olymp) return;
+    const jetzt = zaehlerStand(), alt = zaehler || jetzt;
+    zaehler = jetzt;
+    const d = (k) => Math.max(0, (jetzt[k] || 0) - (alt[k] || 0));
+    fort.lebenslang.platzer += d('platzer');
+    const liste = auftraegeHeute(), A = fort.auftraege;
+    for (const a of liste) {
+      if (A.fertig[a.id]) continue;
+      let plus = 0;
+      if (a.art === 'platzer') plus = d('platzer');
+      if (a.art === 'faehigkeiten') plus = d('faehigkeiten');
+      if (a.art === 'stufe5') plus = d('stufe5');
+      if (a.art === 'runden' && art === 'runde') plus = 1;
+      if (a.art === 'sieg' && art === 'sieg') plus = 1;
+      if (a.art === 'pinguin') plus = Math.max(0, (jetzt.pops[a.typ] || 0) - (alt.pops[a.typ] || 0));
+      if (!plus) continue;
+      A.stand[a.id] = Math.min(a.ziel, (A.stand[a.id] || 0) + plus);
+      if (A.stand[a.id] >= a.ziel) {
+        A.fertig[a.id] = true;
+        banner('📋 Auftrag erledigt!', `${a.text} · +${a.xp} Erfahrung · +${a.muenzen} 🪙`, 3);
+        PT.Ton.aufstieg && PT.Ton.aufstieg();
+        fortMerken();
+        xpDazu(a.xp);
+        muenzenDazu(a.muenzen);
+      }
+    }
+    if (art === 'sieg') fort.lebenslang.siege++;
+    if (art === 'runde' && spiel.runde % 5 === 0) muenzenDazu(1);
+    fortMerken();
+    erfolgeCheck(art === 'sieg' || art === 'verloren', art === 'sieg');
+  }
+  function erfolgeCheck(ende, gewonnen) {
+    if (!spiel || olymp) return;
+    const neu = PT.erfolgePruefen({ spiel, gewonnen, ende, geld:meinGeld(), lebenslang:fort.lebenslang, passStufe:passStufe(), medaillen }, fort.erfolge);
+    for (const e of neu) {
+      fort.erfolge[e.id] = PT.heute();
+      spielLohn.erfolge.push(e);
+      banner(`🏆 Erfolg: ${e.name}`, `${e.text} · +${e.muenzen} 🪙`, 3);
+      muenzenDazu(e.muenzen);
+    }
+    if (neu.length) fortMerken();
   }
   // Meisterkraft im Einzelspiel: freigeschaltet und eingeschaltet (in der Olympiade nie)
   const kraftAktiv = held => !olymp && wahl.kraft !== false && !!held && PT.kraftFrei(held, passStufe());
@@ -51,6 +139,30 @@
     $('#passBalken').style.width = (info.bedarf ? Math.round(info.rest / info.bedarf * 100) : 100) + '%';
     const naechste = Object.keys(PT.PASS_BELOHNUNG).map(Number).find(st => st > info.stufe);
     $('#passNaechst').textContent = naechste ? `Nächste Belohnung auf Stufe ${naechste}: ${belohnungText(PT.PASS_BELOHNUNG[naechste])}.` : 'Alles freigeschaltet!';
+    $('#muenzen').textContent = `🪙 ${zahl(fort.muenzen)}`;
+    // Leiste mit den Belohnungen rund um die aktuelle Stufe
+    const von = Math.max(1, Math.min(info.stufe - 2, PT.PASS_MAX - 9));
+    let leiste = '';
+    for (let st = von; st <= Math.min(PT.PASS_MAX, von + 11); st++) {
+      const b = PT.PASS_BELOHNUNG[st];
+      const bild = b && b.skin && lookBilder[b.skin] ? `<img src="${lookBilder[b.skin]}" alt="">` : b && b.sockel && sockelBilder[b.sockel] ? `<img src="${sockelBilder[b.sockel]}" alt="">`
+        : `<i>${!b ? '🎖️' : b.muenzen ? '🪙' : b.kraft ? '✨' : '🎁'}</i>`;
+      const name = !b ? 'Stufe' : b.skin ? PT.SKINS[b.skin].name : b.sockel ? 'Sockel ' + PT.SOCKEL[b.sockel].name : b.muenzen ? `${b.muenzen} Münzen` : 'Meisterkraft';
+      leiste += `<div class="stufe-chip ${st <= info.stufe ? 'da' : ''} ${st === info.stufe ? 'jetzt' : ''}"><b>${st}</b>${bild}<span>${esc(name)}</span></div>`;
+    }
+    $('#passLeiste').innerHTML = leiste;
+    // Tagesaufträge
+    const auf = auftraegeHeute();
+    $('#auftraege').innerHTML = auf.map(a => {
+      const st = fort.auftraege.stand[a.id] || 0, fertig = !!fort.auftraege.fertig[a.id];
+      return `<li class="${fertig ? 'fertig' : ''}">${fertig ? '✅' : '🎯'} ${esc(a.text)}<small>${fertig ? 'Erledigt!' : `${zahl(st)} / ${zahl(a.ziel)}`} · +${a.xp} Erfahrung · +${a.muenzen} 🪙</small><div class="mini"><i style="width:${Math.round(st / a.ziel * 100)}%"></i></div></li>`;
+    }).join('');
+    const sockelEl = $('#sockel');
+    sockelEl.innerHTML = PT.SOCKEL_REIHE.map(id => {
+      const frei = PT.sockelFrei(id, info.stufe);
+      return `<button class="look" data-sockel="${id}" aria-pressed="${pass.sockel === id}" ${frei ? '' : 'disabled'}><img src="${sockelBilder[id] || ''}" alt=""><b>${esc(PT.SOCKEL[id].name)}</b><small>${frei ? (pass.sockel === id ? 'Aktiv' : 'Benutzen') : `🔒 Stufe ${PT.belohnungStufe('sockel', id) || '?'}`}</small></button>`;
+    }).join('');
+    for (const b of sockelEl.querySelectorAll('[data-sockel]')) b.onclick = () => sockelWaehlen(b.dataset.sockel);
     const looks = $('#looks');
     looks.innerHTML = PT.SKIN_REIHE.map(id => {
       const frei = PT.skinFrei(id, info.stufe);
@@ -69,15 +181,26 @@
     pass.skin = id;
     speicher.schreiben('pt-pass', pass);
     PT.Ton.klick();
-    bilderMalen();
-    if (netz && netz.raum) senden({ t:'wahl', held:meinMitglied() ? meinMitglied().held : wahl.held, kraft:kraftAktivKoop(), skin:pass.skin });
+    bilderMalen(false, true);
+    if (netz && netz.raum) senden({ t:'wahl', held:meinMitglied() ? meinMitglied().held : wahl.held, kraft:kraftAktivKoop(), skin:pass.skin, sockel:pass.sockel });
     menueBauen();
   }
-  // Vorschaubilder im aktuellen Look (Laden, Helden) und alle Looks für den Pass
-  function bilderMalen(mitLooks) {
-    const b = PT.Welt.bilder([...PT.PINGUIN_REIHE, ...PT.HELDEN_REIHE], mitLooks ? [...PT.FISCH_REIHE, ...PT.BOSS_REIHE] : [], pass.skin, mitLooks ? PT.SKIN_REIHE : []);
+  function sockelWaehlen(id) {
+    if (!PT.sockelFrei(id, passStufe()) || pass.sockel === id) return;
+    pass.sockel = id;
+    speicher.schreiben('pt-pass', pass);
+    PT.Ton.klick();
+    bilderMalen();
+    if (netz && netz.raum) senden({ t:'wahl', held:meinMitglied() ? meinMitglied().held : wahl.held, kraft:kraftAktivKoop(), skin:pass.skin, sockel:pass.sockel });
+    menueBauen();
+  }
+  // Vorschaubilder im aktuellen Look (Laden, Helden), alle Looks und Sockel für den Pass
+  function bilderMalen(mitLooks, nurSockel) {
+    const b = PT.Welt.bilder([...PT.PINGUIN_REIHE, ...PT.HELDEN_REIHE], mitLooks ? [...PT.FISCH_REIHE, ...PT.BOSS_REIHE] : [], pass.skin, mitLooks ? PT.SKIN_REIHE : [],
+      pass.sockel, mitLooks || nurSockel ? PT.SOCKEL_REIHE : []);
     bilder = b.pingu;
     if (mitLooks) { fischBilder = b.fisch; lookBilder = b.look; }
+    if (mitLooks || nurSockel) sockelBilder = b.sockel;
   }
 
   /* ---------- Koop: Verbindung zum Server ----------
@@ -105,7 +228,7 @@
     ws.onopen = () => {
       netz.versuche = 0;
       const alt = speicher.lesen('pt-koop', sessionStorage);
-      ws.send(JSON.stringify({ t:'hallo', name:koopName(), skin:pass.skin, token:alt && alt.token, code:alt && alt.code }));
+      ws.send(JSON.stringify({ t:'hallo', name:koopName(), skin:pass.skin, sockel:pass.sockel, token:alt && alt.token, code:alt && alt.code }));
       for (const d of netz.warte.splice(0)) ws.send(JSON.stringify(d));
       koopFehler('');
       if (imKoop()) kurzTipp('Wieder verbunden.');
@@ -143,7 +266,7 @@
         speicher.schreiben('pt-koop', { token:netz.token, code:d.code }, sessionStorage);
         koopReiter = true;
         // gerade beigetreten: eigenen Helden, Meisterkraft und Look mitteilen
-        if ((!alt || alt.code !== d.code) && d.phase === 'lobby') senden({ t:'wahl', held:wahl.held, kraft:kraftAktivKoop(wahl.held), skin:pass.skin });
+        if ((!alt || alt.code !== d.code) && d.phase === 'lobby') senden({ t:'wahl', held:wahl.held, kraft:kraftAktivKoop(wahl.held), skin:pass.skin, sockel:pass.sockel });
         if (d.phase === 'lobby' && imKoop()) zumMenue();
         if (d.phase === 'spiel' && imKoop()) {
           tempo = d.tempo;
@@ -151,7 +274,7 @@
           koopPauseZeigen();
           letzteAnzeige = '';
           // Looks und Farben der Mitspieler können sich geändert haben (z. B. nach Wiederverbinden)
-          if (alt && JSON.stringify(alt.mitglieder.map(m => m.skin)) !== JSON.stringify(d.mitglieder.map(m => m.skin)) && welt) welt.allesNeu();
+          if (alt && JSON.stringify(alt.mitglieder.map(m => m.skin + m.sockel)) !== JSON.stringify(d.mitglieder.map(m => m.skin + m.sockel)) && welt) welt.allesNeu();
         }
         if (!$('#menue').hidden) menueBauen();
         break;
@@ -264,7 +387,7 @@
 
   /* ---------- Menü ---------- */
   function kartenVorschau(canvas, id) {
-    const k = PT.KARTEN[id];
+    const k = typeof id === 'string' ? PT.KARTEN[id] || eigeneKarte(id) : id;
     canvas.width = 500; canvas.height = 320;
     const x = canvas.getContext('2d');
     x.scale(0.5, 0.5);
@@ -288,7 +411,16 @@
       x.fillStyle = '#2a8fc4'; x.strokeStyle = '#fff'; x.lineWidth = 6;
       x.beginPath(); x.arc(wx, wy, wr, 0, Math.PI * 2); x.fill(); x.stroke();
     }
+    for (const [sx, sy, sr] of k.schmelzen || []) {
+      x.fillStyle = 'rgba(94,200,255,0.45)'; x.strokeStyle = '#2a8fc4'; x.lineWidth = 4; x.setLineDash([10, 8]);
+      x.beginPath(); x.arc(sx, sy, sr, 0, Math.PI * 2); x.fill(); x.stroke(); x.setLineDash([]);
+    }
+    for (const [tx, ty, tr] of k.tunnel || []) {
+      x.fillStyle = k.thema === 'nacht' ? '#8ea3c4' : '#e4f5ff'; x.strokeStyle = '#9cc6e0'; x.lineWidth = 5;
+      x.beginPath(); x.arc(tx, ty, tr, 0, Math.PI * 2); x.fill(); x.stroke();
+    }
   }
+  PT.kartenVorschau = kartenVorschau;
   function medaillenText(karte) {
     const stufen = Object.entries(PT.STUFEN).map(([id, st]) => `<i class="${medaillen[`${karte}|${id}|standard`] ? '' : 'aus'}" title="${esc(st.name)}">${st.medaille}</i>`).join('');
     const modi = new Set(Object.keys(medaillen).filter(k => k.startsWith(karte + '|') && !k.endsWith('|standard') && !k.endsWith('|sandkasten')).map(k => k.split('|')[2]));
@@ -318,6 +450,44 @@
       kartenVorschau(b.querySelector('canvas'), id);
       b.onclick = () => waehle('karte', id);
       karten.appendChild(b);
+    }
+    // Koop-Gäste sehen die eigene Karte des Gastgebers
+    if (koopReiter && E.karte === 'eigen' && E.eigen && !binHost()) {
+      const b = document.createElement('button');
+      b.className = 'kartenwahl'; b.setAttribute('aria-pressed', 'true'); b.disabled = true;
+      b.innerHTML = `<canvas></canvas><div><b>${esc(E.eigen.name)}<span class="chip">Eigene</span></b><small>Karte des Gastgebers.</small></div>`;
+      kartenVorschau(b.querySelector('canvas'), E.eigen);
+      karten.appendChild(b);
+    }
+    // eigene Karten aus dem Editor
+    if (!olymp && (!koopReiter || binHost())) {
+      for (const k of eigeneKarten) {
+        const id = 'eigen:' + k.id;
+        const b = document.createElement('button');
+        b.className = 'kartenwahl';
+        b.setAttribute('aria-pressed', koopReiter ? E.karte === 'eigen' && !!E.eigen && E.eigen.name === k.name : E.karte === id);
+        b.innerHTML = `<canvas></canvas><div><b>${esc(k.name)}<span class="chip">Eigene</span></b><small>${k.wege.length} ${k.wege.length === 1 ? 'Kanal' : 'Kanäle'} · selbst gebaut</small>
+          <div class="karten-knoepfe"><span data-aktion="bearbeiten" role="button" tabindex="0">✏️ Bearbeiten</span><span data-aktion="teilen" role="button" tabindex="0">🔗 Teilen</span><span data-aktion="weg" role="button" tabindex="0">🗑️</span></div></div>`;
+        kartenVorschau(b.querySelector('canvas'), k);
+        b.onclick = e => {
+          const aktion = e.target.closest('[data-aktion]');
+          if (aktion) {
+            e.stopPropagation();
+            if (aktion.dataset.aktion === 'bearbeiten') editorOeffnen(k);
+            if (aktion.dataset.aktion === 'teilen') karteTeilen(k);
+            if (aktion.dataset.aktion === 'weg' && confirm(`Karte „${k.name}“ löschen?`)) { karteLoeschen(k.id); }
+            return;
+          }
+          if (koopReiter) { PT.Ton.klick(); if (binHost()) senden({ t:'einst', ...netz.raum.einst, karte:'eigen', eigen:{ name:k.name, thema:k.thema, wege:k.wege, hindernisse:k.hindernisse, wasser:k.wasser, tunnel:k.tunnel } }); return; }
+          waehle('karte', id);
+        };
+        karten.appendChild(b);
+      }
+      const neu = document.createElement('button');
+      neu.className = 'kartenwahl neu';
+      neu.innerHTML = '<div><span>✏️</span>Eigene Karte bauen</div>';
+      neu.onclick = () => editorOeffnen(null);
+      karten.appendChild(neu);
     }
     const stufen = $('#stufen');
     stufen.innerHTML = '';
@@ -356,12 +526,52 @@
     }
     heldenBauen();
     const stand = speicher.lesen('pt-stand');
-    $('#weiterReihe').hidden = koopReiter || !stand || !PT.KARTEN[stand.karte];
-    if (stand && PT.KARTEN[stand.karte]) {
-      $('#weiterText').textContent = `${PT.KARTEN[stand.karte].name}, ${PT.STUFEN[stand.stufe] ? PT.STUFEN[stand.stufe].name : ''}${stand.modus && stand.modus !== 'standard' ? ', ' + PT.MODI[stand.modus].name : ''} – Runde ${stand.runde + 1}`;
+    const standKarte = stand && (stand.karte === 'eigen' ? PT.karteOk(stand.eigeneKarte) : PT.KARTEN[stand.karte]);
+    $('#weiterReihe').hidden = koopReiter || !standKarte;
+    if (standKarte) {
+      $('#weiterText').textContent = `${stand.tag ? '📅 ' : ''}${standKarte.name}, ${PT.STUFEN[stand.stufe] ? PT.STUFEN[stand.stufe].name : ''}${stand.modus && stand.modus !== 'standard' ? ', ' + PT.MODI[stand.modus].name : ''} – Runde ${stand.runde + 1}`;
     }
     const zahlMed = Object.keys(medaillen).filter(k => !k.endsWith('|sandkasten')).length;
-    $('#erfolge').textContent = zahlMed ? `🏅 ${zahlMed} ${zahlMed === 1 ? 'Sieg' : 'Siege'} gesammelt` : '';
+    const zahlErf = Object.keys(fort.erfolge).length;
+    $('#erfolge').textContent = zahlMed || zahlErf ? `🏅 ${zahlMed} ${zahlMed === 1 ? 'Medaille' : 'Medaillen'} · 🏆 ${zahlErf} von ${PT.ERFOLGE.length} Erfolgen` : '';
+    extrasBauen();
+  }
+  // Tages-Herausforderung, Pinguin-Wissen und Erfolge im Menü
+  function extrasBauen() {
+    const h = PT.tagesHerausforderung(PT.heute());
+    const geschafft = !!fort.tage[h.datum];
+    $('#tagBox').hidden = !!olymp || koopReiter;
+    $('#tagBox').classList.toggle('geschafft', geschafft);
+    $('#tagDatum').textContent = new Date().toLocaleDateString('de-DE', { weekday:'long', day:'numeric', month:'long' });
+    $('#tagTitel').textContent = h.titel;
+    $('#tagText').textContent = h.text;
+    $('#tagLohn').textContent = geschafft ? '✅ Heute schon geschafft! Morgen gibt es eine neue.' : `Belohnung: ${h.xp} Erfahrung und ${h.muenzen} 🪙 · ${fort.lebenslang.tage} geschafft`;
+    $('#tagLos').textContent = geschafft ? 'Nochmal spielen (ohne Belohnung)' : 'Herausforderung starten';
+    $('#wissenBox').hidden = !!olymp;
+    $('#wissenAn').checked = fort.wissenAn !== false;
+    const gesamt = PT.WISSEN_REIHE.reduce((n, id) => n + (fort.wissen[id] || 0), 0);
+    $('#wissenKurz').textContent = `🪙 ${zahl(fort.muenzen)} · ${gesamt} gelernt`;
+    $('#wissen').innerHTML = PT.WISSEN_REIHE.map(id => {
+      const w = PT.WISSEN[id], n = fort.wissen[id] || 0, voll = n >= w.max, preis = voll ? 0 : w.kosten[n];
+      return `<div class="wissen-item"><b>${w.symbol} ${esc(w.name)}</b><small>${n ? esc(w.text(n)) : 'Noch nicht gelernt.'}${voll ? '' : ` Nächste Stufe: ${esc(w.text(n + 1))}.`}</small>
+        <div class="pips">${Array.from({ length:w.max }, (_, i) => `<i class="${i < n ? 'an' : ''}"></i>`).join('')}</div>
+        <button data-wissen="${id}" ${voll || preis > fort.muenzen ? 'disabled' : ''}>${voll ? 'Voll' : `${preis} 🪙`}</button></div>`;
+    }).join('');
+    for (const b of document.querySelectorAll('[data-wissen]')) b.onclick = () => {
+      const id = b.dataset.wissen, w = PT.WISSEN[id], n = fort.wissen[id] || 0;
+      if (n >= w.max || w.kosten[n] > fort.muenzen) return;
+      fort.muenzen -= w.kosten[n]; fort.wissen[id] = n + 1; fortMerken();
+      PT.Ton.upgrade();
+      passBauen(); extrasBauen();
+    };
+    $('#erfolgeKurz').textContent = `${Object.keys(fort.erfolge).length} / ${PT.ERFOLGE.length}`;
+    $('#erfolgeListe').innerHTML = PT.ERFOLGE.map(e => `<div class="erfolg ${fort.erfolge[e.id] ? 'da' : ''}"><i>${e.symbol}</i><span><b>${esc(e.name)}</b><small>${esc(e.text)} · ${e.muenzen} 🪙</small></span></div>`).join('');
+  }
+  function tagesStarten() {
+    const h = PT.tagesHerausforderung(PT.heute());
+    speicher.weg('pt-stand');
+    tagesAktiv = h.datum;
+    spielStarten(new PT.Spiel({ karte:h.karte, stufe:h.stufe, modus:h.modus, held:h.held, kraft:kraftAktiv(h.held), regeln:h.regeln, seed:Date.now() & 0xffffff }));
   }
   function heldenBauen() {
     const E = einst();
@@ -383,7 +593,7 @@
       b.onclick = () => {
         PT.Ton.klick();
         wahl.held = id; speicher.schreiben('pt-wahl', wahl);
-        if (koopReiter && netz && netz.raum) senden({ t:'wahl', held:id, kraft:kraftAktivKoop(id), skin:pass.skin });
+        if (koopReiter && netz && netz.raum) senden({ t:'wahl', held:id, kraft:kraftAktivKoop(id), skin:pass.skin, sockel:pass.sockel });
         menueBauen();
       };
       h.appendChild(b);
@@ -433,7 +643,7 @@
     const n = koopName();
     if (!n) { koopFehler('Gib zuerst deinen Namen ein.'); $('#koopName').focus(); return false; }
     speicher.schreiben('pt-name', n);
-    senden({ t:'hallo', name:n, skin:pass.skin });
+    senden({ t:'hallo', name:n, skin:pass.skin, sockel:pass.sockel });
     return true;
   }
   function wahlMerken() { speicher.schreiben('pt-wahl', wahl); menueBauen(); }
@@ -447,6 +657,11 @@
       krake:'4000 Treffer, dann 4 Megalodons.', krakus:'Der Boss der Boss-Jagd. Ruft Verstärkung. Darf nie durchkommen!'
     };
     beschr.orka = 'Der Boss des Orka-Angriffs. Seine Flutwellen betäuben Pinguine am Ufer. Darf nie durchkommen!';
+    Object.assign(beschr, {
+      flug:'Springt immer wieder aus dem Wasser – in der Luft treffen ihn nur Flieger.', tinte:'Verspritzt beim Platzen Tinte: Pinguine in der Nähe sehen kurz nichts.',
+      kugel:'Bläht sich nach einem Treffer auf – dann prallt kurz alles ab. Dann 2 Regenbogenforellen.',
+      leviathan:'Der Boss von „Leviathan-Erwachen“. Sein Eisatem friert Pinguine am Ufer ein.', haikoenig:'Der Boss von „Hai-König“. Ruft ständig neue Fische herbei.'
+    });
     $('#lexikon').innerHTML = [...PT.FISCH_REIHE, ...PT.BOSS_REIHE].map(id => {
       const f = PT.FISCHE[id];
       return `<div><img src="${fischBilder[id] || ''}" alt=""><span><b>${esc(f.name)}</b><br><small>${esc(beschr[id])}</small></span></div>`;
@@ -456,6 +671,9 @@
   /* ---------- Spiel starten ---------- */
   function spielStarten(neu) {
     spiel = neu;
+    spielLohn = { xp:0, muenzen:0, erfolge:[] };
+    zaehler = zaehlerStand();
+    vorschauSchluessel = '';
     auswahl = null; bauTyp = null; zielModus = null; tempo = 1; pausiert = false; zeitRest = 0; autoWarte = 0;
     olympGemeldet = false;
     endeArt = null;
@@ -471,11 +689,12 @@
       welt.grafik(grafikHoch);
       // Aussehen der Pinguine: eigener Look, im Koop Look und Farbe des Besitzers
       welt.aussehenFuer = t => {
-        if (!spiel || !spiel.koop || t.besitzer == null) return { skin:pass.skin };
+        if (!spiel || !spiel.koop || t.besitzer == null) return { skin:pass.skin, sockel:pass.sockel };
         const sp = spiel.spielerVon(t.besitzer);
         const m = netz && netz.raum && netz.raum.mitglieder.find(x => x.id === t.besitzer);
-        return { skin:m ? m.skin : 'standard', farbe:sp ? PT.KOOP_FARBEN[sp.farbe] : null };
+        return { skin:m ? m.skin : 'standard', sockel:m ? m.sockel : 'standard', farbe:sp ? PT.KOOP_FARBEN[sp.farbe] : null };
       };
+      einstAnwenden();
     }
     welt.namenZeigen = spiel.koop && spiel.spieler.length > 1;
     welt.karteLaden(spiel);
@@ -489,8 +708,10 @@
     tipp('');
     if (spiel.runde === 0 && !spiel.tuerme.length) { tipp(spiel.heldVon(ich()) ? 'Setz zuerst deinen Helden und ein paar Pinguine neben den Kanal.' : 'Wähle einen Pinguin und setz ihn neben den Kanal.'); tippZeit = 6; }
     const geldText = spiel.koop ? ` · ${spiel.spieler.length} Spieler, ${PT.KOOP_GELD[spiel.geldModus].name}` : '';
-    banner(PT.KARTEN[spiel.karte].name, `${PT.STUFEN[spiel.stufe].name} · ${spiel.zielRunden} Runden${spiel.modus !== 'standard' ? ' · ' + md.name : ''}${geldText}`);
-    $('#auto').checked = spiel.koop ? !!(netz.raum && netz.raum.auto) : speicher.lesen('pt-auto') === true;
+    if (tagesAktiv) banner(`📅 ${PT.tagesHerausforderung(tagesAktiv).titel}`, `${spiel.kartenDaten.name} · ${PT.STUFEN[spiel.stufe].name} · ${spiel.zielRunden} Runden`, 3);
+    else banner(spiel.kartenDaten.name, `${PT.STUFEN[spiel.stufe].name} · ${spiel.zielRunden} Runden${spiel.modus !== 'standard' ? ' · ' + md.name : ''}${geldText}`);
+    if (tagesAktiv) $('#modusAnzeige').textContent = '📅 Tages-Herausforderung';
+    $('#auto').checked = spiel.koop ? !!(netz.raum && netz.raum.auto) : speicher.lesen('pt-auto') === true || (einstellung.autoStart && spiel.runde === 0);
     $('#pNeu').hidden = !!olymp || spiel.koop;
     $('#pMenue').textContent = spiel.koop ? 'Raum verlassen' : 'Zum Hauptmenü';
     mitspielerZeigen();
@@ -498,9 +719,67 @@
   }
   function neuesSpiel() {
     speicher.weg('pt-stand');
-    spielStarten(new PT.Spiel({ karte:wahl.karte, stufe:wahl.stufe, modus:wahl.modus, held:wahl.held, kraft:kraftAktiv(wahl.held), seed:Date.now() & 0xffffff }));
+    tagesAktiv = null;
+    const eigen = eigeneKarte(wahl.karte);
+    spielStarten(new PT.Spiel({ karte:eigen ? 'eigen' : wahl.karte, eigeneKarte:eigen, stufe:wahl.stufe, modus:wahl.modus, held:wahl.held, kraft:kraftAktiv(wahl.held),
+      boni:boniAktiv(), seed:Date.now() & 0xffffff }));
   }
+  /* ---------- Eigene Karten ---------- */
+  function kartenMerken() { speicher.schreiben('pt-karten', eigeneKarten); }
+  function karteSpeichern(k) {
+    const ok = PT.karteOk(k);
+    if (!ok) return null;
+    const id = k.id || Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
+    const neu = { ...ok, id:String(id) };
+    const i = eigeneKarten.findIndex(x => x.id === neu.id);
+    if (i >= 0) eigeneKarten[i] = neu; else eigeneKarten.push(neu);
+    eigeneKarten = eigeneKarten.slice(-20);
+    kartenMerken();
+    return neu;
+  }
+  function karteLoeschen(id) {
+    eigeneKarten = eigeneKarten.filter(k => k.id !== id);
+    kartenMerken();
+    if (wahl.karte === 'eigen:' + id) wahl.karte = 'scholle';
+    wahlMerken();
+  }
+  // Teilen-Link: die Karte steckt (kurz gepackt) im Link
+  function karteLink(k) {
+    const roh = { n:k.name, t:k.thema, w:k.wege, h:k.hindernisse, s:k.wasser, u:k.tunnel };
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(roh)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    return `${location.origin}${location.pathname}?karte=${b64}`;
+  }
+  function karteAusLink(text) {
+    try {
+      const roh = JSON.parse(decodeURIComponent(escape(atob(text.replace(/-/g, '+').replace(/_/g, '/')))));
+      return PT.karteOk({ name:roh.n, thema:roh.t, wege:roh.w, hindernisse:roh.h, wasser:roh.s, tunnel:roh.u });
+    } catch (e) { return null; }
+  }
+  async function karteTeilen(k) {
+    const link = karteLink(k);
+    try {
+      if (navigator.share) { await navigator.share({ title:`Pinguin Türmchen: ${k.name}`, url:link }); return; }
+      await navigator.clipboard.writeText(link);
+      alert('Link kopiert! Schick ihn an deine Freunde – wer ihn öffnet, bekommt die Karte.');
+    } catch (e) { prompt('Diesen Link kopieren und verschicken:', link); }
+  }
+  function editorOeffnen(k) {
+    PT.Ton.klick();
+    $('#menue').hidden = true;
+    $('#editor').hidden = false;
+    window.scrollTo(0, 0);
+    PT.Editor.oeffnen(k);
+  }
+  function editorZu(gespeichert, spielen) {
+    $('#editor').hidden = true;
+    if (gespeichert) { wahl.karte = 'eigen:' + gespeichert.id; speicher.schreiben('pt-wahl', wahl); }
+    if (spielen && gespeichert) { neuesSpiel(); return; }
+    $('#menue').hidden = false;
+    menueBauen();
+  }
+  PT.UI = { karteSpeichern, karteLink, karteTeilen, editorZu, kartenVorschau, speicher };
   function zumMenue() {
+    if (spiel && !spiel.vorbei) fortschrittMelden('menue');
     $('#spiel').hidden = true;
     $('#pause').hidden = true;
     $('#ende').hidden = true;
@@ -622,7 +901,7 @@
     if (t.eff.flieger) return `<div class="ziele drei" role="group" aria-label="Flugbahn">${PT.MUSTER.map(([id, name]) => `<button data-muster="${id}" aria-pressed="${t.muster === id}">${name}</button>`).join('')}</div>`;
     if (d.greift === false) return '';
     const ziele = d.ziele || PT.ZIELE;
-    return `<div class="ziele" role="group" aria-label="Ziel">${ziele.map(([id, name]) => `<button data-ziel="${id}" aria-pressed="${t.ziel === id}">${name}</button>`).join('')}</div>`;
+    return `<div class="ziele ${ziele.length > 4 ? 'sechs' : ''}" role="group" aria-label="Ziel">${ziele.map(([id, name]) => `<button data-ziel="${id}" aria-pressed="${t.ziel === id}">${name}</button>`).join('')}</div>`;
   }
   function kennzahlenText(t) {
     const k = spiel.kennzahlen(t);
@@ -656,7 +935,8 @@
       ${besitzer ? `<small class="besitzer" style="--f:${PT.KOOP_FARBEN[besitzer.farbe]}"><i></i>${besitzer.id === netz.id ? 'Dein Pinguin' : 'Gehört ' + esc(besitzer.name)}</small>` : ''}</div>
       <button class="lknopf schliessen" id="tiZu" aria-label="Schließen">✕</button></div>`;
     html += kennzahlenText(t);
-    if (t.betaeubt > 0) html += '<p class="hinweis">💫 Von einer Flutwelle betäubt.</p>';
+    if (t.betaeubt > 0) html += `<p class="hinweis">${{ eis:'🧊 Vom Eisatem eingefroren.', tinte:'🦑 Voller Tinte – sieht gerade nichts.' }[t.betaeubtArt] || '💫 Von einer Flutwelle betäubt.'}</p>`;
+    if (t.verdient) html += `<p class="hinweis">🍤 Schon ${zahl(t.verdient)} Geld mit Fischstäbchen verdient.</p>`;
     if (!meins) {
       // Getrenntes Geld: fremde Pinguine nur anschauen
       html += `<p class="hinweis">Bei getrennter Kasse kann nur ${esc(besitzer ? besitzer.name : 'der Besitzer')} diesen Pinguin aufrüsten oder verkaufen.</p>`;
@@ -713,6 +993,61 @@
   function verkaufen() {
     if (!auswahl || !spiel.darf(auswahl, ich())) return;
     tun({ t:'verkauf', id:auswahl.id });
+  }
+
+  /* ---------- Vorschau auf die nächste Runde ---------- */
+  let vorschauSchluessel = '', vorschauKlein = speicher.lesen('pt-vorschau-klein') === true;
+  function vorschauZeigen() {
+    const el = $('#vorschau');
+    const zeigen = einstellung.vorschau && spiel && !spiel.laeuft && !spiel.vorbei && !spiel.unendlich && (!spiel.gewonnen || spiel.endlos) && $('#ende').hidden;
+    if (!zeigen) { if (!el.hidden) el.hidden = true; return; }
+    const n = spiel.runde + 1;
+    const k = `${n}|${vorschauKlein}`;
+    el.hidden = false;
+    if (k === vorschauSchluessel) return;
+    vorschauSchluessel = k;
+    const r = PT.runde(n, spiel.modus);
+    const summe = new Map();
+    for (const g of r.gruppen) {
+      const sch = `${g.typ}|${g.camo ? 'c' : ''}${g.nach ? 'r' : ''}${g.fest ? 'f' : ''}`;
+      const alt = summe.get(sch);
+      summe.set(sch, { ...g, anzahl:(alt ? alt.anzahl : 0) + g.anzahl });
+    }
+    const teile = [...summe.values()].sort((a, b) => PT.FISCHE[b.typ].rbe - PT.FISCHE[a.typ].rbe).map(g => {
+      const zus = (g.camo ? '👻' : '') + (g.nach ? '🌿' : '') + (g.fest ? '⛑️' : '');
+      return `<span class="${PT.FISCHE[g.typ].boss ? 'boss' : ''}" title="${esc(PT.FISCHE[g.typ].name)}"><img src="${fischBilder[g.typ] || ''}" alt="${esc(PT.FISCHE[g.typ].name)}">${g.anzahl}×${zus ? `<em>${zus}</em>` : ''}</span>`;
+    });
+    el.classList.toggle('klein', vorschauKlein);
+    el.innerHTML = `<b>🔍 Runde ${n}${r.boss ? ` · ${PT.BOSSE[r.bossTyp].symbol} Boss!` : ''}${vorschauKlein ? ' ▸' : ''}</b><div class="vf">${teile.join('')}</div>`;
+  }
+
+  /* ---------- Einstellungen-Dialog ---------- */
+  function einstOeffnen() {
+    PT.Ton.klick();
+    $('#eLaut').value = einstellung.laut;
+    $('#eGrafik').value = grafikHoch ? 'hoch' : 'schnell';
+    $('#eDesign').value = einstellung.design;
+    $('#eVorschau').checked = einstellung.vorschau;
+    $('#eBalken').checked = einstellung.balken;
+    $('#eTexte').checked = einstellung.texte;
+    $('#eWackeln').checked = einstellung.wackeln;
+    $('#eAuto').checked = einstellung.autoStart;
+    $('#einstellungen').hidden = false;
+    $('#einstZu').focus();
+  }
+  function einstUebernehmen() {
+    einstellung.laut = +$('#eLaut').value;
+    einstellung.design = $('#eDesign').value;
+    einstellung.vorschau = $('#eVorschau').checked;
+    einstellung.balken = $('#eBalken').checked;
+    einstellung.texte = $('#eTexte').checked;
+    einstellung.wackeln = $('#eWackeln').checked;
+    einstellung.autoStart = $('#eAuto').checked;
+    const hoch = $('#eGrafik').value === 'hoch';
+    if (hoch !== grafikHoch) { grafikHoch = hoch; speicher.schreiben('pt-grafik', grafikHoch); if (welt) welt.grafik(grafikHoch); }
+    speicher.schreiben('pt-einst', einstellung);
+    einstAnwenden();
+    vorschauSchluessel = '';
   }
 
   /* ---------- Fähigkeiten ---------- */
@@ -863,8 +1198,10 @@
     welt.zoomen(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX, e.clientY);
   }
   function tasten(e) {
+    if (e.key === 'Escape' && !$('#einstellungen').hidden) { e.preventDefault(); $('#einstZu').click(); return; }
     if (!spiel || $('#spiel').hidden) return;
     if (!$('#ende').hidden) return;
+    if (!$('#einstellungen').hidden) return;
     if (e.key === 'Escape') {
       e.preventDefault();
       if (zielModus) { zielModus = null; welt.zielModus = false; welt.zielZeigen(null); tipp(''); }
@@ -922,6 +1259,7 @@
         if (bossRunde) { const k = bossRunde - n + 1; banner(`Runde ${e.runde} geschafft!`, `${PT.FISCHE[boss].name} kommt in ${k} ${k === 1 ? 'Runde' : 'Runden'} – stell auf „Stärkster“!`, 2.6); }
         else banner(`Runde ${e.runde} geschafft!`, `+${zahl(e.bonus)} 💰`);
         xpDazu(PT.passXpRunde(e.runde, spiel.stufe));
+        fortschrittMelden('runde');
         speichern();
         if (!spiel.koop && $('#auto').checked && !spiel.gewonnen && spiel.modus !== 'flut') autoWarte = 1.2;
         if (olymp && spiel.runde >= spiel.zielRunden) olympFertig();
@@ -929,14 +1267,31 @@
       if (e.art === 'aufstieg') banner(`⭐ ${PT.HELDEN[e.turm.typ].name}`, `Stufe ${e.stufe}: ${PT.HELDEN[e.turm.typ].stufen[e.stufe - 1]}`, 2.2);
       if (e.art === 'bossPhase') banner(`${PT.FISCHE[e.fisch.typ].name} ruft Verstärkung!`, `${4 - e.phase} von 4 Lebensbalken übrig`, 1.8);
       if (e.art === 'flutwelle' && spiel.tuerme.some(t => t.betaeubt > 0 && (!spiel.koop || t.besitzer === ich()))) kurzTipp('🌊 Flutwelle! Deine Pinguine am Ufer sind kurz betäubt.');
+      if (e.art === 'eisatem' && spiel.tuerme.some(t => t.betaeubtArt === 'eis' && (!spiel.koop || t.besitzer === ich()))) kurzTipp('❄️ Eisatem! Pinguine am Ufer sind eingefroren.');
+      if (e.art === 'schmelzWarnung') kurzTipp('💧 Achtung: Nach der nächsten Runde schmilzt eine Eisfläche (blau gestrichelt). Wer dort steht, bekommt sein Geld zurück.');
+      if (e.art === 'geschmolzen') { kurzTipp('💧 Eine Eisfläche ist geschmolzen – jetzt dürfen dort Boote hin.'); letzteAnzeige = ''; }
       if (e.art === 'bossBesiegt') {
         const B = PT.BOSSE[e.typ] || PT.BOSSE.krakus;
         banner(`${B.symbol} ${PT.FISCHE[e.typ].name} besiegt!`, `+${zahl(B.belohnung * (spiel.modus === 'halb' ? 0.5 : 1))} 💰`, 2.5);
         xpDazu(PT.PASS_XP_BOSS);
       }
-      if (e.art === 'gewonnen') { xpDazu(PT.passXpSieg(spiel.stufe)); if (!olymp) endeZeigen(true); }
+      if (e.art === 'gewonnen') {
+        xpDazu(PT.passXpSieg(spiel.stufe));
+        if (!olymp && !spiel.unendlich) {
+          muenzenDazu(PT.MUENZEN_SIEG[spiel.stufe] || 8);
+          // Tages-Herausforderung geschafft (einmal pro Tag mit Belohnung)
+          if (tagesAktiv && !fort.tage[tagesAktiv]) {
+            const h = PT.tagesHerausforderung(tagesAktiv);
+            fort.tage[tagesAktiv] = true; fort.lebenslang.tage++; fortMerken();
+            xpDazu(h.xp); muenzenDazu(h.muenzen);
+          }
+          fortschrittMelden('sieg');
+        }
+        if (!olymp) endeZeigen(true);
+      }
       if (e.art === 'verloren') {
         speicher.weg('pt-stand');
+        fortschrittMelden('verloren');
         if (olymp) olympFertig(); else endeZeigen(false);
       }
     }
@@ -945,14 +1300,15 @@
     const r = PT.runde(n, spiel.modus);
     const typen = [...new Set(r.gruppen.map(g => g.typ))];
     const neu = { 17:'Nachwachsende Fische! Grüne Algen = sie wachsen nach.', 20:'Anglerfische! Explosionen helfen nicht.', 22:'Eisfische! Kälte hilft nicht.', 24:'Getarnte Fische!',
-      26:'Zebrafische!', 28:'Panzerwelse! Spitzes prallt ab.', 38:'Kofferfische!', 40:'Ein Walhai!', 46:'Gepanzerte Fische mit Helm!', 55:'Der Megalodon kommt!', 60:'Ein Schattenrochen – immer getarnt!', 65:'Die Riesenkrake!' }[n];
+      26:'Zebrafische!', 28:'Panzerwelse! Spitzes prallt ab.', 38:'Kofferfische!', 40:'Ein Walhai!', 46:'Gepanzerte Fische mit Helm!', 55:'Der Megalodon kommt!', 60:'Ein Schattenrochen – immer getarnt!', 65:'Die Riesenkrake!',
+      21:'Fliegende Fische! In der Luft treffen sie nur Flieger.', 31:'Tintenfische! Ihre Tinte blendet Pinguine.', 42:'Kugelfische! Nach einem Treffer prallt kurz alles ab.' }[n];
     if (neu) return neu;
     return typen.map(t => PT.FISCHE[t].name).join(' · ');
   }
   function speichern() {
     if (!spiel || spiel.vorbei || spiel.modus === 'sandkasten' || spiel.koop) return;
     if (olymp) speicher.schreiben('pt-olymp-stand-' + olymp.info.lauf, spiel.speichern(), sessionStorage);
-    else speicher.schreiben('pt-stand', spiel.speichern());
+    else speicher.schreiben('pt-stand', { ...spiel.speichern(), tag:tagesAktiv });
   }
 
   let endeArt = null;
@@ -965,21 +1321,43 @@
     if (gewonnen) {
       const st = PT.STUFEN[spiel.stufe];
       const schluessel = `${spiel.karte}|${spiel.stufe}|${spiel.modus}`;
-      const neu = !medaillen[schluessel] && spiel.modus !== 'sandkasten';
-      if (spiel.modus !== 'sandkasten') { medaillen[schluessel] = true; speicher.schreiben('pt-medaillen', medaillen); }
+      const zaehlt = spiel.modus !== 'sandkasten' && spiel.karte !== 'eigen' && !tagesAktiv;
+      const neu = !medaillen[schluessel] && zaehlt;
+      if (zaehlt) { medaillen[schluessel] = true; speicher.schreiben('pt-medaillen', medaillen); }
       $('#endeEmoji').textContent = spiel.modus === 'standard' ? st.medaille : '🏆';
       $('#endeTitel').textContent = 'Gewonnen!';
-      $('#endeText').textContent = `Alle ${spiel.zielRunden} Runden auf ${PT.KARTEN[spiel.karte].name} (${st.name}${spiel.modus !== 'standard' ? ', ' + PT.MODI[spiel.modus].name : ''}) mit ${Math.ceil(spiel.leben)} Leben übrig.${neu ? ' Neue Medaille!' : ''}`;
+      $('#endeText').textContent = `${tagesAktiv ? 'Tages-Herausforderung geschafft! ' : ''}Alle ${spiel.zielRunden} Runden auf ${spiel.kartenDaten.name} (${st.name}${spiel.modus !== 'standard' ? ', ' + PT.MODI[spiel.modus].name : ''}) mit ${Math.ceil(spiel.leben)} Leben übrig.${neu ? ' Neue Medaille!' : ''}`;
       k.innerHTML = '<button class="knopf haupt" id="eEndlos">Endlos weiterspielen</button><button class="knopf" id="eNeu">Nochmal</button><button class="knopf" id="eMenue">Hauptmenü</button>';
       $('#eEndlos').onclick = () => { spiel.endlos = true; $('#ende').hidden = true; pausiert = false; speichern(); letzteAnzeige = ''; anzeigen(); };
     } else {
       $('#endeEmoji').textContent = '🐟';
       $('#endeTitel').textContent = endeTitel();
-      $('#endeText').textContent = `Du hast ${spiel.runde} ${spiel.runde === 1 ? 'Runde' : 'Runden'} geschafft. ${zahl(spiel.statistik.platzer)} Fische erwischt.`;
+      $('#endeText').textContent = `Du hast ${spiel.runde} ${spiel.runde === 1 ? 'Runde' : 'Runden'} geschafft.`;
       k.innerHTML = '<button class="knopf haupt" id="eNeu">Nochmal</button><button class="knopf" id="eMenue">Hauptmenü</button>';
     }
-    $('#eNeu').onclick = () => { wahl = { ...wahl, karte:spiel.karte, stufe:spiel.stufe, modus:spiel.modus, held:spiel.held }; neuesSpiel(); };
+    if (gewonnen) erfolgeCheck(true, true);
+    statistikZeigen();
+    $('#eNeu').onclick = () => {
+      if (tagesAktiv) { tagesStarten(); return; }
+      wahl = { ...wahl, karte:spiel.karte === 'eigen' ? wahl.karte : spiel.karte, stufe:spiel.stufe, modus:spiel.modus, held:spiel.held }; neuesSpiel();
+    };
     $('#eMenue').onclick = zumMenue;
+  }
+  // Statistik fürs Ergebnisbild: Zahlen, die besten Pinguine und was das Spiel gebracht hat
+  function statistikZeigen() {
+    const st = spiel.statistik;
+    const zeit = Math.round(st.zeit || 0), min = Math.floor(zeit / 60), sek = String(zeit % 60).padStart(2, '0');
+    const top = spiel.tuerme.filter(t => t.pops > 0).sort((a, b) => b.pops - a.pops).slice(0, 4);
+    const zahlen = [['🐟', zahl(st.platzer), 'Fische erwischt'], ['💰', zahl(st.verdient), 'Geld verdient'], ['⏱', `${min}:${sek}`, 'Spielzeit'],
+      ['🌊', spiel.runde, 'Runden'], ['💥', zahl(st.geleakt >= 1e6 ? 0 : st.geleakt), 'Leben verloren'], ['⚡', zahl(st.faehigkeiten || 0), 'Fähigkeiten']];
+    let html = `<div class="stat-zahlen">${zahlen.map(([sy, w, t]) => `<div><b>${sy} ${w}</b>${t}</div>`).join('')}</div>`;
+    if (top.length) html += `<ul class="stat-top">${top.map((t, i) => `<li><span>${['🥇', '🥈', '🥉', '4.'][i]}</span><img src="${bilder[t.typ] || ''}" alt=""><span>${esc(PT.def(t.typ).name)}${t.pfade && t.pfade.some(x => x) ? ` <small>${t.pfade.join('-')}</small>` : ''}</span><em>${zahl(t.pops)}</em></li>`).join('')}</ul>`;
+    const lohn = [];
+    if (spielLohn.xp) lohn.push(`🎖️ +${zahl(spielLohn.xp)} Pass-Erfahrung`);
+    if (spielLohn.muenzen) lohn.push(`🪙 +${spielLohn.muenzen} Fischmünzen`);
+    for (const e of spielLohn.erfolge) lohn.push(`🏆 ${e.name}`);
+    if (lohn.length) html += `<p class="stat-lohn">${lohn.map(esc).join(' · ')}</p>`;
+    $('#endeStatistik').innerHTML = html;
   }
   function endeTitel() {
     const boss = PT.bossFuer(spiel.modus);
@@ -994,12 +1372,13 @@
       if (spiel.modus !== 'sandkasten') { medaillen[schluessel] = true; speicher.schreiben('pt-medaillen', medaillen); }
       $('#endeEmoji').textContent = '🏆';
       $('#endeTitel').textContent = 'Gemeinsam gewonnen!';
-      $('#endeText').textContent = `${namen}: alle ${spiel.zielRunden} Runden auf ${PT.KARTEN[spiel.karte].name} mit ${Math.ceil(spiel.leben)} Leben übrig.`;
+      $('#endeText').textContent = `${namen}: alle ${spiel.zielRunden} Runden auf ${spiel.kartenDaten.name} mit ${Math.ceil(spiel.leben)} Leben übrig.`;
     } else {
       $('#endeEmoji').textContent = '🐟';
       $('#endeTitel').textContent = endeTitel();
-      $('#endeText').textContent = `Ihr habt ${spiel.runde} ${spiel.runde === 1 ? 'Runde' : 'Runden'} geschafft und ${zahl(spiel.statistik.platzer)} Fische erwischt.`;
+      $('#endeText').textContent = `Ihr habt ${spiel.runde} ${spiel.runde === 1 ? 'Runde' : 'Runden'} geschafft.`;
     }
+    statistikZeigen();
     k.innerHTML = (gewonnen ? '<button class="knopf haupt" id="eEndlos">Endlos weiterspielen</button>' : '')
       + (binHost() ? '<button class="knopf" id="eLobby">Zurück in die Lobby</button>' : '<p>Der Gastgeber kann alle zurück in die Lobby holen.</p>')
       + '<button class="knopf" id="eRaus">Raum verlassen</button>';
@@ -1100,6 +1479,7 @@
     if (bannerZeit > 0) { bannerZeit -= dt; if (bannerZeit <= 0) $('#banner').classList.remove('an'); }
     if (tippZeit > 0) { tippZeit -= dt; if (tippZeit <= 0) tipp(''); }
     faehigkeitenZeigen();
+    vorschauZeigen();
     anzeigen();
   }
 
@@ -1114,6 +1494,7 @@
     }
     lexikonBauen();
     menueBauen();
+    einstAnwenden();
     $('#los').onclick = () => {
       PT.Ton.start();
       if (koopReiter) { if (binHost()) senden({ t:'start' }); return; }
@@ -1132,12 +1513,20 @@
     $('#koopRaus').onclick = () => { PT.Ton.klick(); koopVerlassen(); };
     $('#kraftAn').onchange = () => {
       wahl.kraft = $('#kraftAn').checked; speicher.schreiben('pt-wahl', wahl);
-      if (koopReiter && netz && netz.raum) { const m = meinMitglied(); senden({ t:'wahl', held:m ? m.held : wahl.held, kraft:kraftAktivKoop(), skin:pass.skin }); }
+      if (koopReiter && netz && netz.raum) { const m = meinMitglied(); senden({ t:'wahl', held:m ? m.held : wahl.held, kraft:kraftAktivKoop(), skin:pass.skin, sockel:pass.sockel }); }
     };
+    $('#tagLos').onclick = () => { PT.Ton.start(); tagesStarten(); };
+    $('#wissenAn').onchange = () => { fort.wissenAn = $('#wissenAn').checked; fortMerken(); };
+    $('#einstKnopf').onclick = einstOeffnen;
+    $('#pEinst').onclick = einstOeffnen;
+    $('#einstZu').onclick = () => { PT.Ton.klick(); $('#einstellungen').hidden = true; if (!$('#pause').hidden) pause(true, true); };
+    for (const el of document.querySelectorAll('#einstellungen input, #einstellungen select')) el.addEventListener(el.type === 'range' ? 'input' : 'change', einstUebernehmen);
+    $('#einstellungen').addEventListener('click', e => { if (e.target.id === 'einstellungen') $('#einstZu').click(); });
+    $('#vorschau').onclick = () => { vorschauKlein = !vorschauKlein; speicher.schreiben('pt-vorschau-klein', vorschauKlein); vorschauSchluessel = ''; PT.Ton.klick(); };
     $('#weiter').onclick = () => {
       PT.Ton.start();
       const stand = speicher.lesen('pt-stand');
-      if (stand && PT.KARTEN[stand.karte]) spielStarten(PT.Spiel.laden(stand));
+      if (stand && (PT.KARTEN[stand.karte] || stand.karte === 'eigen')) { tagesAktiv = stand.tag || null; spielStarten(PT.Spiel.laden(stand)); }
     };
     $('#start').onclick = startKnopf;
     $('#pauseKnopf').onclick = () => pause(true);
@@ -1177,6 +1566,18 @@
       url.searchParams.delete('olymp');
       history.replaceState(null, '', url.pathname + url.search + url.hash);
     } else ticket = speicher.lesen('pt-olymp', sessionStorage);
+    // Geteilte Karte im Link: in die eigenen Karten übernehmen und auswählen
+    const kLink = url.searchParams.get('karte');
+    if (kLink) {
+      url.searchParams.delete('karte');
+      history.replaceState(null, '', url.pathname + url.search + url.hash);
+      const k = karteAusLink(kLink);
+      if (k) {
+        const schon = eigeneKarten.find(x => JSON.stringify(x.wege) === JSON.stringify(k.wege));
+        const neu = schon || karteSpeichern(k);
+        if (neu) { wahl.karte = 'eigen:' + neu.id; speicher.schreiben('pt-wahl', wahl); menueBauen(); setTimeout(() => alert(`Karte „${neu.name}“ geladen! Du findest sie bei den Karten.`), 300); }
+      }
+    }
     if (ticket) olympStart(ticket);
     // Nach dem Neuladen zurück in den Koop-Raum
     else if (speicher.lesen('pt-koop', sessionStorage)) koopReiterSetzen(true);
@@ -1191,7 +1592,7 @@
           spiel.geld = 1e6;
           plaene = plaene || [['zapfen', [0, 2, 5]], ['rundum', [2, 0, 5]], ['schneeball', [5, 2, 0]], ['frost', [0, 5, 2]], ['harpune', [2, 0, 5]], ['polar', [0, 5, 2]],
             ['markt', [5, 0, 2]], ['haeuptling', [2, 5, 0]], ['ninja', [5, 2, 0]], ['flieger', [5, 2, 0]], ['moerser', [0, 5, 2]], ['fabrik', [2, 0, 5]], ['boot', [5, 0, 2]],
-            ['laser', [2, 5, 0]], ['disco', [5, 0, 2]], [spiel.held || 'kiel', [0, 0, 0]]];
+            ['laser', [2, 5, 0]], ['disco', [5, 0, 2]], ['taucher', [5, 2, 0]], ['eisbaer', [2, 0, 5]], ['koch', [0, 2, 5]], [spiel.held || 'kiel', [0, 0, 0]]];
           let n = 0;
           for (const [typ, pf] of plaene) {
             if (!spiel.erlaubt(typ)) continue;
@@ -1222,7 +1623,10 @@
         },
         faehigkeiten() { for (const t of spiel.tuerme) for (const k of Object.keys(t.fcd)) t.fcd[k] = 0; return spiel.faehigkeitenListe().map(f => f.id); },
         ausloesen(id) { return spiel.faehigkeitAusloesen(id); },
-        pass(xp, skin) { if (xp != null) pass.xp = xp; if (skin) pass.skin = skin; speicher.schreiben('pt-pass', pass); bilderMalen(); menueBauen(); return PT.passStufe(pass.xp); },
+        pass(xp, skin, sockel) { if (xp != null) pass.xp = xp; if (skin) pass.skin = skin; if (sockel) pass.sockel = sockel; speicher.schreiben('pt-pass', pass); bilderMalen(false, true); menueBauen(); return PT.passStufe(pass.xp); },
+        fort(f) { Object.assign(fort, f); fortMerken(); menueBauen(); return fort; },
+        tag() { tagesStarten(); return tagesAktiv; },
+        ende(g) { endeZeigen(g); },
         netz() { return netz && { id:netz.id, n:netz.n, ziel:netz.ziel, raum:netz.raum }; },
         tun(b) { return tun(b); },
         welt() { return welt; },

@@ -550,6 +550,112 @@
     .knopf, .stufe, .modus, .heldwahl, .kartenwahl, .pingu-kauf, .reiter button { transition: none; }
     .knopf:hover, .stufe:hover, .modus:hover, .heldwahl:hover, .kartenwahl:hover, .pingu-kauf:hover { transform: none; }
   }
+
+  /* ================= Neue Bereiche: Pass-Leiste, Aufträge, Herausforderung, Wissen, Erfolge, Editor, Vorschau ================= */
+  .muenzen { font-weight: 800; padding: 3px 10px; border-radius: 999px; background: linear-gradient(180deg, #ffe28a, #f6c343); color: #13315c; font-size: .95rem; }
+  .pass-kopf .muenzen { margin-left: auto; }
+  .pass-leiste { display: flex; gap: 6px; overflow-x: auto; padding: 8px 2px 4px; scrollbar-width: thin; }
+  .pass-leiste .stufe-chip { flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 64px; padding: 6px 6px 4px; border-radius: 12px;
+    background: var(--eis); border: 1px solid var(--linie); font-size: .72rem; color: var(--tinte-weich); text-align: center; line-height: 1.15; }
+  .pass-leiste .stufe-chip b { font-size: .78rem; color: var(--tinte); }
+  .pass-leiste .stufe-chip i { font-style: normal; font-size: 1.3rem; }
+  .pass-leiste .stufe-chip img { width: 34px; height: 34px; }
+  .pass-leiste .stufe-chip.da { background: linear-gradient(180deg, #fff3c4, #ffe28a); color: #5a4300; border-color: #e6b422; }
+  .pass-leiste .stufe-chip.da b { color: #5a4300; }
+  .pass-leiste .stufe-chip.jetzt { outline: 2px solid var(--akzent); }
+  .unterkopf { font-weight: 800; color: var(--tinte) !important; margin-top: 14px !important; }
+  .auftraege { margin-top: 10px; }
+  .auftraege-titel { margin: 0 0 4px !important; }
+  .auftraege-titel small { font-weight: 600; }
+  .auftraege ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; }
+  .auftraege li { background: var(--eis); border-radius: 12px; padding: 7px 10px; font-size: .9rem; line-height: 1.3; border: 1px solid var(--linie); }
+  .auftraege li.fertig { background: linear-gradient(135deg, rgba(53,176,74,.18), var(--eis)); }
+  .auftraege li small { display: block; color: var(--tinte-weich); }
+  .auftraege .mini { height: 6px; border-radius: 4px; background: rgba(19,49,92,.12); overflow: hidden; margin-top: 4px; }
+  .auftraege .mini i { display: block; height: 100%; background: linear-gradient(90deg, #35b04a, #7ddc8a); }
+  .kacheln { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 14px; align-items: start; }
+  .tag-box, .extra-box { background: var(--karte); border: 1px solid var(--linie); border-radius: var(--r); padding: 12px 16px; box-shadow: var(--schatten); }
+  .tag-box { background: linear-gradient(135deg, var(--karte), rgba(47,127,224,.10)); }
+  .tag-kopf { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .tag-kopf small, .tag-box p, .extra-box p { color: var(--tinte-weich); }
+  .tag-box h3 { margin: 6px 0 2px; font-size: 1.2rem; }
+  .tag-box p { margin: 4px 0; line-height: 1.4; }
+  .tag-lohn { font-weight: 700; }
+  .tag-box .knopf { width: 100%; margin-top: 8px; font-size: 1.05rem; padding: 10px 16px; }
+  .extra-box summary { cursor: pointer; font-weight: 800; font-size: 1.05rem; }
+  .extra-box summary small { font-weight: 600; color: var(--tinte-weich); }
+  .wissen { display: grid; gap: 8px; margin-top: 8px; }
+  .wissen-item { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; background: var(--eis); border-radius: 12px; padding: 8px 10px; }
+  .wissen-item b { font-size: .95rem; }
+  .wissen-item small { color: var(--tinte-weich); grid-column: 1; }
+  .wissen-item .pips i { width: 12px; height: 7px; background: rgba(19,49,92,.15); }
+  .wissen-item .pips i.an { background: var(--gold); box-shadow: none; }
+  .wissen-item button { grid-row: 1 / span 3; grid-column: 2; border: 1px solid #c99a14; border-radius: 10px; padding: 8px 10px; font-weight: 800; background: linear-gradient(180deg, #ffd45e, #f6c343); color: #13315c; min-height: 44px; }
+  .wissen-item button:disabled { opacity: .5; cursor: default; }
+  .erfolge-liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; margin-top: 8px; }
+  .erfolg { display: flex; gap: 8px; align-items: center; background: var(--eis); border-radius: 12px; padding: 6px 8px; font-size: .85rem; line-height: 1.25; opacity: .6; }
+  .erfolg.da { opacity: 1; background: linear-gradient(135deg, rgba(246,195,67,.25), var(--eis)); }
+  .erfolg i { font-style: normal; font-size: 1.5rem; flex: none; filter: grayscale(1); }
+  .erfolg.da i { filter: none; }
+  .erfolg small { display: block; color: var(--tinte-weich); }
+  .kartenwahl.neu { display: grid; place-items: center; min-height: 200px; border-style: dashed; border-width: 2px; font-weight: 800; font-size: 1.15rem; color: var(--tinte-weich); }
+  .kartenwahl.neu span { font-size: 2.6rem; display: block; text-align: center; }
+  .karten-knoepfe { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .karten-knoepfe span { border: 1px solid var(--linie); border-radius: 8px; padding: 4px 9px; font-size: .85rem; background: var(--eis); cursor: pointer; }
+  .ziele.sechs { grid-template-columns: repeat(3, 1fr); }
+
+  /* Vorschau auf die nächste Runde */
+  .vorschau { position: absolute; left: 10px; top: 10px; max-width: min(360px, calc(100% - 70px)); text-align: left; border: 1px solid rgba(255,255,255,.18); border-radius: 14px;
+    background: var(--chip-bg); color: #fff; padding: 6px 10px 8px; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); box-shadow: 0 4px 12px rgba(0,0,0,.3); }
+  .vorschau b { font-size: .85rem; display: block; color: var(--panel-leise); }
+  .vorschau .vf { display: flex; flex-wrap: wrap; gap: 3px 8px; margin-top: 3px; }
+  .vorschau .vf span { display: inline-flex; align-items: center; gap: 2px; font-size: .82rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .vorschau .vf img { width: 28px; height: 28px; }
+  .vorschau .vf em { font-style: normal; font-size: .75rem; }
+  .vorschau.klein .vf { display: none; }
+  .vorschau .boss { color: #ff8a80; }
+
+  /* Ergebnis-Statistik */
+  #endeStatistik:empty { display: none; }
+  .stat-zahlen { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 4px 0 10px; }
+  .stat-zahlen div { background: var(--eis); border-radius: 12px; padding: 6px 4px; font-size: .78rem; color: var(--tinte-weich); line-height: 1.2; }
+  .stat-zahlen b { display: block; font-size: 1.1rem; color: var(--tinte); font-variant-numeric: tabular-nums; }
+  .stat-top { list-style: none; margin: 0 0 8px; padding: 0; text-align: left; }
+  .stat-top li { display: flex; align-items: center; gap: 8px; padding: 3px 6px; border-radius: 10px; font-size: .9rem; }
+  .stat-top li:nth-child(odd) { background: var(--eis); }
+  .stat-top img { width: 34px; height: 34px; }
+  .stat-top em { margin-left: auto; font-style: normal; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .stat-lohn { font-weight: 700; color: var(--tinte) !important; margin: 4px 0 !important; }
+
+  /* Einstellungen */
+  .dialog.einst { text-align: left; max-width: 460px; }
+  .dialog.einst h2 { text-align: center; }
+  .einst-zeile { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 2px; border-bottom: 1px solid var(--linie); font-weight: 700; min-height: 48px; }
+  .einst-zeile input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--gold); flex: none; }
+  .einst-zeile input[type=range] { flex: 1; max-width: 220px; accent-color: var(--akzent); }
+  .einst-zeile select { font: inherit; border-radius: 10px; padding: 6px 8px; border: 1px solid var(--linie); background: var(--eis); color: var(--tinte); }
+
+  /* Karten-Editor */
+  #editor { min-height: 100%; background: var(--menue-bg); padding: max(16px, env(safe-area-inset-top)) 16px 32px; }
+  .editor-innen { max-width: 1040px; margin: 0 auto; }
+  .editor-kopf { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .editor-kopf h2 { margin: 8px 12px 8px 0; }
+  .editor-kopf input, .editor-kopf select { font: inherit; font-size: 1.05rem; padding: 8px 12px; border: 1px solid var(--linie); border-radius: 12px; background: var(--karte); color: var(--tinte); min-height: 44px; }
+  .editor-kopf input { flex: 1 1 200px; }
+  .werkzeuge { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; align-items: center; }
+  .werkzeuge button { border: 1px solid var(--linie); border-radius: 12px; padding: 8px 12px; background: var(--karte); font-weight: 700; min-height: 44px; box-shadow: var(--schatten); }
+  .werkzeuge button[aria-pressed="true"] { background: linear-gradient(145deg, #1d4a85, #13315c); color: #fff; }
+  .werkzeuge .groesse { display: flex; align-items: center; gap: 6px; font-weight: 700; padding: 0 6px; }
+  .editor-flaeche { border-radius: var(--r); overflow: hidden; border: 1px solid var(--linie); box-shadow: var(--schatten-hoch); background: #dcedf6; }
+  .editor-flaeche canvas { display: block; width: 100%; height: auto; aspect-ratio: 25 / 16; touch-action: none; cursor: crosshair; }
+  .editor-info { color: var(--tinte-weich); min-height: 2.6em; line-height: 1.4; margin: 8px 0 0; }
+  .editor-info.fehler { color: var(--rot); font-weight: 700; }
+  @media (max-width: 820px), (max-aspect-ratio: 1/1) {
+    .vorschau { top: auto; bottom: 64px; }
+    .vorschau .vf img { width: 22px; height: 22px; }
+  }
+  .einst-oben { margin-left: auto; align-self: flex-start; font-size: 1rem; padding: 10px 16px; }
+  @media (max-width: 600px) { .einst-oben span { display: none; } }
 </style>
 </head>
 <body>
@@ -562,19 +668,49 @@
       <div>
         <h1>Pinguin <span>Türmchen</span></h1>
       </div>
+      <button class="knopf einst-oben" id="einstKnopf" aria-label="Einstellungen">⚙️<span> Einstellungen</span></button>
     </div>
     <p class="unter">Die Fische wollen durch euren Eiskanal! Stell Pinguine ans Ufer, rüste sie bis Stufe 5 auf, ruf einen Helden und lass keinen Fisch durch – vom kleinen Rotbarsch bis zu Kaiser Orka. Allein oder zu viert im Koop.</p>
     <p class="erfolge" id="erfolge"></p>
 
     <div class="pass" id="passBox">
-      <div class="pass-kopf"><b id="passStufe">🎖️ Pinguin-Pass</b><small id="passXp"></small></div>
+      <div class="pass-kopf"><b id="passStufe">🎖️ Pinguin-Pass</b><small id="passXp"></small><span class="muenzen" id="muenzen" title="Fischmünzen">🪙 0</span></div>
       <div class="xp"><i id="passBalken" style="width:0"></i></div>
       <p id="passNaechst"></p>
-      <details>
-        <summary>Looks und Meisterkräfte</summary>
-        <p>Jede geschaffte Runde, jeder Boss und jeder Sieg bringt Erfahrung. Mit neuen Stufen schaltest du Looks für deine Pinguine und Meisterkräfte für die Helden frei.</p>
+      <div class="pass-leiste" id="passLeiste" aria-label="Belohnungen der nächsten Stufen"></div>
+      <div class="auftraege">
+        <p class="auftraege-titel"><b>📋 Tagesaufträge</b> <small>neue Aufträge jeden Tag</small></p>
+        <ul id="auftraege"></ul>
+      </div>
+      <details id="passDetails">
+        <summary>Looks, Sockel und Meisterkräfte</summary>
+        <p>Jede geschaffte Runde, jeder Boss, jeder Sieg und jeder Tagesauftrag bringt Erfahrung. Mit neuen Stufen schaltest du Looks und Sockel für deine Pinguine, Fischmünzen und Meisterkräfte für die Helden frei.</p>
+        <p class="unterkopf">Looks</p>
         <div class="looks" id="looks"></div>
+        <p class="unterkopf">Sockel</p>
+        <div class="looks" id="sockel"></div>
+        <p class="unterkopf">Meisterkräfte</p>
         <ul class="kraefte" id="kraeftePass"></ul>
+      </details>
+    </div>
+
+    <div class="kacheln">
+      <div class="tag-box" id="tagBox">
+        <div class="tag-kopf"><b>📅 Tägliche Herausforderung</b><small id="tagDatum"></small></div>
+        <h3 id="tagTitel"></h3>
+        <p id="tagText"></p>
+        <p class="tag-lohn" id="tagLohn"></p>
+        <button class="knopf haupt" id="tagLos">Herausforderung starten</button>
+      </div>
+      <details class="extra-box" id="wissenBox">
+        <summary>🧠 Pinguin-Wissen <small id="wissenKurz"></small></summary>
+        <p>Für Fischmünzen lernen deine Pinguine dauerhaft dazu. Gilt im Einzelspiel (nicht in der Olympiade, im Koop und bei der Tages-Herausforderung).</p>
+        <label class="kraft-wahl"><input type="checkbox" id="wissenAn" checked> Pinguin-Wissen benutzen</label>
+        <div class="wissen" id="wissen"></div>
+      </details>
+      <details class="extra-box" id="erfolgeBox">
+        <summary>🏆 Erfolge <small id="erfolgeKurz"></small></summary>
+        <div class="erfolge-liste" id="erfolgeListe"></div>
       </details>
     </div>
 
@@ -651,12 +787,47 @@
         <li>Getarnte Fische (halb durchsichtig) sehen nur Pinguine mit Nachtsicht, Radar & Co. Fische mit grünen Algen wachsen wieder nach, Fische mit Helm sind doppelt so zäh.</li>
         <li>Zoomen mit Mausrad, zwei Fingern oder den Knöpfen rechts unten; mit der rechten Maustaste oder einem Finger ziehen verschiebt die Karte.</li>
         <li>Tasten: Buchstaben am Pinguin wählen ihn aus (<b>Q W E R …</b>, Held <b>H</b>), <b>1–9</b> Fähigkeiten, <b>Leertaste</b> Runde/Tempo, <b>, . -</b> Upgrades, <b>Entf</b> verkaufen, <b>Tab</b> Ziel wechseln, <b>Esc</b> abbrechen.</li>
+        <li>Besondere Fische: <b>Kugelfische</b> blähen sich nach einem Treffer kurz auf – dann prallt alles ab. <b>Fliegende Fische</b> springen über deine Pinguine; in der Luft treffen sie nur Flieger. <b>Tintenfische</b> verspritzen beim Platzen Tinte, Pinguine in der Nähe sehen kurz nichts.</li>
+        <li>Im <b>Eistunnel</b> sieht nur der Taucher-Pinguin die Fische. Auf der <b>Schmelzscholle</b> werden Eisflächen nach und nach zu Wasser – wer dort steht, bekommt sein Geld zurück, danach dürfen Boote hin.</li>
+        <li>Mit dem <b>Karten-Editor</b> baust du eigene Karten: Kanal zeichnen (am Rand anfangen und aufhören), Eisberge, Wasserlöcher und Tunnel setzen, speichern und als Link verschicken.</li>
       </ul>
       <p><b>Die Fische:</b></p>
       <div class="lexikon" id="lexikon"></div>
     </details>
 
     <p class="fussnote">Ein Spiel der Swimming Lions · Privates Hobbyprojekt · <a href="/datenschutz">Datenschutz</a></p>
+  </div>
+</section>
+
+<!-- ================= Karten-Editor ================= -->
+<section id="editor" hidden>
+  <div class="editor-innen">
+    <div class="editor-kopf">
+      <h2>✏️ Karten-Editor</h2>
+      <input id="edName" maxlength="24" placeholder="Name der Karte" aria-label="Name der Karte">
+      <select id="edThema" aria-label="Thema">
+        <option value="tag">☀️ Tag</option><option value="daemmerung">🌅 Dämmerung</option><option value="nacht">🌌 Polarnacht</option><option value="vulkan">🌋 Vulkan</option>
+      </select>
+    </div>
+    <div class="werkzeuge" role="group" aria-label="Werkzeug">
+      <button data-werkzeug="kanal" aria-pressed="true">〰️ Kanal</button>
+      <button data-werkzeug="eisberg" aria-pressed="false">🏔️ Eisberg</button>
+      <button data-werkzeug="wasser" aria-pressed="false">💧 Wasserloch</button>
+      <button data-werkzeug="tunnel" aria-pressed="false">🚇 Tunnel</button>
+      <button data-werkzeug="radierer" aria-pressed="false">🧽 Radierer</button>
+      <label class="groesse">Größe <input type="range" id="edGroesse" min="20" max="60" value="34"></label>
+      <button id="edNeuerKanal">➕ Neuer Kanal</button>
+      <button id="edZurueck">↩️ Rückgängig</button>
+      <button id="edLeeren">🗑️ Alles weg</button>
+    </div>
+    <div class="editor-flaeche"><canvas id="edCanvas" width="1000" height="640"></canvas></div>
+    <p class="editor-info" id="edInfo"></p>
+    <div class="los-reihe">
+      <button class="knopf haupt" id="edTesten">▶ Speichern und spielen</button>
+      <button class="knopf" id="edSpeichern">💾 Speichern</button>
+      <button class="knopf" id="edTeilen">🔗 Link zum Teilen</button>
+      <button class="knopf" id="edRaus">Zurück zum Menü</button>
+    </div>
   </div>
 </section>
 
@@ -680,6 +851,7 @@
     <div id="banner"></div>
     <div id="tipp" hidden></div>
     <div id="faehigkeiten" aria-label="Fähigkeiten"></div>
+    <button id="vorschau" class="vorschau" hidden aria-label="Vorschau auf die nächste Runde"></button>
     <div class="zoom">
       <button id="zoomRein" aria-label="Hineinzoomen">＋</button>
       <button id="zoomRaus" aria-label="Herauszoomen">−</button>
@@ -714,6 +886,7 @@
       <button class="knopf" id="pTon">🔊 Ton</button>
       <button class="knopf" id="pGrafik">✨ Grafik: hoch</button>
     </div>
+    <button class="knopf" id="pEinst">⚙️ Einstellungen</button>
     <button class="knopf" id="pNeu">Neu starten</button>
     <button class="knopf" id="pMenue">Zum Hauptmenü</button>
     <button class="knopf" id="pAufgeben" hidden>Aufgeben und Ergebnis melden</button>
@@ -725,7 +898,23 @@
     <div class="gross" id="endeEmoji">🏆</div>
     <h2 id="endeTitel">Geschafft!</h2>
     <p id="endeText"></p>
+    <div id="endeStatistik"></div>
     <div id="endeKnoepfe"></div>
+  </div>
+</div>
+
+<div class="overlay" id="einstellungen" hidden>
+  <div class="dialog einst" role="dialog" aria-modal="true" aria-labelledby="einstTitel">
+    <h2 id="einstTitel">⚙️ Einstellungen</h2>
+    <label class="einst-zeile">🔊 Lautstärke <input type="range" id="eLaut" min="0" max="100" step="5"></label>
+    <label class="einst-zeile"><span>✨ Grafik</span><select id="eGrafik"><option value="hoch">Hoch (schön)</option><option value="schnell">Schnell (für ältere Geräte)</option></select></label>
+    <label class="einst-zeile"><span>🎨 Menü-Design</span><select id="eDesign"><option value="auto">Wie das Gerät</option><option value="light">Hell</option><option value="dark">Dunkel</option></select></label>
+    <label class="einst-zeile"><span>🔍 Vorschau auf die nächste Runde</span><input type="checkbox" id="eVorschau"></label>
+    <label class="einst-zeile"><span>❤️ Lebensbalken über zähen Fischen</span><input type="checkbox" id="eBalken"></label>
+    <label class="einst-zeile"><span>💬 Schwebende Texte (+Geld, Stufe …)</span><input type="checkbox" id="eTexte"></label>
+    <label class="einst-zeile"><span>📳 Kamera wackelt bei Explosionen</span><input type="checkbox" id="eWackeln"></label>
+    <label class="einst-zeile"><span>⏩ Neue Spiele mit „Auto“ starten</span><input type="checkbox" id="eAuto"></label>
+    <button class="knopf haupt" id="einstZu">Fertig</button>
   </div>
 </div>
 
@@ -734,17 +923,20 @@
 <script src="js/pinguine.js"></script>
 <script src="js/logik.js"></script>
 <script src="js/pass.js"></script>
+<script src="js/fortschritt.js"></script>
 <script src="js/modelle.js"></script>
 <script src="js/welt3d.js"></script>
 <script src="js/ton.js"></script>
 <script src="js/oberflaeche.js"></script>
+<script src="js/editor.js"></script>
 
 <!-- Rangliste der Spielesammlung: meldet Spielzeit, Punkte und Progress -->
 <script>
 window.SLRangAdapter=function(){
   var m={};try{m=JSON.parse(localStorage.getItem('pt-medaillen'))||{}}catch(e){}
-  var ks=Object.keys(m),n=ks.filter(function(k){return /\|standard$/.test(k)}).length;
-  return{punkte:ks.length*100,progress:Math.min(100,n/32*100)}
+  var f={};try{f=JSON.parse(localStorage.getItem('pt-fortschritt'))||{}}catch(e){}
+  var ks=Object.keys(m),n=ks.filter(function(k){return /\|standard$/.test(k)}).length,e=Object.keys(f.erfolge||{}).length;
+  return{punkte:ks.length*100+e*50,progress:Math.min(100,n/44*100)}
 };
 </script>
 <script src="https://rangliste-aoee.onrender.com/melder.js" data-spiel="Pinguin Türmchen" defer></script>
