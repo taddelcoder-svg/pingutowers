@@ -136,7 +136,7 @@ const server = http.createServer((req, res) => {
 
 /* ---------- Koop ---------- */
 const R = raeume();
-const wss = new WebSocketServer({ server, path:'/ws', maxPayload:4096, perMessageDeflate:true, verifyClient:({ req }) => zugang.hatZugang(req) });
+const wss = new WebSocketServer({ server, path:'/ws', maxPayload:8192, perMessageDeflate:true, verifyClient:({ req }) => zugang.hatZugang(req) });
 wss.on('connection', ws => {
   ws.lebt = true;
   ws.on('pong', () => { ws.lebt = true; });

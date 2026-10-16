@@ -48,7 +48,7 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
     return {
       t:'raum', code:raum.code, host:raum.host, phase:raum.phase, du:m.id, einst:raum.einst,
       tempo:raum.tempo, pause:raum.pause, auto:raum.auto,
-      mitglieder:mitglieder(raum).map(x => ({ id:x.id, name:x.name, held:x.held, kraft:x.kraft, skin:x.skin, online:!!x.transport, mit:!!x.mitspieler }))
+      mitglieder:mitglieder(raum).map(x => ({ id:x.id, name:x.name, held:x.held, kraft:x.kraft, skin:x.skin, sockel:x.sockel, online:!!x.transport, mit:!!x.mitspieler }))
     };
   }
   function raumSenden(raum) { for (const m of raum.mitglieder.values()) senden(m, raumFuer(raum, m)); }
@@ -114,7 +114,7 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
     if (!mit.length) return;
     const e = raum.einst;
     raum.spiel = new PT.Spiel({
-      karte:e.karte, stufe:e.stufe, modus:e.modus, seed:seed() & 0xffffff, geldModus:e.geldModus,
+      karte:e.karte, stufe:e.stufe, modus:e.modus, seed:seed() & 0xffffff, geldModus:e.geldModus, eigeneKarte:e.eigen,
       spieler:mit.map(m => ({ id:m.id, name:m.name, held:m.held, kraft:m.kraft }))
     });
     // Wer nur zuschaut (später kommt), spielt ab der nächsten Lobby mit
@@ -128,7 +128,7 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
 
   /* ---------- Nachrichten ---------- */
   function verbinden(transport) {
-    const m0 = { id:'s' + (naechsteId++), token:crypto.randomBytes(12).toString('hex'), name:'', skin:'standard', held:'kiel', kraft:false,
+    const m0 = { id:'s' + (naechsteId++), token:crypto.randomBytes(12).toString('hex'), name:'', skin:'standard', sockel:'standard', held:'kiel', kraft:false,
       raum:null, transport, mitspieler:false, zaehler:0, fenster:jetzt(), zuletztZustand:0 };
     senden(m0, { t:'du', id:m0.id, token:m0.token });
     const ich = () => m0.ersetzt || m0;
@@ -146,6 +146,7 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
         case 'hallo': {
           const n = nameOk(d.name); if (n) m.name = n;
           m.skin = skinOk(d.skin);
+          if (d.sockel) m.sockel = skinOk(d.sockel);
           if (typeof d.token === 'string' && d.code && !raum) {
             const r = liste.get(String(d.code).toUpperCase());
             const alt = r && mitglieder(r).find(x => x.token === d.token);
@@ -178,12 +179,14 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
           // eigener Held, Meisterkraft und Aussehen (nur in der Lobby)
           if (raum.phase !== 'lobby') return;
           m.held = d.held === null || PT.HELDEN[d.held] ? d.held : m.held;
-          m.kraft = !!d.kraft; m.skin = skinOk(d.skin);
+          m.kraft = !!d.kraft; m.skin = skinOk(d.skin); m.sockel = skinOk(d.sockel);
           return raumSenden(raum);
         case 'einst': {
           if (!istHost || raum.phase !== 'lobby') return;
           const e = raum.einst;
-          if (PT.KARTEN[d.karte]) e.karte = d.karte;
+          if (PT.KARTEN[d.karte]) { e.karte = d.karte; e.eigen = null; }
+          // eigene Karte aus dem Editor des Gastgebers (geprüft und bereinigt)
+          if (d.karte === 'eigen') { const k = PT.karteOk(d.eigen); if (k) { e.karte = 'eigen'; e.eigen = k; } }
           if (PT.STUFEN[d.stufe]) e.stufe = d.stufe;
           if (PT.MODI[d.modus]) e.modus = d.modus;
           if (PT.KOOP_GELD[d.geldModus]) e.geldModus = d.geldModus;

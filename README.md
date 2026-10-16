@@ -6,46 +6,70 @@ Fisch – vom Rotbarsch bis zur Riesenkrake, zu Krakus und Kaiser Orka. Allein o
 
 ## Spiel
 
-- **8 Karten:** Eisscholle und Pinguinbucht (Anfänger, die Bucht endet in einem Eisloch und hat
-  Wasserlöcher), Eiskreuz (Mittel, der Kanal kreuzt sich selbst, mit Fischerhafen), Gletscherspalte
-  und Erebus-Krater (Mittel, mit Vulkan und Lavaspalten), Polarnacht, Doppelstrom (Profi, zwei Kanäle)
-  und Treibeis-Inseln (Profi, kurzer Kanal, viele Wasserlöcher).
+- **11 Karten:** Eisscholle und Pinguinbucht (Anfänger, die Bucht endet in einem Eisloch und hat
+  Wasserlöcher), Eiskreuz (Mittel, der Kanal kreuzt sich selbst, mit Fischerhafen), Gletscherspalte,
+  Eistunnel (Mittel, zwei Tunnel – darunter sieht nur der Taucher-Pinguin die Fische), Schmelzscholle
+  (Mittel, Eisflächen schmelzen in Runde 10, 15, 20, 25 und 30 zu Wasser; wer dort steht, bekommt sein
+  Geld zurück, danach dürfen Boote hin), Erebus-Krater (Mittel, mit Vulkan und Lavaspalten), Polarnacht,
+  Doppelstrom (Profi, zwei Kanäle), Treibeis-Inseln (Profi, viele Wasserlöcher) und Dreizack (Profi, drei Kanäle).
+- **Karten-Editor:** Kanäle (bis zu drei) zeichnen, Eisberge, Wasserlöcher und Tunnel setzen, Thema wählen,
+  speichern, spielen und als Link teilen (`?karte=…`). Eigene Karten gehen auch im Koop (der Gastgeber wählt sie).
 - **4 Stufen:** Leicht (30 Runden, 200 Leben, Preise −15 %), Mittel (40 Runden, 150 Leben),
   Schwer (60 Runden, 100 Leben, +8 %), Extrem (80 Runden, 1 Leben, +20 %). Nach dem Sieg geht es endlos weiter.
-- **8 Spielmodi:** Standard, Nur Grundpinguine, Umgekehrt, Halbes Geld, Fischflut (keine Pausen),
+- **10 Spielmodi:** Standard, Nur Grundpinguine, Umgekehrt, Halbes Geld, Fischflut (keine Pausen),
   Boss-Jagd (Krakus in Runde 20 und 40), Orka-Angriff (Kaiser Orka in Runde 25 und 50, seine
-  Flutwellen betäuben Pinguine am Ufer) und Sandkasten (unendlich Geld, Fische selbst losschicken).
-- **15 Pinguine** in vier Gruppen, je 3 Upgrade-Pfade mit 5 Stufen (höchstens 5-2-0, und jede
+  Flutwellen betäuben Pinguine am Ufer), Hai-König (Runde 20 und 40, ruft ständig Fische herbei),
+  Leviathan-Erwachen (Eis-Leviathan in Runde 30 und 60, sein Eisatem friert Pinguine ein) und
+  Sandkasten (unendlich Geld, Fische selbst losschicken).
+- **18 Pinguine** in vier Gruppen, je 3 Upgrade-Pfade mit 5 Stufen (höchstens 5-2-0, und jede
   Stufe 5 nur einmal pro Pinguinart und Pfad):
   - Primär: Zapfen-, Stachel-, Schneeball- und Frost-Pinguin
   - Militär: Harpunen-Pinguin, Boot-Pinguin (nur in Wasserlöchern), Albatros-Pilot (fliegt Acht, Oval
-    oder Kreis), Schneemörser (Zielpunkt frei wählbar)
+    oder Kreis), Schneemörser (Zielpunkt frei wählbar), Taucher-Pinguin (Dreizack, sieht Getarnte und
+    trifft im Tunnel; Strudel, Torpedos, Perlen und Fähigkeit Tsunami), Eisbär-Söldner (Prankenhiebe gegen
+    Riesen, Gebrüll, Panzerknacker, dickes Fell gegen Flutwelle/Eisatem/Tinte, Kopfgeld, Fähigkeit Bärenstampfer)
   - Magie: Polarlicht-Pinguin, Ninja-Pinguin, Laser-Pinguin (Laserstrahlen, Roboarm, Orbitalschlag)
   - Unterstützung: Fischmarkt, Häuptlings-Pinguin, Disco-Pinguin (Schallwellen bremsen, Party-Buffs, Geld),
-    Eisstachel-Fabrik (legt Stachelhaufen und Minen)
+    Koch-Pinguin (Fische, die in seiner Nähe platzen, bringen Extra-Geld; Restaurants, Suppen-Buffs,
+    Fähigkeit Festmahl), Eisstachel-Fabrik (legt Stachelhaufen und Minen)
 - **3 Helden** (Kapitän Kiel, Prinzessin Aurora, Professor Frosti): steigen am Ende jeder Runde auf,
   Stufe 1–10, Stufen lassen sich auch kaufen; Fähigkeiten auf Stufe 3 und 7. Mit dem Pinguin-Pass kommt
   je eine Meisterkraft ab Stufe 5 dazu (Ankerwurf, Sternschnuppen, Eiszeit).
 - **17 Fähigkeiten** (Turbo, Walhai-Rakete, Schneesturm, Geldregen, Schlachtruf, Sabotage,
   Bombenteppich, Stachelsturm, Großer Knall, Walfang-Haken, Himmelsblitz und die Heldenfähigkeiten)
   mit Abklingzeit, unten links auf der Karte bzw. Tasten 1–9.
-- **16 Fische:** Rotbarsch, Blaubarsch, Grünling, Goldfisch, Lachs, Anglerfisch (immun gegen
-  Explosionen), Eisfisch (immun gegen Kälte), Panzerwels (immun gegen Spitzes), Zebrafisch,
-  Regenbogenforelle, Kofferfisch (10), Walhai (200), Schattenrochen (400, immer getarnt), Megalodon (700),
-  Riesenkrake (4000), Krakus der Boss und Kaiser Orka. Dazu die Zusätze getarnt, nachwachsend (grüne Algen) und
+- **22 Fische:** Rotbarsch, Blaubarsch, Grünling, Goldfisch, Lachs, Fliegender Fisch (springt, in der
+  Luft treffen ihn nur Flieger), Anglerfisch (immun gegen Explosionen), Eisfisch (immun gegen Kälte),
+  Tintenfisch (blendet beim Platzen Pinguine in der Nähe), Panzerwels (immun gegen Spitzes), Zebrafisch,
+  Regenbogenforelle, Kugelfisch (bläht sich nach einem Treffer auf, dann prallt kurz alles ab), Kofferfisch (10),
+  Walhai (200), Schattenrochen (400, immer getarnt), Megalodon (700), Riesenkrake (4000) und die Bosse
+  Krakus, Kaiser Orka, Hai-König und Eis-Leviathan. Dazu die Zusätze getarnt, nachwachsend (grüne Algen) und
   gepanzert (Helm, doppelt so zäh).
+- **Ziele:** Erster, Letzter, Stärkster, Nächster, Riesen zuerst, Getarnte zuerst.
 - **Koop:** bis zu 4 Spieler in einem Raum (4-stelliger Code). Der Gastgeber wählt Karte, Stufe,
   Modus und Geld: geteilt (eine Kasse, jeder darf alles) oder getrennt (jeder hat seine Kasse und
   rüstet nur eigene Pinguine auf). Jeder hat seinen eigenen Helden; Pause, Tempo und Auto gelten für alle.
   Der Server rechnet das Spiel mit und gibt den Takt vor, die Browser rechnen Takt für Takt nach und
   bekommen bei Abweichung den Spielstand neu. Wer die Verbindung verliert, kommt nach dem Neuladen zurück.
-- **Pinguin-Pass:** Erfahrung für Runden, Bosse und Siege, Stufe 1–30. Schaltet 9 Looks für die
-  eigenen Pinguine frei (Kaiserpinguin, Sonnenbrille, Schoko, Zuckerwatte, Eiskristall, Pirat, Galaxie,
-  Gold, Diamant) und die Meisterkräfte der Helden. Im Browser gespeichert.
+- **Pinguin-Pass:** Erfahrung für Runden, Bosse, Siege, Tagesaufträge und die Tages-Herausforderung,
+  Stufe 1–50. Schaltet 19 Looks frei (u. a. Kaiserpinguin, Weihnachtsmütze, Zombie, Ritter, Roboter,
+  Astronaut, Lava, Schatten, Nordlicht, Eisvogel und „Kaiser der Kaiser“ auf Stufe 50), 7 Sockel (Treibholz,
+  Kristall, Lava, Nordlicht, Gold, Regenbogen, Diamant), Fischmünzen und die Meisterkräfte der Helden.
+  Jeden Tag gibt es drei **Tagesaufträge** (z. B. Fische erwischen, Fähigkeiten einsetzen, Stufe 5 kaufen).
+  Looks und Sockel sieht man auch im Koop. Im Browser gespeichert.
+- **Tägliche Herausforderung:** jeden Tag dieselbe feste Aufgabe für alle (Karte, Stufe, Held und ein oder
+  zwei Regeln wie „Nur Militär“, „Höchstens 6 Pinguine“, „Kein Verkaufen“, „Upgrades bis Stufe 3“).
+- **Fischmünzen und Pinguin-Wissen:** Münzen für Runden, Siege, Erfolge, Aufträge und Pass-Stufen; damit
+  lernen die Pinguine dauerhaft dazu (Startgeld, Leben, Rabatt, Rundenbonus, Helden-Erfahrung, Fähigkeiten).
+  Gilt im Einzelspiel, nicht in Olympiade, Koop und Tages-Herausforderung; lässt sich abschalten.
+- **26 Erfolge** mit Fischmünzen als Belohnung (Bosse besiegen, Extrem gewinnen, ohne Verkaufen gewinnen …).
+- **Rundenvorschau** (welche Fische als Nächstes kommen), **Statistik** im Ergebnisbild (beste Pinguine,
+  Spielzeit, Geld, Belohnungen) und **Einstellungen** (Lautstärke, Grafik, Menü-Design hell/dunkel,
+  Vorschau, Lebensbalken, schwebende Texte, Kamerawackeln, Auto-Start).
 - Medaillen pro Karte, Stufe und Modus, Kamera-Zoom (Mausrad, zwei Finger, Knöpfe), Tempo 1×/2×/3×,
   automatischer Rundenstart, Spielstand nach jeder Runde im Browser gespeichert.
 
-Tasten: Buchstaben am Pinguin im Laden (`Q W E R T S P O Z N L U I D A`), Held `H`, Fähigkeiten `1`–`9`,
+Tasten: Buchstaben am Pinguin im Laden (`Q W E R T S P O V B Z N L U I D K A`), Held `H`, Fähigkeiten `1`–`9`,
 `Leertaste` Runde/Tempo, `,` `.` `-` Upgrades, `Entf` verkaufen, `Tab` Ziel bzw. Flugbahn wechseln,
 `Esc` abbrechen/Pause. Mit gedrückter Umschalttaste mehrere gleiche Pinguine setzen.
 
@@ -92,11 +116,14 @@ js/
   daten.js         Fische, Karten, Stufen, Spielmodi, Runden (auch im Server genutzt)
   pinguine.js      Pinguine mit allen Upgrades, Fähigkeiten, Helden
   logik.js         Spiellogik ohne Grafik (Kanäle, Ziele, Schaden, Fähigkeiten, Bosse, Befehle, Koop-Kassen, Speichern)
-  pass.js          Pinguin-Pass: Stufen, Looks, Meisterkräfte
+  pass.js          Pinguin-Pass: Stufen, Looks, Sockel, Münzen, Meisterkräfte
+  fortschritt.js   Erfolge, Pinguin-Wissen, Tagesaufträge, Tages-Herausforderung
+  editor.js        Karten-Editor
   modelle.js       3D-Modelle: Fische, Pinguine, Helden, Albatros, Geschosse
   welt3d.js        Szene: Scholle, Kanäle, Wasserlöcher, Themen, Kamera mit Zoom, Effekte
   ton.js           Geräusche (Web Audio, keine Dateien)
-  oberflaeche.js   Menü, Seitenleiste, Fähigkeiten, Eingabe, Hauptschleife, Medaillen, Olympiade, Pass, Koop
+  oberflaeche.js   Menü, Seitenleiste, Fähigkeiten, Eingabe, Hauptschleife, Medaillen, Olympiade, Pass, Koop,
+                   Rundenvorschau, Statistik, Einstellungen, eigene Karten
 vendor/            three.js r128 (MIT) – selbst ausgeliefert
 fonts/             Bricolage Grotesque (SIL OFL)
 test/              Logik-Stresstest, Koop-Test, Balance-Bot, Browser-Rauchtest

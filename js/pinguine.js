@@ -58,7 +58,10 @@
     party:        { name:'Party-Zeit', symbol:'🎉', text:'Pinguine in der Nähe greifen kurz doppelt so schnell an.' },
     anker:        { name:'Ankerwurf', symbol:'⚓', text:'Trifft die stärksten Riesen schwer und hält sie kurz fest.' },
     sternschnuppe:{ name:'Sternschnuppen', symbol:'💫', text:'Trifft jeden Fisch und enttarnt alle.' },
-    eiszeit:      { name:'Eiszeit', symbol:'🧊', text:'Alle Fische schwimmen eine Weile halb so schnell, Pinguine in der Nähe werden schneller.' }
+    eiszeit:      { name:'Eiszeit', symbol:'🧊', text:'Alle Fische schwimmen eine Weile halb so schnell, Pinguine in der Nähe werden schneller.' },
+    tsunami:      { name:'Tsunami', symbol:'🌊', text:'Eine Riesenwelle spült alle Fische zurück und verletzt sie.' },
+    stampf:       { name:'Bärenstampfer', symbol:'🐾', text:'Der Eisbär stampft: Alle Fische in der Nähe sind betäubt und verletzt.' },
+    festmahl:     { name:'Festmahl', symbol:'🍲', text:'Pinguine in der Nähe greifen kurz doppelt so schnell an.' }
   };
 
   /* ---------- Pinguine ---------- */
@@ -321,6 +324,72 @@
       ]
     },
 
+    taucher: {
+      name:'Taucher-Pinguin', preis:450, gruppe:'Militär', taste:'v', kurz:'Taucht mit dem Dreizack in den Kanal. Sieht getarnte Fische und trifft sie sogar im Tunnel.',
+      basis:() => ({ reichweite:95, camo:true, tunnel:true, angriffe:[angriff({ intervall:0.8, schaden:2, durchschlag:3, tempo:520, flug:130, groesse:6, bild:'dreizack' })] }),
+      pfade:[
+        [
+          { name:'Scharfer Dreizack', preis:260, text:'+1 Schaden.', fx:s => { A(s).schaden += 1; } },
+          { name:'Dreizack-Wirbel', preis:450, text:'Sticht drei Fische auf einmal.', fx:s => { const a = A(s); a.anzahl = 3; a.streuung = 0.35; } },
+          { name:'Strudel', preis:1400, text:'Ein Strudel zieht Fische in der Nähe zurück und bremst sie.', fx:s => {
+            s.angriffe.push(angriff({ id:'strudel', art:'ring', intervall:1.8, schaden:1, durchschlag:20, typ:'normal', bild:'strudel', verlangsam:0.5, verlangsamDauer:1.5, ablenken:0.35, reichweite:s.reichweite * 0.8 })); } },
+          { name:'Poseidon-Pinguin', preis:5500, text:'+5 Schaden, +20 gegen Riesen, größerer Strudel.', fx:s => {
+            const a = A(s); a.schaden += 5; a.riesen += 20; a.durchschlag += 3; a.bild = 'dreizackGold'; const b = A(s, 'strudel'); if (b) { b.schaden += 3; b.reichweite += 30; b.durchschlag += 30; } } },
+          { name:'Herrscher der Tiefe', preis:28000, text:'+15 Schaden, +60 gegen Riesen. Fähigkeit Tsunami: spült alle Fische zurück.', fx:s => {
+            const a = A(s); a.schaden += 15; a.riesen += 60; a.intervall *= 0.7; F(s, { id:'tsunami', cd:55, schaden:40, riesen:400, weite:160 }); } }
+        ],
+        [
+          { name:'Schwimmflossen', preis:220, text:'Sticht 20 % schneller.', fx:s => { A(s).intervall *= 0.8; } },
+          { name:'Turboflossen', preis:450, text:'Sticht noch 33 % schneller.', fx:s => { A(s).intervall *= 0.67; } },
+          { name:'Torpedos', preis:1800, text:'Schießt zusätzlich zielsuchende Torpedos, die explodieren.', fx:s => {
+            s.angriffe.push(angriff({ id:'torpedo', intervall:1.5, schaden:2, typ:'normal', tempo:380, flug:360, groesse:6, bild:'torpedo', splash:36, splashDurchschlag:14, zielsuchend:true, reichweite:s.reichweite + 120 })); } },
+          { name:'U-Boot', preis:5200, text:'Torpedos +4 Schaden, +10 gegen Riesen, größere Explosionen.', fx:s => {
+            const b = A(s, 'torpedo'); if (b) { b.schaden += 4; b.riesen += 10; b.splash += 18; b.splashDurchschlag += 16; b.intervall *= 0.8; } } },
+          { name:'Atom-U-Boot', preis:30000, text:'Drei Torpedos auf einmal, +12 Schaden, +60 gegen Riesen.', fx:s => {
+            const b = A(s, 'torpedo'); if (b) { b.anzahl = 3; b.streuung = 0.3; b.schaden += 12; b.riesen += 60; b.splash += 20; b.splashDurchschlag += 30; } } }
+        ],
+        [
+          { name:'Taucherbrille', preis:200, text:'Reichweite +25.', fx:s => { s.reichweite += 25; A(s).flug += 25; } },
+          { name:'Sonar', preis:900, text:'Pinguine in der Nähe sehen getarnte Fische.', fx:s => { s.buff = { reichweite:0, camo:true, tempo:1, schaden:0, durchschlag:0, rabatt:0 }; } },
+          { name:'Perlentaucher', preis:1500, text:'Findet Perlen: +250 Geld am Ende jeder Runde.', fx:s => { s.geld = { kisten:0, wert:0, flat:250 }; } },
+          { name:'Schatzsucher', preis:5000, text:'+900 Geld pro Runde.', fx:s => { s.geld.flat = 900; } },
+          { name:'Versunkener Schatz', preis:24000, text:'+3000 Geld pro Runde. Fähigkeit Geldregen.', fx:s => { s.geld.flat = 3000; F(s, { id:'geldregen', cd:60, betrag:4000 }); } }
+        ]
+      ]
+    },
+
+    eisbaer: {
+      name:'Eisbär-Söldner', preis:1600, gruppe:'Militär', taste:'b', kurz:'Ein riesiger Eisbär, der für Fisch arbeitet. Langsame Prankenhiebe, die Riesen zerlegen.',
+      basis:() => ({ reichweite:78, camo:false, angriffe:[angriff({ art:'sofort', intervall:1.25, schaden:5, riesen:12, durchschlag:1, typ:'normal', bild:'pranke', splash:30, splashDurchschlag:6 })] }),
+      pfade:[
+        [
+          { name:'Starke Pranken', preis:500, text:'+3 Schaden.', fx:s => { A(s).schaden += 3; } },
+          { name:'Bärenkraft', preis:900, text:'+10 gegen Riesen, größerer Hieb.', fx:s => { const a = A(s); a.riesen += 10; a.splash += 14; a.splashDurchschlag += 6; } },
+          { name:'Grizzly-Wut', preis:2600, text:'Schlägt doppelt so schnell zu.', fx:s => { A(s).intervall *= 0.5; } },
+          { name:'Eisbär-Champion', preis:9000, text:'+20 Schaden, +60 gegen Riesen.', fx:s => { const a = A(s); a.schaden += 20; a.riesen += 60; a.bild = 'prankeGold'; } },
+          { name:'Bärenkönig', preis:40000, text:'+60 Schaden, +250 gegen Riesen. Fähigkeit Bärenstampfer.', fx:s => {
+            const a = A(s); a.schaden += 60; a.riesen += 250; a.splash += 20; a.splashDurchschlag += 20; F(s, { id:'stampf', cd:40, radius:230, dauer:2.5, schaden:200, riesen:2500 }); } }
+        ],
+        [
+          { name:'Lange Arme', preis:300, text:'Reichweite +20.', fx:s => { s.reichweite += 20; } },
+          { name:'Gebrüll', preis:800, text:'Brüllt: Fische in der Nähe werden langsamer.', fx:s => {
+            s.angriffe.push(angriff({ id:'bruell', art:'ring', intervall:3, schaden:0, durchschlag:40, typ:'normal', bild:'bruell', verlangsam:0.5, verlangsamDauer:1.6 })); } },
+          { name:'Furchteinflößend', preis:2200, text:'Das Gebrüll betäubt kleine Fische kurz.', fx:s => { const b = A(s, 'bruell'); if (b) { b.betaeuben = 0.6; b.intervall *= 0.8; } } },
+          { name:'Donnergebrüll', preis:6500, text:'Reichweite +40, das Gebrüll verletzt und bremst Riesen.', fx:s => {
+            s.reichweite += 40; const b = A(s, 'bruell'); if (b) { b.schaden = 3; b.riesenLangsam = 0.6; b.durchschlag += 40; } } },
+          { name:'Urzeit-Bär', preis:26000, text:'Das Gebrüll betäubt sogar Riesen, +10 Schaden.', fx:s => {
+            const b = A(s, 'bruell'); if (b) { b.riesenBetaeuben = 0.8; b.schaden += 10; b.riesen += 30; } A(s).schaden += 10; } }
+        ],
+        [
+          { name:'Feine Nase', preis:400, text:'Sieht getarnte Fische.', fx:s => { s.camo = true; } },
+          { name:'Panzerknacker', preis:1600, text:'Reißt gepanzerten Fischen den Helm ab.', fx:s => { A(s).helmWeg = true; } },
+          { name:'Dickes Fell', preis:3500, text:'Lässt sich von Flutwellen, Eisatem und Tinte nicht stören. +30 gegen Riesen.', fx:s => { s.unbeirrbar = true; A(s).riesen += 30; } },
+          { name:'Kopfgeldjäger', preis:8000, text:'Jeder besiegte Riese bringt 60 Geld extra.', fx:s => { s.kopfgeld = 60; A(s).schaden += 6; } },
+          { name:'Eisbär-Legende', preis:22000, text:'+40 Schaden, trifft mehr Fische, Kopfgeld 200.', fx:s => { const a = A(s); a.schaden += 40; a.splashDurchschlag += 20; a.splash += 20; s.kopfgeld = 200; } }
+        ]
+      ]
+    },
+
     /* ===== Magie ===== */
     polar: {
       name:'Polarlicht-Pinguin', preis:375, gruppe:'Magie', taste:'z', kurz:'Zaubert Polarlicht-Blitze. Trifft alle Fischarten.',
@@ -516,6 +585,34 @@
       ]
     },
 
+    koch: {
+      name:'Koch-Pinguin', preis:900, gruppe:'Unterstützung', taste:'k', kurz:'Macht aus Fischen Fischstäbchen: Jeder Fisch, der in seiner Nähe platzt, bringt Extra-Geld.', greift:false,
+      basis:() => ({ reichweite:120, camo:false, angriffe:[], koch:0.5 }),
+      pfade:[
+        [
+          { name:'Fischstäbchen', preis:400, text:'1 Geld extra pro Fisch in der Nähe.', fx:s => { s.koch = 1; } },
+          { name:'Fischbrötchen', preis:900, text:'1,5 Geld pro Fisch, größere Küche.', fx:s => { s.koch = 1.5; s.reichweite += 20; } },
+          { name:'Sushi-Bar', preis:2800, text:'2,5 Geld pro Fisch.', fx:s => { s.koch = 2.5; } },
+          { name:'Sternekoch', preis:8000, text:'4 Geld pro Fisch.', fx:s => { s.koch = 4; } },
+          { name:'Fisch-Imperium', preis:30000, text:'7 Geld pro Fisch, riesige Küche.', fx:s => { s.koch = 7; s.reichweite += 40; } }
+        ],
+        [
+          { name:'Suppenküche', preis:500, text:'+80 Geld am Ende jeder Runde.', fx:s => { s.geld = { kisten:0, wert:0, flat:80 }; } },
+          { name:'Lieferdienst', preis:1200, text:'+250 Geld pro Runde.', fx:s => { s.geld.flat = 250; } },
+          { name:'Restaurant', preis:3500, text:'+700 Geld pro Runde.', fx:s => { s.geld.flat = 700; } },
+          { name:'Restaurantkette', preis:9500, text:'+2000 Geld pro Runde.', fx:s => { s.geld.flat = 2000; } },
+          { name:'Gourmet-Weltreich', preis:32000, text:'+6000 Geld pro Runde.', fx:s => { s.geld.flat = 6000; } }
+        ],
+        [
+          { name:'Stärkende Suppe', preis:600, text:'Pinguine in der Nähe greifen 10 % schneller an.', fx:s => { s.buff = { reichweite:0, camo:false, tempo:0.9, schaden:0, durchschlag:0, rabatt:0 }; } },
+          { name:'Kraftfutter', preis:1500, text:'Pinguine in der Nähe: +1 Durchschlag.', fx:s => { s.buff.durchschlag += 1; } },
+          { name:'Chili-Suppe', preis:4000, text:'Pinguine in der Nähe: +1 Schaden.', fx:s => { s.buff.schaden += 1; } },
+          { name:'Festmahl', preis:7000, text:'Fähigkeit Festmahl: Pinguine in der Nähe kurz doppelt so schnell.', fx:s => { F(s, { id:'festmahl', cd:45, dauer:10, faktor:2 }); } },
+          { name:'Meisterkoch', preis:26000, text:'Pinguine in der Nähe: +2 Schaden, 25 % schneller.', fx:s => { s.buff.schaden += 1; s.buff.tempo = 0.75; s.reichweite += 25; F(s, { id:'festmahl', cd:35, dauer:12, faktor:2 }); } }
+        ]
+      ]
+    },
+
     fabrik: {
       name:'Eisstachel-Fabrik', preis:1000, gruppe:'Unterstützung', taste:'a', kurz:'Legt Eisstachel-Haufen in den Kanal. Fängt durchgerutschte Fische ab.',
       ziele:[['smart', 'Klug'], ['nah', 'Nah'], ['anfang', 'Anfang'], ['ende', 'Ende']],
@@ -548,7 +645,7 @@
   };
   for (const id of Object.keys(PINGUINE)) PINGUINE[id].id = id;
   PT.PINGUINE = PINGUINE;
-  PT.PINGUIN_REIHE = ['zapfen', 'rundum', 'schneeball', 'frost', 'harpune', 'boot', 'flieger', 'moerser', 'polar', 'ninja', 'laser', 'markt', 'haeuptling', 'disco', 'fabrik'];
+  PT.PINGUIN_REIHE = ['zapfen', 'rundum', 'schneeball', 'frost', 'harpune', 'boot', 'flieger', 'moerser', 'taucher', 'eisbaer', 'polar', 'ninja', 'laser', 'markt', 'haeuptling', 'disco', 'koch', 'fabrik'];
   PT.GRUPPEN = ['Primär', 'Militär', 'Magie', 'Unterstützung'];
 
   /* ---------- Helden ----------

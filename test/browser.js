@@ -34,7 +34,7 @@ const URL = process.env.URL || 'http://localhost:10700/?test=1';
     await page.close();
   }
   // Alle Karten, voll ausgebaut, eine späte Runde
-  for (const [karte, held] of [['scholle', 'kiel'], ['bucht', 'aurora'], ['kreuz', 'frosti'], ['spalte', 'frosti'], ['erebus', 'kiel'], ['nacht', 'aurora'], ['doppel', 'frosti'], ['inseln', 'kiel']]) {
+  for (const [karte, held] of [['scholle', 'kiel'], ['bucht', 'aurora'], ['kreuz', 'frosti'], ['spalte', 'frosti'], ['erebus', 'kiel'], ['nacht', 'aurora'], ['doppel', 'frosti'], ['inseln', 'kiel'], ['tunnel', 'kiel'], ['schmelze', 'aurora'], ['dreizack', 'frosti']]) {
     const page = await seite(karte, { karte, stufe:'mittel', modus:'standard', held });
     await page.click('#los');
     await page.waitForTimeout(800);
