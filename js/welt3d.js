@@ -24,6 +24,10 @@
     tag:        { himmel:0xcfe9f7, boden:['#dcecf4', '#b9d5e6'], licht:0.8, halb:0.5, nebel:0xcfe9f7, fluss:0x4cc3f0, schnee:0.4, meer:0x1a5f90, flach:'#7fe0ee', himmelsLicht:0xeaf6ff, bodenLicht:0x7f9fb8, sonne:0xffffff, fuell:0x9fc8ff },
     daemmerung: { himmel:0xf2c9c0, boden:['#f0dfe6', '#cdc4e2'], licht:0.8, halb:0.5, nebel:0xe7d2dc, fluss:0x55b6e6, schnee:0.6, meer:0x3b5d8f, flach:'#e2b0d8', himmelsLicht:0xffe3d6, bodenLicht:0x7a86b8, sonne:0xffd0b0, fuell:0x8f9fff },
     nacht:      { himmel:0x0b1630, boden:['#a2b5d8', '#7a91ba'], licht:0.46, halb:0.5, nebel:0x0e1c3a, fluss:0x3a9fd6, schnee:0.8, meer:0x0a2142, flach:'#2fb8a8', himmelsLicht:0x9fb4ff, bodenLicht:0x3f4f80, sonne:0xc9d8ff, fuell:0x5ee8c0 },
+    // Abenteuer-Stimmungen: sterbende Tiefsee und rote Alarmnacht
+    tiefsee:    { himmel:0x010309, boden:['#26304a', '#141a2e'], licht:0.24, halb:0.3, nebel:0x020610, fluss:0x123a64, schnee:0.35, meer:0x020814, flach:'#1a3a6a', himmelsLicht:0x6a8acc, bodenLicht:0x1a1a3a, sonne:0x8aa4ff, fuell:0x7a4aff, tiefe:true },
+    blut:       { himmel:0x0e0405, boden:['#54484e', '#2e282e'], licht:0.42, halb:0.34, nebel:0x140607, fluss:0x2a5a8a, schnee:0.45, meer:0x0a0405, flach:'#6a2020', himmelsLicht:0xc8a0a0, bodenLicht:0x2a1010, sonne:0xd09088, fuell:0xff4a3a, alarm:true },
+    asche:      { himmel:0x3a3638, boden:['#9a9498', '#6e686c'], licht:0.6, halb:0.45, nebel:0x3a3638, fluss:0x4a7a9a, schnee:0.7, meer:0x1a1c22, flach:'#8a7a70', himmelsLicht:0xe0d8d0, bodenLicht:0x4a4448, sonne:0xe8dcd0, fuell:0xa09088 },
     vulkan:     { himmel:0x2a1a1c, boden:['#857e8a', '#5f5866'], licht:0.75, halb:0.45, nebel:0x2a1a1c, fluss:0x3fb0e0, schnee:0.25, meer:0x16202e, lava:true, flach:'#d8643a', himmelsLicht:0xffe0cc, bodenLicht:0x5a3a3a, sonne:0xffe2cc, fuell:0xff8a4a }
   };
 
@@ -662,6 +666,36 @@
         }
       }
 
+      // Tiefsee: Leuchtquallen-Lichter, die langsam treiben; Blutnacht: rotes Alarmlicht
+      if (thema.tiefe) for (const farbe of [0x3a7aff, 0xa04aff, 0x2affd0]) {
+        const l = new T.PointLight(farbe, 0.9, 700, 1.4);
+        l.position.set(0, 120, 0); l.polar = true;
+        sc.add(l); this.lichter.push(l);
+      }
+      if (thema.alarm) {
+        const l = new T.PointLight(0xff2a1a, 0.5, 1400, 1.2);
+        l.position.set(0, 260, 0); l.alarm = true;
+        sc.add(l); this.lichter.push(l);
+      }
+      // Abenteuer: einstürzende Eisflächen (dunkles Loch mit Eisschollen, vorher pulsiert ein roter Warnring)
+      this.einsturzFlaechen = (spiel.einsturz || []).map(([sx, sy, sr, runde]) => {
+        const g = new T.Group();
+        const loch = new T.Mesh(new T.CircleGeometry(sr, 40), new T.MeshPhongMaterial({ color:0x061624, shininess:100, specular:0x3a5a7a }));
+        loch.rotation.x = -Math.PI / 2; loch.position.set(X(sx), WASSER_Y - 1, Z(sy));
+        g.add(loch);
+        for (let k = 0; k < 9; k++) {
+          const w = k / 9 * Math.PI * 2 + sy;
+          const sch = mesh(new T.CylinderGeometry(1, 0.8, 1, 5), mat(0xdfeef8, 'lambert', { flatShading:true }), X(sx) + Math.cos(w) * sr * (0.35 + (k % 3) * 0.18), WASSER_Y + 0.8, Z(sy) + Math.sin(w) * sr * (0.35 + (k % 3) * 0.18));
+          sch.scale.set(sr * (0.08 + (k % 2) * 0.05), 3, sr * 0.07); sch.rotation.set(0.3 * ((k % 3) - 1), k, 0.2); g.add(sch);
+        }
+        const rand = mesh(G.torus, mat(0xb8c8d4, 'lambert'), X(sx), 1.5, Z(sy)); rand.scale.set(sr + 2, sr + 2, 18); rand.rotation.x = Math.PI / 2; g.add(rand);
+        g.visible = false; sc.add(g);
+        const warn = new T.Mesh(EBENE, new T.MeshBasicMaterial({ map:ringTextur(), color:0xff3a2a, transparent:true, opacity:0, depthWrite:false, blending:T.AdditiveBlending }));
+        warn.rotation.x = -Math.PI / 2; warn.position.set(X(sx), 3, Z(sy)); warn.scale.setScalar(sr * 1.15); sc.add(warn);
+        return { g, warn, runde };
+      });
+      this.denkmalN = 0;
+
       // Leuchtpunkt-Systeme: additiv (Funken, Glanz), normal (Staub, Rauch, Schnee)
       this.glow = new Punkte(sc, 2600, true, this.punktSkala);
       this.staub = new Punkte(sc, 600, false, this.punktSkala, 0);
@@ -1244,8 +1278,82 @@
           case 'leck':
             this.blitz = 0.35;
             break;
+          // Abenteuer und Versus
+          case 'zerstoert':
+            this.wackeln = Math.max(this.wackeln, 0.6);
+            this.effekte.push({ art:'kugel', x:e.x, y:e.y, r:50, t:0, dauer:0.4, farbe:0xff7a3a });
+            this.funken(e.x, e.y, 14, 0xff9a4a, 24, { tempo:200, hoch:180, groesse:9, dauer:0.9 });
+            this.staubWolke(e.x, e.y, 10, 0x3a3236, 8, { groesse:40, tempo:70, hoch:30, dauer:1.4 });
+            this.texte.push({ x:e.x, y:e.y, h:50, text:'💥', farbe:'#ff9a4a', t:0, dauer:1.2, gross:28 });
+            break;
+          case 'heldGefallen':
+            this.wackeln = 1;
+            this.flash = { farbe:'#ffffff', t:0, dauer:1.4 };
+            if (e.x != null) {
+              this.effekte.push({ art:'saeule', x:e.x, y:e.y, r:30, hoehe:320, t:0, dauer:2, farbe:0xdff6ff });
+              this.funken(e.x, e.y, 20, 0xdff8ff, 40, { tempo:60, hoch:220, groesse:10, dauer:2, grav:-30, streu:20 });
+              this.texte.push({ x:e.x, y:e.y, h:90, text:'🗿', farbe:'#dff6ff', t:0, dauer:3, gross:34 });
+            }
+            break;
+          case 'frostbefehl':
+            for (const [x, y] of e.ziele || []) {
+              this.effekte.push({ art:'ring', x, y, r:40, t:0, dauer:0.7, farbe:0x9ff3ff });
+              this.funken(x, y, 20, 0xdff8ff, 12, { tempo:30, hoch:80, groesse:7, dauer:1 });
+              if (e.x != null) this.effekte.push({ art:'strahl', x1:e.x, y1:e.y, x2:x, y2:y, t:0, dauer:0.35, farbe:0x9fe8ff, h1:40 });
+            }
+            break;
+          case 'eispanzer':
+            this.effekte.push({ art:'ring', x:e.x, y:e.y, r:e.r, t:0, dauer:0.8, farbe:0xbff4ff });
+            this.funken(e.x, e.y, 14, 0xe6fbff, 24, { streu:e.r * 0.8, tempo:20, hoch:60, groesse:7, dauer:1 });
+            this.texte.push({ x:e.x, y:e.y, h:70, text:'🧊 Eispanzer!', farbe:'#bff4ff', t:0, dauer:1.4, gross:22 });
+            break;
+          case 'zweitePhase':
+            this.wackeln = 1.5;
+            this.flash = { farbe:'#c070ff', t:0, dauer:1.6 };
+            for (let i = 0; i < 140; i++) this.teilchenDazu(e.x, e.y, 20, i % 2 ? 0xff5af0 : 0xffffff, 3, 300);
+            this.effekte.push({ art:'ring', x:e.x, y:e.y, r:260, t:0, dauer:1.2, farbe:0xc070ff });
+            this.effekte.push({ art:'saeule', x:e.x, y:e.y, r:40, hoehe:400, t:0, dauer:1.6, farbe:0xb36bff });
+            this.texte.push({ x:e.x, y:e.y, h:110, text:'💔 PAKO', farbe:'#e0b0ff', t:0, dauer:3, gross:36 });
+            break;
+          case 'wegOffen':
+            this.wackeln = Math.max(this.wackeln, 0.5);
+            this.effekte.push({ art:'ring', x:e.x, y:e.y, r:120, t:0, dauer:0.8, farbe:0xff5a3a });
+            for (let i = 0; i < 30; i++) this.teilchenDazu(e.x, e.y, 6, 0xdff5ff, 2.2, 120);
+            this.texte.push({ x:e.x, y:e.y, h:60, text:'⚠️ Überfall!', farbe:'#ff8a6a', t:0, dauer:2.2, gross:24 });
+            break;
+          case 'eingestuerzt':
+            this.wackeln = Math.max(this.wackeln, 0.9);
+            for (let i = 0; i < 50; i++) { const w = Math.random() * Math.PI * 2, d = Math.random() * e.r; this.teilchenDazu(e.x + Math.cos(w) * d, e.y + Math.sin(w) * d, 6, 0xdff5ff, 2.6, 90); }
+            this.staubWolke(e.x, e.y, 8, 0xe6eef4, 10, { groesse:46, tempo:e.r, hoch:24, dauer:1.4 });
+            this.effekte.push({ art:'welle', x:e.x, y:e.y, r:e.r * 1.4, t:0, dauer:1.1, farbe:0xffffff });
+            this.texte.push({ x:e.x, y:e.y, h:40, text:'Das Eis bricht!', farbe:'#ff9a8a', t:0, dauer:2, gross:22 });
+            break;
         }
       }
+    }
+    // Denkmal: der gefallene Held als Pinguin aus Eis
+    denkmalBauen([x, y, typ]) {
+      const b = pinguinBauen(PT.def(typ) ? typ : 'zapfen', [0, 0, 0], 1, {});
+      const eis = new T.MeshPhongMaterial({ color:0xcfefff, emissive:0x1a4a6a, shininess:140, specular:0xffffff, transparent:true, opacity:0.88 });
+      b.g.traverse(o => { if (o.isMesh) o.material = eis; });
+      b.g.position.set(X(x), 6, Z(y));
+      b.innen.rotation.y = Math.PI / 2;
+      const sockel = mesh(new T.CylinderGeometry(20, 24, 8, 8), mat(0xa8c8dc, 'phong', { flatShading:true, shininess:60 }), X(x), 2, Z(y));
+      this.scene.add(b.g, sockel);
+    }
+    // Kino-Kamera für Szenen: langsame Fahrt um die Karte, tiefer und näher als im Spiel
+    kinoSetzen(an) {
+      this.kino = an ? { t:0 } : null;
+      if (!an) this.kameraSetzen();
+    }
+    kinoKamera(dt) {
+      const k = this.kamera, K = this.kino;
+      K.t += dt;
+      const w = 0.6 + K.t * 0.045, d = this.basisAbstand * 0.72, hoch = 0.5 + Math.sin(K.t * 0.12) * 0.08;
+      const ziel = this.kartenMitte || new T.Vector3();
+      k.position.set(ziel.x + Math.sin(w) * d * Math.cos(hoch), Math.sin(hoch) * d, ziel.z + Math.cos(w) * d * Math.cos(hoch));
+      k.lookAt(ziel.x, 0, ziel.z);
+      k.updateMatrixWorld();
     }
     // Aussehen eines Pinguins: Look (Pinguin-Pass) und im Koop die Farbe seines Besitzers. Setzt die Oberfläche.
     aussehen(t) { return this.aussehenFuer ? this.aussehenFuer(t) || {} : {}; }
@@ -1287,6 +1395,17 @@
         z.g.visible = z.runde <= spiel.runde;
         z.warn.material.opacity = z.runde === spiel.runde + 1 ? 0.35 + Math.sin(this.zeit * 5) * 0.3 : 0;
       }
+      for (const z of this.einsturzFlaechen || []) {
+        z.g.visible = z.runde <= spiel.runde;
+        z.warn.material.opacity = z.runde === spiel.runde + 1 ? 0.45 + Math.sin(this.zeit * 7) * 0.35 : 0;
+      }
+      // Denkmäler gefallener Helden: ein Pinguin aus Eis auf einem Sockel
+      const dm = spiel.denkmaeler || [];
+      if (dm.length !== this.denkmalN) {
+        for (let i = this.denkmalN; i < dm.length; i++) this.denkmalBauen(dm[i]);
+        this.denkmalN = dm.length;
+      }
+      if (this.kino) this.kinoKamera(dt);
       // Wetter: Nebel kommt näher, der Leuchtturm dreht sein Licht
       const nebel = spiel.wetter === 'nebel' ? 1 : spiel.wetter === 'schneesturm' ? 0.6 : 0;
       this.wetterAnzeige += (nebel - this.wetterAnzeige) * Math.min(1, dt * 1.5);
@@ -1330,6 +1449,7 @@
 
       // Polarlicht und Schnee
       this.lichter.forEach((l, i) => {
+        if (l.alarm) { l.intensity = 0.2 + Math.max(0, Math.sin(this.zeit * 2.4)) * 0.6; return; }
         if (!l.polar) return;
         const w = this.zeit * (0.15 + i * 0.05) + i * 2.1;
         l.position.set(Math.cos(w) * 380, 150 + Math.sin(this.zeit + i) * 30, Math.sin(w * 1.3) * 220);
@@ -1710,6 +1830,15 @@
         }
       } else if (spiel.wetter === 'tauwetter') { x.fillStyle = 'rgba(255,170,60,0.07)'; x.fillRect(0, 0, this.pw, this.ph); }
       else if (spiel.wetter === 'nebel') { x.fillStyle = 'rgba(225,232,240,0.16)'; x.fillRect(0, 0, this.pw, this.ph); }
+      if (this.thema.tiefe) {
+        const g = x.createRadialGradient(this.pw / 2, this.ph / 2, Math.min(this.pw, this.ph) * 0.3, this.pw / 2, this.ph / 2, Math.max(this.pw, this.ph) * 0.75);
+        g.addColorStop(0, 'rgba(0,4,20,0.12)'); g.addColorStop(1, 'rgba(0,2,14,0.72)');
+        x.fillStyle = g; x.fillRect(0, 0, this.pw, this.ph);
+      } else if (this.thema.alarm) {
+        const g = x.createRadialGradient(this.pw / 2, this.ph / 2, Math.min(this.pw, this.ph) * 0.35, this.pw / 2, this.ph / 2, Math.max(this.pw, this.ph) * 0.75);
+        g.addColorStop(0, 'rgba(120,0,0,0)'); g.addColorStop(1, `rgba(90,0,0,${0.25 + Math.max(0, Math.sin(this.zeit * 2.4)) * 0.2})`);
+        x.fillStyle = g; x.fillRect(0, 0, this.pw, this.ph);
+      }
       if (this.finsternis && spiel.zeit < spiel.finsternisBis) {
         const k = Math.min(1, (spiel.finsternisBis - spiel.zeit) * 2);
         const g = x.createRadialGradient(this.pw / 2, this.ph / 2, Math.min(this.pw, this.ph) * 0.1, this.pw / 2, this.ph / 2, Math.max(this.pw, this.ph) * 0.7);
@@ -1734,6 +1863,36 @@
 
     /* ---------- Vorschaubilder für Laden und Lexikon ---------- */
     // skin: Look für die Pinguine; looks: diese Looks zusätzlich am Zapfen-Pinguin zeigen (Pinguin-Pass)
+    // Porträts für Szenen und Funk: Kopf und Brust, Blick zur Kamera. liste: [{ id, held } | { id, look }]
+    static portraets(liste) {
+      const groesse = 160;
+      const c = document.createElement('canvas');
+      c.width = c.height = groesse;
+      const r = new T.WebGLRenderer({ canvas:c, antialias:true, alpha:true, preserveDrawingBuffer:true });
+      r.setPixelRatio(1); r.setSize(groesse, groesse, false);
+      const sc = new T.Scene();
+      sc.add(new T.HemisphereLight(0xffffff, 0x556677, 0.85));
+      const l = new T.DirectionalLight(0xffffff, 0.8); l.position.set(2, 2, 1.5); sc.add(l);
+      const k = new T.PerspectiveCamera(30, 1, 0.1, 2000);
+      const aus = {};
+      for (const d of liste) {
+        // Helden mit ihrem Modell, alle anderen als Pinguin im Look (ohne Ausrüstung)
+        let g;
+        if (d.held) { const b = pinguinBauen(d.held, [0, 0, 0], 1, {}); b.innen.rotation.y = -0.7; g = b.g; }
+        else { g = PT.M3.pinguinFigur(d.look); g.rotation.y = -0.75; }
+        sc.add(g);
+        const walross = d.held === 'walter';
+        if (walross) { k.position.set(70, 52, 92); k.lookAt(0, 18, 0); }
+        else if (d.held) { k.position.set(58, 54, 80); k.lookAt(0, 28, 0); }
+        else { k.position.set(34, 42, 50); k.lookAt(0, 27, 0); }
+        r.render(sc, k);
+        aus[d.id] = c.toDataURL('image/png');
+        sc.remove(g);
+      }
+      r.dispose();
+      if (r.forceContextLoss) r.forceContextLoss();
+      return aus;
+    }
     static bilder(typen, fische, skin = null, looks = [], sockel = null, sockelListe = []) {
       const groesse = 192;
       const c = document.createElement('canvas');
@@ -1782,7 +1941,7 @@
         const m = new T.Mesh(fischGeo(typ), new T.MeshPhongMaterial({ vertexColors:true, shininess:50 }));
         m.rotation.y = -0.5;
         sc.add(m);
-        const d = f.r * (typ === 'krake' || typ === 'krakus' || typ === 'rochen' ? 6.5 : typ === 'orka' || typ === 'haikoenig' ? 7.2 : typ === 'leviathan' ? 8.5 : typ === 'abyssos' ? 6.8 : typ === 'flug' ? 6.2 : 5.2);
+        const d = f.r * (typ === 'krake' || typ === 'krakus' || typ === 'rochen' ? 6.5 : typ === 'orka' || typ === 'haikoenig' ? 7.2 : typ === 'leviathan' ? 8.5 : typ === 'abyssos' || typ === 'zerbrochen' ? 6.8 : typ === 'kapitaen' ? 5 : typ === 'flug' ? 6.2 : 5.2);
         k.position.set(d * 0.2, d * 0.45, d); k.lookAt(0, 0, 0);
         r.render(sc, k);
         fisch[typ] = c.toDataURL('image/png');

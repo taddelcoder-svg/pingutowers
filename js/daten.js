@@ -38,7 +38,13 @@
     orka:    { name:'Kaiser Orka',        hp:9000, tempo:19,  r:64, farbe:'#1b1d24', kinder:[], riese:true, boss:true },
     leviathan:{ name:'Eis-Leviathan',     hp:16000, tempo:14, r:70, farbe:'#7fd6ff', kinder:[], riese:true, boss:true },
     haikoenig:{ name:'Hai-König',         hp:7000, tempo:21,  r:60, farbe:'#4a6a8a', kinder:[], riese:true, boss:true },
-    abyssos: { name:'Abyssos, der Tiefseekönig', hp:22000, tempo:12, r:74, farbe:'#2a1a4a', kinder:[], riese:true, boss:true }
+    abyssos: { name:'Abyssos, der Tiefseekönig', hp:22000, tempo:12, r:74, farbe:'#2a1a4a', kinder:[], riese:true, boss:true },
+    // Abenteuer „Schwarzes Eis“: Fische aus der sterbenden Tiefsee, Kapitän Frost und Pako
+    schatten: { name:'Schattenfisch',     hp:2,    tempo:120, r:12, farbe:'#1c1530', kinder:['schwarz'], immer:'camo' },
+    splitter: { name:'Splitterling',      hp:2,    tempo:165, r:10, farbe:'#9b3fb0', kinder:['rosa'] },
+    verderbt: { name:'Verderbter Fisch',  hp:12,   tempo:92,  r:15, farbe:'#4a1f5c', kinder:['splitter', 'splitter', 'splitter'], immun:['kaelte'] },
+    kapitaen: { name:'Kapitän Frost',     hp:11000, tempo:17, r:58, farbe:'#9fd8ff', kinder:[], riese:true, boss:true },
+    zerbrochen:{ name:'Pako, der Zerbrochene', hp:26000, tempo:15, r:76, farbe:'#3a1050', kinder:[], riese:true, boss:true }
   };
   for (const id of Object.keys(FISCHE)) FISCHE[id].id = id;
   // Wie viele "Schichten" ein Fisch insgesamt hat (so viele Leben kostet er, wenn er durchkommt)
@@ -49,8 +55,8 @@
   }
   Object.keys(FISCHE).forEach(rbe);
   PT.FISCHE = FISCHE;
-  PT.BOSS_REIHE = ['krakus', 'orka', 'leviathan', 'haikoenig', 'abyssos'];
-  PT.FISCH_REIHE = ['rot', 'blau', 'gruen', 'gelb', 'rosa', 'flug', 'schwarz', 'weiss', 'tinte', 'panzer', 'zebra', 'regen', 'kugel', 'koffer', 'wal', 'rochen', 'mega', 'krake'];
+  PT.BOSS_REIHE = ['krakus', 'orka', 'leviathan', 'haikoenig', 'abyssos', 'kapitaen', 'zerbrochen'];
+  PT.FISCH_REIHE = ['rot', 'blau', 'gruen', 'gelb', 'rosa', 'flug', 'schwarz', 'weiss', 'tinte', 'panzer', 'zebra', 'regen', 'kugel', 'koffer', 'schatten', 'splitter', 'verderbt', 'wal', 'rochen', 'mega', 'krake'];
   // Gepanzert gibt es nur für zähe Fische (wie im Vorbild)
   PT.kannGepanzert = typ => typ === 'panzer' || FISCHE[typ].hp > 1;
 
@@ -244,6 +250,8 @@
   };
   PT.KARTEN_REIHE = ['scholle', 'bucht', 'leuchtturm', 'kreuz', 'spalte', 'tunnel', 'schmelze', 'labyrinth', 'erebus', 'nacht', 'doppel', 'inseln', 'eisbergring', 'dreizack'];
   PT.THEMEN_REIHE = ['tag', 'daemmerung', 'nacht', 'vulkan'];
+  // Stimmungen nur fürs Abenteuer (überschreiben das Thema der Karte): Tiefsee, Blutnacht, Asche
+  PT.STIMMUNGEN = [...PT.THEMEN_REIHE, 'tiefsee', 'blut', 'asche'];
 
   /* ---------- Eigene Karten (Karten-Editor) ----------
      Prüft eine Karte von außen (Editor, Teilen-Link, Koop) und gibt eine bereinigte Kopie zurück oder null. */
@@ -383,7 +391,14 @@
       welle:[[['rosa', 6], ['koffer', 1]], [['koffer', 3], ['wal', 1]]], ruf:{ alle:6, welle:[[['rosa', 3], ['gelb', 3]], [['koffer', 2], ['regen', 2]]] } },
     // Abyssos: macht es immer wieder stockdunkel (alle Fische außer ihm sind dann getarnt)
     abyssos:{ modus:'tiefsee', runden:{ 35:1, 70:2 }, hp:[0, 3500, 22000], belohnung:3000, symbol:'🏮',
-      welle:[[['schwarz', 8], ['tinte', 4]], [['koffer', 4], ['rochen', 1]]], finsternis:{ alle:9, dauer:3.5 } }
+      welle:[[['schwarz', 8], ['tinte', 4]], [['koffer', 4], ['rochen', 1]]], finsternis:{ alle:9, dauer:3.5 }, zweite:'zerbrochen' },
+    // Kapitän Frost: friert die wertvollsten Pinguine ein und hüllt Fische in seiner Nähe kurz in Eispanzer (alles prallt ab)
+    kapitaen:{ modus:null, runden:{}, hp:[0, 1600, 11000], belohnung:2200, symbol:'🎖️',
+      welle:[[['weiss', 8], ['zebra', 2]], [['koffer', 4], ['wal', 1]]], frostbefehl:{ alle:8, anzahl:[0, 2, 3], dauer:[0, 2.5, 3.5] }, eispanzer:{ alle:10, radius:170, dauer:2 } },
+    // Pako, der Zerbrochene: die zweite Gestalt von Abyssos (nur im Abenteuer, regeln.zweitePhase)
+    zerbrochen:{ modus:null, runden:{}, hp:[0, 6000, 26000], belohnung:4000, symbol:'💔',
+      welle:[[['schatten', 8], ['verderbt', 2]], [['verderbt', 6], ['rochen', 2]]], finsternis:{ alle:7, dauer:3 },
+      ruf:{ alle:6, welle:[[['schatten', 4]], [['schatten', 6], ['verderbt', 2]]] } }
   };
   PT.BOSS_HP = PT.BOSSE.krakus.hp;
   PT.bossFuer = modus => PT.BOSS_REIHE.find(id => PT.BOSSE[id].modus === modus) || null;
@@ -391,7 +406,8 @@
   // Gruppen einer Runde; nach Runde 80 geht es endlos mit immer zäheren Riesen weiter.
   // Boss-Jagd: In Runde 20 und 40 kommt Krakus (Stufe 1 und 2) mit Begleitung, beim Orka-Angriff Kaiser Orka in 25 und 50.
   // bosse (Kampagne): { runde:[typ, stufe] } – zusätzliche Bosse unabhängig vom Spielmodus
-  PT.runde = function (n, modus, bosse) {
+  // zusatz (Kampagne): { '12':'gruppen', '20+':'gruppen' } – zusätzliche Fische in Runde 12 bzw. ab Runde 20
+  PT.runde = function (n, modus, bosse, zusatz) {
     let text = R[n], zaeh = 1;
     if (!text) {
       const k = n - PT.RUNDEN_FEST;
@@ -399,6 +415,10 @@
       text = `${4 + Math.floor(k / 2)} krake ${Math.max(0.6, 2 - k * 0.04).toFixed(2)} 0 f|${20 + 2 * k} rochen 0.4 3|${20 + k} mega 0.8 5`;
     }
     const r = { zaeh, gruppen:gruppenLesen(text) };
+    if (zusatz) for (const [k, t] of Object.entries(zusatz)) {
+      const ab = k.endsWith('+'), rn = parseInt(k, 10);
+      if (typeof t === 'string' && (ab ? n >= rn : n === rn)) r.gruppen.push(...gruppenLesen(t).filter(g => FISCHE[g.typ] && !FISCHE[g.typ].boss && g.anzahl > 0));
+    }
     const boss = PT.bossFuer(modus);
     if (boss && PT.BOSSE[boss].runden[n]) {
       r.boss = PT.BOSSE[boss].runden[n];

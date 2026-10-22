@@ -38,8 +38,11 @@
 
   /* ---------- Fortschritt: Fischmünzen, Wissen, Erfolge, Aufträge, Tages-Herausforderung ---------- */
   const fort = Object.assign({ muenzen:0, wissen:{}, wissenAn:true, erfolge:{}, lebenslang:{ platzer:0, tage:0, siege:0 }, auftraege:null, tage:{},
-    besitz:{ skins:{}, sockel:{} }, kisten:{ holz:0, silber:0, gold:0 }, kampagne:{}, wochen:null, saison:null, booster:0, haendler:null }, speicher.lesen('pt-fortschritt') || {});
-  fort.lebenslang = Object.assign({ platzer:0, tage:0, siege:0, kisten:0 }, fort.lebenslang);
+    besitz:{ skins:{}, sockel:{} }, kisten:{ holz:0, silber:0, gold:0 }, kampagne:{}, wochen:null, saison:null, booster:0, haendler:null, dorf:null, kampagneAlt:null },
+    speicher.lesen('pt-fortschritt') || {});
+  fort.lebenslang = Object.assign({ platzer:0, tage:0, siege:0, kisten:0, vsSiege:0, vsSpiele:0 }, fort.lebenslang);
+  fort.dorf = Object.assign(PT.dorfNeu(), fort.dorf || {});
+  fort.dorf.stufen = Object.assign({}, fort.dorf.stufen);
   fort.besitz = Object.assign({ skins:{}, sockel:{} }, fort.besitz);
   fort.kisten = Object.assign({ holz:0, silber:0, gold:0 }, fort.kisten);
   const fortMerken = () => speicher.schreiben('pt-fortschritt', fort);
@@ -56,7 +59,18 @@
     fort.muenzen += n; spielLohn.muenzen += n; fortMerken();
     if (warum) kurzTipp(`🪙 +${n} Fischmünzen – ${warum}`);
   }
-  const boniAktiv = () => (!olymp && !tagesAktiv && !kampagneAktiv && fort.wissenAn !== false ? PT.boniAus(fort.wissen) : null);
+  // Boni: Pinguin-Wissen nur im freien Einzelspiel, das Pingu-Dorf auch im Abenteuer und im Koop
+  const dorfBoni = () => PT.dorfBoni(fort.dorf);
+  const boniAktiv = () => (olymp || tagesAktiv ? null : kampagneAktiv ? dorfBoni()
+    : PT.boniMischen(fort.wissenAn !== false ? PT.boniAus(fort.wissen) : null, dorfBoni()));
+  // Eiskristalle fürs Pingu-Dorf (das Leuchtfeuer bringt mehr)
+  function kristalleDazu(n, warum) {
+    n = Math.round(n * PT.kristallFaktor(fort.dorf));
+    if (!n) return 0;
+    fort.dorf.kristalle += n; spielLohn.kristalle = (spielLohn.kristalle || 0) + n; fortMerken();
+    if (warum) kurzTipp(`❄️ +${n} Eiskristalle – ${warum}`);
+    return n;
+  }
   let kampagneAktiv = null;       // Level-Id des Abenteuers, das gerade gespielt wird
   let spielBooster = false;       // dieses Spiel bringt doppelte Erfahrung
   function kisteDazu(art, warum) {
@@ -125,6 +139,7 @@
   function xpDazu(n, ohneSpiel) {
     if (!n || (!ohneSpiel && (!spiel || spiel.unendlich))) return;
     if (spielBooster && !ohneSpiel) n *= 2;
+    n = Math.round(n * (1 + PT.dorfWert(fort.dorf, 'akademie')));
     saisonXp(n);
     const vor = passStufe();
     pass.xp += n;
@@ -169,6 +184,7 @@
         fortMerken();
         xpDazu(a.xp);
         muenzenDazu(a.muenzen);
+        kristalleDazu(2);
       }
     }
     if (art === 'sieg') fort.lebenslang.siege++;
@@ -183,7 +199,7 @@
   function erfolgeCheck(ende, gewonnen) {
     if (!spiel || olymp) return;
     const neu = PT.erfolgePruefen({ spiel, gewonnen, ende, geld:meinGeld(), lebenslang:fort.lebenslang, passStufe:passStufe(), medaillen,
-      kampagne:fort.kampagne, lookZahl:PT.SKIN_REIHE.filter(id => PT.skinFrei(id, passStufe(), fort.besitz)).length }, fort.erfolge);
+      kampagne:fort.kampagne, dorf:fort.dorf, lookZahl:PT.SKIN_REIHE.filter(id => PT.skinFrei(id, passStufe(), fort.besitz)).length }, fort.erfolge);
     for (const e of neu) {
       fort.erfolge[e.id] = PT.heute();
       spielLohn.erfolge.push(e);
@@ -230,7 +246,7 @@
       return `<div class="stufe-chip ${i + 1 <= sst ? 'da' : ''}"><b>${i + 1}</b>${bild}<span>${esc(name)}</span></div>`;
     }).join('');
     $('#booster').textContent = fort.booster > 0 ? `⚡ Doppel-Erfahrung noch für ${fort.booster} ${fort.booster === 1 ? 'Spiel' : 'Spiele'}` : '';
-    const herkunft = (o, art, id) => o.herkunft === 'kiste' ? '🎁 Kiste oder Händler' : o.herkunft === 'kampagne' ? '📖 Abenteuer' : o.herkunft === 'saison' ? `🍂 Saison im ${['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'][o.monat - 1]}` : `🔒 Stufe ${PT.belohnungStufe(art, id) || '?'}`;
+    const herkunft = (o, art, id) => o.herkunft === 'kiste' ? '🎁 Kiste oder Händler' : o.herkunft === 'kampagne' ? '📖 Abenteuer' : o.herkunft === 'dorf' ? '🏘️ Pingu-Dorf' : o.herkunft === 'versus' ? '⚔️ 10 Versus-Siege' : o.herkunft === 'saison' ? `🍂 Saison im ${['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'][o.monat - 1]}` : `🔒 Stufe ${PT.belohnungStufe(art, id) || '?'}`;
     const sockelEl = $('#sockel');
     sockelEl.innerHTML = PT.SOCKEL_REIHE.map(id => {
       const frei = PT.sockelFrei(id, info.stufe, fort.besitz);
@@ -255,7 +271,7 @@
     speicher.schreiben('pt-pass', pass);
     PT.Ton.klick();
     bilderMalen(false, true);
-    if (netz && netz.raum) senden({ t:'wahl', held:meinMitglied() ? meinMitglied().held : wahl.held, kraft:kraftAktivKoop(), skin:pass.skin, sockel:pass.sockel });
+    if (netz && netz.raum) senden({ t:'wahl', boni:dorfBoni(), held:meinMitglied() ? meinMitglied().held : wahl.held, kraft:kraftAktivKoop(), skin:pass.skin, sockel:pass.sockel });
     menueBauen();
   }
   function sockelWaehlen(id) {
@@ -264,7 +280,7 @@
     speicher.schreiben('pt-pass', pass);
     PT.Ton.klick();
     bilderMalen();
-    if (netz && netz.raum) senden({ t:'wahl', held:meinMitglied() ? meinMitglied().held : wahl.held, kraft:kraftAktivKoop(), skin:pass.skin, sockel:pass.sockel });
+    if (netz && netz.raum) senden({ t:'wahl', boni:dorfBoni(), held:meinMitglied() ? meinMitglied().held : wahl.held, kraft:kraftAktivKoop(), skin:pass.skin, sockel:pass.sockel });
     menueBauen();
   }
   // Vorschaubilder im aktuellen Look (Laden, Helden), alle Looks und Sockel für den Pass
@@ -339,7 +355,7 @@
         speicher.schreiben('pt-koop', { token:netz.token, code:d.code }, sessionStorage);
         koopReiter = true;
         // gerade beigetreten: eigenen Helden, Meisterkraft und Look mitteilen
-        if ((!alt || alt.code !== d.code) && d.phase === 'lobby') senden({ t:'wahl', held:wahl.held, kraft:kraftAktivKoop(wahl.held), skin:pass.skin, sockel:pass.sockel });
+        if ((!alt || alt.code !== d.code) && d.phase === 'lobby') senden({ t:'wahl', boni:dorfBoni(), held:wahl.held, kraft:kraftAktivKoop(wahl.held), skin:pass.skin, sockel:pass.sockel });
         if (d.phase === 'lobby' && imKoop()) zumMenue();
         if (d.phase === 'spiel' && imKoop()) {
           tempo = d.tempo;
@@ -361,10 +377,11 @@
     }
   }
   function koopZustand(d) {
-    const neu = PT.Spiel.ausZustand(d.z);
+    vs = d.z && d.z.versus ? PT.Versus.ausZustand(d.z) : null;
+    const neu = vs ? vs.spielVon(netz.id) || vs.spiele[0] : PT.Spiel.ausZustand(d.z);
     netz.n = d.n; netz.ziel = d.n; netz.rest = 0;
     netz.befehle = netz.befehle.filter(x => x[0] > d.n);
-    if (!spiel || !spiel.koop || $('#spiel').hidden || spiel.karte !== neu.karte) { spielStarten(neu); tempo = d.tempo || 1; return; }
+    if (!spiel || !spiel.koop || $('#spiel').hidden || spiel.karte !== neu.karte || !!vs === $('#vsPanel').hidden) { spielStarten(neu); tempo = d.tempo || 1; return; }
     tempo = d.tempo || 1;
     // Spielstand vom Server übernehmen (Abweichung oder Wiederverbinden): Pinguine neu bauen, Auswahl behalten
     const altId = auswahl && auswahl.id;
@@ -389,11 +406,12 @@
       while (netz.befehle.length && netz.befehle[0][0] <= k) {
         const [kk, sp, b] = netz.befehle.shift();
         if (kk < k) continue;
-        const res = spiel.befehl(sp, b);
+        const res = (vs || spiel).befehl(sp, b);
         if (sp === netz.id && b.ref != null) ergebnis(b, res);
       }
-      spiel.schritt(1 / 60);
-      if (k % 60 === 0) senden({ t:'p', n:k, h:spiel.pruefsumme() });
+      (vs || spiel).schritt(1 / 60);
+      if (vs) { const g = gegnerSpiel(); if (g) g.ereignisse.length = 0; }
+      if (k % 60 === 0) senden({ t:'p', n:k, h:(vs || spiel).pruefsumme() });
     }
   }
   function koopPauseZeigen() {
@@ -452,6 +470,8 @@
         break;
       case 'start': if (res) { tipp(''); if (olymp) olympMelden('da'); } break;
       case 'sand': PT.Ton.klick(); break;
+      case 'schick': if (!res) { PT.Ton.fehler(); kurzTipp('Nicht genug Geld – oder dieser Fisch ist erst später dran.'); } break;
+      case 'karte': if (res) PT.Ton.faehigkeit(); else { PT.Ton.fehler(); kurzTipp('Die Karte lädt noch.'); } break;
       case 'leeren': PT.Ton.verkaufen(); break;
     }
     letzteAnzeige = '';
@@ -629,6 +649,19 @@
       b.onclick = () => waehle('geldModus', id);
       geld.appendChild(b);
     }
+    // Koop-Raum: Koop oder Versus
+    const arten = $('#spielArten');
+    arten.innerHTML = '';
+    for (const [id, name, text] of [['koop', '👥 Koop', 'Alle zusammen auf einer Karte, bis zu 4 Spieler.'], ['versus', '⚔️ Versus „Eiskrieg“', 'Zu zweit gegeneinander: Fische schicken, Sabotage, ab Runde 30 Bosse.']]) {
+      const b = document.createElement('button');
+      b.className = 'stufe';
+      b.setAttribute('aria-pressed', (E.versus ? 'versus' : 'koop') === id);
+      b.disabled = aus;
+      b.innerHTML = `<b>${esc(name)}</b><small>${esc(text)}</small>`;
+      b.onclick = () => waehle('versus', id === 'versus');
+      arten.appendChild(b);
+    }
+    $('#geldWahl').hidden = !!E.versus;
     heldenBauen();
     const stand = speicher.lesen('pt-stand');
     const standKarte = stand && (stand.karte === 'eigen' ? PT.karteOk(stand.eigeneKarte) : PT.KARTEN[stand.karte]);
@@ -691,6 +724,7 @@
     if (i.sockel) return { sym:'🧊', text:`Sockel: ${PT.SOCKEL[i.sockel].name}`, bild:sockelBilder[i.sockel] };
     if (i.kiste) return { sym:PT.KISTEN[i.kiste].symbol, text:PT.KISTEN[i.kiste].name };
     if (i.booster) return { sym:'⚡', text:`Doppel-Erfahrung für ${i.booster} Spiele` };
+    if (i.kristalle) return { sym:'❄️', text:`${i.kristalle} Eiskristalle fürs Dorf` };
     return { sym:'❔', text:'' };
   }
   function kisteOeffnen(art) {
@@ -704,6 +738,10 @@
       if (i.skin) fort.besitz.skins[i.skin] = true;
       if (i.sockel) fort.besitz.sockel[i.sockel] = true;
     }
+    // Eiskristalle fürs Pingu-Dorf
+    const kristalle = Math.round({ holz:2, silber:5, gold:12 }[art] * PT.kristallFaktor(fort.dorf));
+    fort.dorf.kristalle += kristalle;
+    inhalt.push({ kristalle });
     fortMerken();
     wochenDazu('kisten', 1);
     const K = PT.KISTEN[art];
@@ -712,10 +750,7 @@
     $('#kisteDialog').hidden = false;
     $('#kisteZu').focus();
     PT.Ton.aufstiegKlang ? PT.Ton.aufstiegKlang() : PT.Ton.upgrade();
-    const neu = PT.erfolgePruefen({ spiel:{ statistik:{}, tuerme:[] }, lebenslang:fort.lebenslang, passStufe:passStufe(), medaillen, kampagne:fort.kampagne,
-      lookZahl:PT.SKIN_REIHE.filter(id => PT.skinFrei(id, passStufe(), fort.besitz)).length }, fort.erfolge);
-    for (const e of neu) { fort.erfolge[e.id] = PT.heute(); fort.muenzen += e.muenzen; }
-    if (neu.length) fortMerken();
+    erfolgeOhneSpiel();
     menueBauen();
   }
 
@@ -755,72 +790,111 @@
     }).join('');
   }
 
-  /* ---------- Abenteuer (Kampagne) ---------- */
+  /* ---------- Abenteuer „Schwarzes Eis“ ---------- */
   let abenteuerReiter = false;
+  const kapitelTitel = k => (k.nr === 0 ? k.name : `Kapitel ${k.nr}: ${k.name}`);
+  const levelNummer = l => (l.kapitel === 0 ? 'Prolog' : `${l.kapitel}-${l.nr}`);
   function abenteuerBauen() {
     const el = $('#abenteuer');
     const sterne = fort.kampagne;
     const gesamt = PT.LEVELS.reduce((n, l) => n + PT.sternZahl(sterne[l.id]), 0);
     $('#abenteuerSterne').textContent = `⭐ ${gesamt} / ${PT.LEVELS.length * 3}`;
+    const alt = fort.kampagneAlt;
+    $('#abenteuerAlt').hidden = !alt;
+    if (alt) $('#abenteuerAlt').textContent = `✨ Das Abenteuer wurde komplett neu geschrieben. Für deine ${alt.sterne} Sterne aus dem alten Abenteuer hast du eine Goldkiste und ${10 + alt.sterne} Eiskristalle bekommen. Deine Looks bleiben dir.`;
     el.innerHTML = PT.KAPITEL.map(k => {
       const levels = PT.LEVELS.filter(l => l.kapitel === k.nr);
       const offen = PT.levelFrei(levels[0].id, sterne);
       const fertig = PT.kapitelFertig(k.nr, sterne);
-      return `<section class="kapitel ${offen ? '' : 'zu'}"><h3>${k.symbol} Kapitel ${k.nr}: ${esc(k.name)}${fertig ? ' <span class="chip">✓ geschafft</span>' : ''}</h3>
+      return `<section class="kapitel ${offen ? '' : 'zu'}"><h3>${k.symbol} ${esc(kapitelTitel(k))}${fertig ? ' <span class="chip">✓ geschafft</span>' : ''}</h3>
+        ${offen && k.zitat ? `<p class="kapitel-zitat">${esc(k.zitat[0])}${k.zitat[1] && k.nr ? ` – ${esc(k.zitat[1])}` : ''}</p>` : ''}
         <div class="level-pfad">${levels.map(l => {
           const n = PT.sternZahl(sterne[l.id]), frei = PT.levelFrei(l.id, sterne);
           return `<button class="level ${n ? 'gespielt' : ''} ${l.boss ? 'bosslevel' : ''}" data-level="${l.id}" ${frei ? '' : 'disabled'}>
-            <i>${frei ? (l.boss ? PT.BOSSE[l.boss].symbol : l.nr) : '🔒'}</i><b>${esc(l.name)}</b><span class="sterne">${[0, 1, 2].map(i => (sterne[l.id] || [])[i] ? '⭐' : '☆').join('')}</span></button>`;
+            <i>${frei ? (l.boss ? PT.BOSSE[l.boss].symbol : l.finale ? '💔' : l.nr) : '🔒'}</i><b>${esc(l.name)}</b><span class="sterne">${[0, 1, 2].map(i => (sterne[l.id] || [])[i] ? '⭐' : '☆').join('')}</span></button>`;
         }).join('')}</div>
-        <p class="kapitel-lohn">Belohnung fürs ganze Kapitel: Look „${esc(PT.SKINS[k.look].name)}“ ${fort.besitz.skins[k.look] ? '✓' : ''}</p></section>`;
+        ${k.look ? `<p class="kapitel-lohn">Belohnung fürs ganze Kapitel: Look „${esc(PT.SKINS[k.look].name)}“ ${fort.besitz.skins[k.look] ? '✓' : ''}</p>` : ''}</section>`;
     }).join('');
     for (const b of el.querySelectorAll('[data-level]')) b.onclick = () => levelOeffnen(b.dataset.level);
   }
   function levelOeffnen(id) {
     const l = PT.LEVEL(id); if (!l) return;
     PT.Ton.klick();
-    const k = PT.KAPITEL[l.kapitel - 1], st = fort.kampagne[id] || [];
-    const erstes = l.nr === 1 && !PT.sternZahl(st);
-    $('#levelTitel').textContent = `${k.symbol} ${l.kapitel}-${l.nr}: ${l.name}`;
-    $('#levelStory').textContent = erstes ? k.intro : '';
-    $('#levelStory').hidden = !erstes;
+    const k = PT.KAPITEL_VON(l.kapitel), st = fort.kampagne[id] || [];
+    const gespielt = PT.sternZahl(st) > 0;
+    $('#levelTitel').textContent = `${k.symbol} ${levelNummer(l)}: ${l.name}`;
+    // Neue Spieler sehen den Anfang der Szene als Vorgeschmack
+    const erste = (l.vorher || []).find(z => z[0] !== 'erzaehler') || (l.vorher || [])[0];
+    $('#levelStory').textContent = erste ? `${PT.SPRECHER[erste[0]].name ? PT.SPRECHER[erste[0]].name + ': ' : ''}${erste[1]}` : '';
+    $('#levelStory').hidden = !erste;
     $('#levelText').textContent = l.text;
     const r = l.regeln, infos = [`🗺️ ${PT.KARTEN[l.karte].name}`, `${PT.STUFEN[l.stufe].medaille} ${PT.STUFEN[l.stufe].name}`,
       r.startRunde ? `🌊 Runde ${r.startRunde}–${r.runden}` : `🌊 ${r.runden} Runden`];
     if (r.geld) infos.push(`💰 ${zahl(r.geld)} Startgeld`);
+    if (r.leben) infos.push(`❤️ nur ${r.leben} Leben`);
+    if (r.flut) infos.push('⏩ keine Pausen');
     if (r.wetter) infos.push(`${PT.WETTER[r.wetter].symbol} ${PT.WETTER[r.wetter].name}`);
+    if (r.finsternis) infos.push('🌑 Finsternis');
+    if (r.wegeAb) infos.push('⚠️ Überfall von der Seite');
+    if (r.zerstoeren) infos.push('💥 Sabotage');
+    if (r.einsturz) infos.push('🧊 Das Eis bricht');
     if (r.erlaubt) infos.push('🐧 nur bestimmte Pinguine');
     if (l.neu && PT.PINGUINE[l.neu]) infos.push(`✨ Neu: ${PT.PINGUINE[l.neu].name}`);
+    if (l.neuFisch) infos.push(`🐟 Neu: ${PT.FISCHE[l.neuFisch].name}`);
     $('#levelInfos').innerHTML = infos.map(t => `<span>${esc(t)}</span>`).join('');
     $('#levelSterne').innerHTML = [['sieg'], ...l.sterne].map((a, i) => `<li class="${st[i] ? 'da' : ''}">${st[i] ? '⭐' : '☆'} ${esc(i ? PT.sternAufgabe(a) : 'Gewinne das Level')}</li>`).join('');
-    $('#levelHeld').textContent = wahl.held && PT.HELDEN[wahl.held] && !r.ohneHeld ? `Dein Held: ${PT.HELDEN[wahl.held].name} (unten im Menü änderbar)` : 'Ohne Held';
-    $('#levelLos').onclick = () => { $('#levelDialog').hidden = true; levelStarten(id); };
+    const held = l.held || (wahl.held && PT.HELDEN[wahl.held] && !r.ohneHeld ? wahl.held : null);
+    $('#levelHeld').textContent = l.held ? `In diesem Level ist ${PT.HELDEN[l.held].name} dein Held.` : held ? `Dein Held: ${PT.HELDEN[held].name} (unten im Menü änderbar)` : 'Ohne Held';
+    $('#levelLos').textContent = gespielt ? "Los geht's!" : '▶ Szene und Level starten';
+    $('#levelLos').onclick = () => { $('#levelDialog').hidden = true; levelStarten(id, !gespielt); };
+    $('#levelSzene').hidden = !gespielt;
+    $('#levelSzene').onclick = () => {
+      $('#levelDialog').hidden = true;
+      szeneSpielen([...(l.vorher || []), ...(l.nachher || []), ...(l.finale ? PT.ENDE_SZENE : [])], { karte:kapitelKarte(l), stimmung:k.stimmung }).then(() => levelOeffnen(id));
+    };
     $('#levelDialog').hidden = false;
     $('#levelLos').focus();
   }
-  function levelStarten(id) {
+  const kapitelKarte = l => { const k = PT.KAPITEL_VON(l.kapitel); return l.nr === 1 ? { kapitel:l.kapitel ? `Kapitel ${l.kapitel}` : 'Prolog', titel:l.kapitel ? k.name : 'Die Nacht, in der das Wasser schrie', zitat:k.zitat } : null; };
+  function levelStarten(id, mitSzene) {
     const l = PT.LEVEL(id); if (!l) return;
     PT.Ton.start();
     speicher.weg('pt-stand');
     tagesAktiv = null; kampagneAktiv = id;
-    spielStarten(new PT.Spiel({ karte:l.karte, stufe:l.stufe, modus:'standard', held:wahl.held, kraft:kraftAktiv(wahl.held), regeln:l.regeln, seed:Date.now() & 0xffffff }));
+    const held = l.held || wahl.held;
+    spielStarten(new PT.Spiel({ karte:l.karte, stufe:l.stufe, modus:'standard', held, kraft:kraftAktiv(held), regeln:l.regeln, boni:boniAktiv(), seed:Date.now() & 0xffffff }));
+    const k = PT.KAPITEL_VON(l.kapitel);
+    PT.Ton.musik(k.stimmung);
+    if (mitSzene && (l.vorher || []).length) szeneSpielen(l.vorher, { karte:kapitelKarte(l), imSpiel:true, stimmung:k.stimmung })
+      .then(() => { if (spiel && kampagneAktiv === id) { banner(`📖 ${l.name}`, l.text.length < 70 ? l.text : `${spiel.kartenDaten.name} · bis Runde ${spiel.zielRunden}`, 3.5); tipp('Setz deine Pinguine neben den Kanal und starte die Runde.'); tippZeit = 5; } });
   }
-  // Sieg im Abenteuer: Sterne vergeben, Belohnungen, Kapitel-Look, Ende der Geschichte
+  // Sieg im Abenteuer: Sterne, Kristalle, Gerettete fürs Dorf, Kapitel-Look, neue Dorf-Phase
   function levelGewonnen() {
     const l = PT.LEVEL(kampagneAktiv); if (!l) return null;
+    const phaseVorher = PT.dorfPhase(fort.kampagne);
     const neu = PT.levelSterne(l, spiel), alt = fort.kampagne[l.id] || [];
     const zusammen = [0, 1, 2].map(i => !!(alt[i] || neu[i]));
     const dazu = zusammen.filter(Boolean).length - PT.sternZahl(alt);
+    const erstesMal = !PT.sternZahl(alt);
     fort.kampagne[l.id] = zusammen;
     fortMerken();
-    if (dazu > 0) { xpDazu(dazu * PT.STERN_XP); muenzenDazu(dazu * PT.STERN_MUENZEN); wochenDazu('sterne', dazu); }
-    if (PT.sternZahl(zusammen) === 3 && PT.sternZahl(alt) < 3) kisteDazu(PT.KAPITEL[l.kapitel - 1].kiste, 'Alle drei Sterne!');
-    const k = PT.KAPITEL[l.kapitel - 1];
-    if (PT.kapitelFertig(k.nr, fort.kampagne) && !fort.besitz.skins[k.look]) {
+    if (dazu > 0) { xpDazu(dazu * PT.STERN_XP); muenzenDazu(dazu * PT.STERN_MUENZEN); wochenDazu('sterne', dazu); kristalleDazu(dazu * PT.STERN_KRISTALLE); }
+    if (erstesMal && l.gerettet) { fort.dorf.bewohner += l.gerettet; fortMerken(); }
+    if (PT.sternZahl(zusammen) === 3 && PT.sternZahl(alt) < 3) kisteDazu(PT.KAPITEL_VON(l.kapitel).kiste, 'Alle drei Sterne!');
+    const k = PT.KAPITEL_VON(l.kapitel);
+    if (k.look && PT.kapitelFertig(k.nr, fort.kampagne) && !fort.besitz.skins[k.look]) {
       fort.besitz.skins[k.look] = true; fortMerken();
-      banner(`📖 Kapitel ${k.nr} geschafft!`, `Neuer Look: ${PT.SKINS[k.look].name}`, 3.5);
+      banner(`📖 ${kapitelTitel(k)} geschafft!`, `Neuer Look: ${PT.SKINS[k.look].name}`, 3.5);
     }
-    if (l.finale && !fort.besitz.skins.held) { fort.besitz.skins.held = true; fortMerken(); }
+    if (l.id === 's1-3' && !fort.besitz.skins.kueken) { fort.besitz.skins.kueken = true; fortMerken(); }
+    if (l.finale) { fort.besitz.skins.held = true; fort.besitz.skins.opa = true; fortMerken(); }
+    // Das Dorf entsteht (nach Kapitel 2) und wächst mit jedem weiteren Kapitel
+    const phase = PT.dorfPhase(fort.kampagne);
+    if (phase > phaseVorher) {
+      if (!fort.dorf.geschenk) { fort.dorf.geschenk = true; fort.dorf.kristalle += 20; }
+      fortMerken();
+      setTimeout(() => banner(`🏘️ ${PT.DORF_PHASEN[phase].name}!`, 'Dein Pingu-Dorf wächst – schau im Menü unter „Dorf“ vorbei.', 3.5), 1500);
+    }
     return { neu, zusammen, dazu };
   }
   function tagesStarten() {
@@ -849,7 +923,7 @@
       b.onclick = () => {
         PT.Ton.klick();
         wahl.held = id; speicher.schreiben('pt-wahl', wahl);
-        if (koopReiter && netz && netz.raum) senden({ t:'wahl', held:id, kraft:kraftAktivKoop(id), skin:pass.skin, sockel:pass.sockel });
+        if (koopReiter && netz && netz.raum) senden({ t:'wahl', boni:dorfBoni(), held:id, kraft:kraftAktivKoop(id), skin:pass.skin, sockel:pass.sockel });
         menueBauen();
       };
       h.appendChild(b);
@@ -864,19 +938,22 @@
 
   /* ---------- Koop im Menü ---------- */
   function koopMenueBauen() {
-    $('#reiterAllein').setAttribute('aria-pressed', !koopReiter && !abenteuerReiter);
+    $('#reiterAllein').setAttribute('aria-pressed', !koopReiter && !abenteuerReiter && !dorfReiter);
     $('#reiterKoop').setAttribute('aria-pressed', koopReiter);
     $('#reiterAbenteuer').setAttribute('aria-pressed', abenteuerReiter);
+    $('#reiterDorf').setAttribute('aria-pressed', dorfReiter);
+    $('#dorfBox').hidden = !dorfReiter;
+    if (dorfReiter) dorfBauen(); else if (dorfWelt) dorfWelt.stopp();
     const raum = koopReiter && netz && netz.raum;
     $('#koopBox').hidden = !koopReiter;
     $('#koopVerbinden').hidden = !!raum;
     $('#koopRaum').hidden = !raum;
     $('#abenteuerBox').hidden = !abenteuerReiter;
     if (abenteuerReiter) abenteuerBauen();
-    $('#normalMenue').hidden = (koopReiter && !raum) || abenteuerReiter;
+    $('#normalMenue').hidden = (koopReiter && !raum) || abenteuerReiter || dorfReiter;
     $('#geldBereich').hidden = !raum;
-    $('#heldBereich').hidden = koopReiter && !raum;
-    $('#losReihe').hidden = (koopReiter && !raum) || abenteuerReiter;
+    $('#heldBereich').hidden = (koopReiter && !raum) || dorfReiter;
+    $('#losReihe').hidden = (koopReiter && !raum) || abenteuerReiter || dorfReiter;
     $('#wetterAn').checked = (raum ? raum.einst.wetter : wahl.wetter) !== false;
     $('#wetterAn').disabled = !!raum && !binHost();
     if (!olymp) {
@@ -889,13 +966,15 @@
       const held = m.held && PT.HELDEN[m.held] ? PT.HELDEN[m.held].name : 'ohne Held';
       return `<li style="--f:${PT.KOOP_FARBEN[i] || '#999'}" class="${m.online ? '' : 'weg'}"><i></i><b>${esc(m.name)}</b>${m.id === raum.host ? ' 👑' : ''}${m.id === netz.id ? ' (du)' : ''}<small>${esc(held)}${m.kraft ? ' ✨' : ''}${m.skin && m.skin !== 'standard' && PT.SKINS[m.skin] ? ' · ' + esc(PT.SKINS[m.skin].name) : ''}${m.online ? '' : ' · offline'}</small></li>`;
     }).join('');
-    $('#koopHinweis').textContent = raum.phase === 'spiel' ? 'In diesem Raum läuft gerade eine Partie.' : binHost()
+    $('#koopHinweis').textContent = raum.phase === 'spiel' ? 'In diesem Raum läuft gerade eine Partie.' : raum.einst.versus
+      ? (binHost() ? `⚔️ Versus: genau 2 Spieler. Wähl Karte und Schwierigkeit, dann starte. Dein Gegner tritt mit dem Code ${raum.code} bei.` : '⚔️ Versus! Such dir deinen Helden aus. Karte und Schwierigkeit wählt der Gastgeber.')
+      : binHost()
       ? `Du bist Gastgeber: Wähl Karte, Schwierigkeit, Modus und Geld, dann starte. Freunde treten mit dem Code ${raum.code} bei.`
       : 'Such dir deinen Helden aus. Karte und Modus wählt der Gastgeber.';
   }
   function koopReiterSetzen(an) {
     koopReiter = an;
-    if (an) abenteuerReiter = false;
+    if (an) { abenteuerReiter = false; dorfReiter = false; }
     if (an) {
       if (!$('#koopName').value) $('#koopName').value = speicher.lesen('pt-name') || '';
       netzVerbinden();
@@ -924,12 +1003,303 @@
       flug:'Springt immer wieder aus dem Wasser – in der Luft treffen ihn nur Flieger.', tinte:'Verspritzt beim Platzen Tinte: Pinguine in der Nähe sehen kurz nichts.',
       kugel:'Bläht sich nach einem Treffer auf – dann prallt kurz alles ab. Dann 2 Regenbogenforellen.',
       leviathan:'Der Boss von „Leviathan-Erwachen“. Sein Eisatem friert Pinguine am Ufer ein.', haikoenig:'Der Boss von „Hai-König“. Ruft ständig neue Fische herbei.',
-      abyssos:'Der Tiefseekönig, Boss von „Tiefsee-Finsternis“ und Endgegner im Abenteuer. Löscht immer wieder das Licht – dann sehen nur Pinguine mit Nachtsicht die Fische.'
+      abyssos:'Der Tiefseekönig, Boss von „Tiefsee-Finsternis“. Löscht immer wieder das Licht – dann sehen nur Pinguine mit Nachtsicht die Fische.',
+      schatten:'Aus der sterbenden Tiefsee: getarnt, taucht aber alle paar Sekunden kurz auf. Dann 1 Anglerfisch.',
+      splitter:'Flinker Splitter eines Verderbten. Wird zum Lachs.', verderbt:'Von der Dunkelheit zerfressen: Kälte macht ihm nichts. Zerfällt in 3 Splitterlinge.',
+      kapitaen:'Kapitän Frost (Abenteuer): friert eure wertvollsten Pinguine ein und hüllt Fische in Eispanzer, an denen alles abprallt.',
+      zerbrochen:'Pako, der Zerbrochene: die zweite Gestalt von Abyssos im Abenteuer. Ruft Schattenfische und löscht das Licht.'
     });
     $('#lexikon').innerHTML = [...PT.FISCH_REIHE, ...PT.BOSS_REIHE].map(id => {
       const f = PT.FISCHE[id];
       return `<div><img src="${fischBilder[id] || ''}" alt=""><span><b>${esc(f.name)}</b><br><small>${esc(beschr[id])}</small></span></div>`;
     }).join('');
+  }
+
+  /* ---------- Szenen: Titelkarte, Dialoge mit Porträt, Abspann ----------
+     szeneSpielen(zeilen, { karte, imSpiel, stimmung, auge }) zeigt eine Szene und löst das Versprechen danach ein.
+     Klick, Leertaste oder Enter: weiter (erst den Text fertig schreiben), Esc oder „Überspringen“: alles überspringen. */
+  let szeneAktiv = null, portraets = null;
+  function portrait(id) {
+    const sp = PT.SPRECHER[id];
+    if (!sp || !sp.bild) return '';
+    const b = sp.bild;
+    if (b.fisch) return fischBilder[b.fisch] || '';
+    if (!portraets) {
+      try { portraets = PT.Welt.portraets(Object.entries(PT.SPRECHER).filter(([, x]) => x.bild && !x.bild.fisch).map(([k, x]) => ({ id:k, ...x.bild }))); }
+      catch (e) { portraets = {}; }
+    }
+    return portraets[id] || (b.held ? bilder[b.held] : lookBilder[b.look]) || '';
+  }
+  function szeneSpielen(zeilen, opt = {}) {
+    return new Promise(fertig => {
+      const el = $('#szene'), box = $('#szeneBox'), karte = $('#szeneKarte');
+      const imSpiel = !!opt.imSpiel && !!welt && !$('#spiel').hidden;
+      const warPausiert = pausiert;
+      if (imSpiel) { pausiert = true; welt.kinoSetzen(true); $('#banner').classList.remove('an'); bannerZeit = 0; tipp(''); }
+      el.classList.toggle('dunkel', !imSpiel);
+      el.hidden = false;
+      if (opt.stimmung) PT.Ton.musik(opt.stimmung);
+      let i = -1, uhr = null, voll = '', pos = 0, ende = false;
+      const schluss = () => {
+        if (ende) return;
+        ende = true;
+        clearInterval(uhr);
+        el.hidden = true; el.onclick = null; karte.hidden = true; box.hidden = true; $('#auge').hidden = true;
+        szeneAktiv = null;
+        if (imSpiel && welt) { welt.kinoSetzen(false); pausiert = warPausiert; }
+        fertig();
+      };
+      const zeigen = () => {
+        i++;
+        if (i >= zeilen.length) { schluss(); return; }
+        const [wer, text] = zeilen[i], sp = PT.SPRECHER[wer] || PT.SPRECHER.erzaehler;
+        const laut = /[A-ZÄÖÜ]{4,}/.test(text);
+        box.hidden = false;
+        box.className = 'szene-box' + (wer === 'erzaehler' ? ' erzaehler' : '') + (laut ? ' laut' : '');
+        box.style.animation = 'none'; void box.offsetHeight; box.style.animation = '';
+        const bild = portrait(wer);
+        $('#szeneBild').hidden = !bild;
+        if (bild) $('#szeneBild').src = bild;
+        $('#szeneName').textContent = sp.name;
+        $('#szeneName').style.color = sp.farbe;
+        if (opt.auge === i) $('#auge').hidden = false;
+        voll = text; pos = 0; $('#szeneText').textContent = '';
+        clearInterval(uhr);
+        uhr = setInterval(() => { pos += 2; $('#szeneText').textContent = voll.slice(0, pos); if (pos >= voll.length) clearInterval(uhr); }, 26);
+        if (laut) { PT.Ton.schlag(); if (welt && imSpiel) welt.wackeln = 0.5; }
+        else if (wer !== 'erzaehler') PT.Ton.funk();
+      };
+      const weiter = () => {
+        if (!karte.hidden) { karte.hidden = true; zeigen(); return; }
+        if (pos < voll.length) { pos = voll.length; $('#szeneText').textContent = voll; clearInterval(uhr); return; }
+        zeigen();
+      };
+      szeneAktiv = { weiter, schluss };
+      el.onclick = e => { if (e.target.id !== 'szeneSkip') weiter(); };
+      $('#szeneSkip').onclick = e => { e.stopPropagation(); schluss(); };
+      box.hidden = true;
+      if (opt.karte) {
+        karte.hidden = false;
+        $('#szeneKapitel').textContent = opt.karte.kapitel || '';
+        $('#szeneTitel').textContent = opt.karte.titel;
+        const z = opt.karte.zitat || ['', ''];
+        $('#szeneZitat').textContent = z[0];
+        $('#szeneVon').textContent = z[1] ? (opt.karte.kapitel && opt.karte.kapitel !== 'Prolog' ? '– ' + z[1] : z[1]) : '';
+        PT.Ton.schlag();
+        setTimeout(() => { if (!ende && !karte.hidden) weiter(); }, 5000);
+      } else zeigen();
+    });
+  }
+  // Abspann: die Namen rollen über den Bildschirm
+  function abspannSpielen() {
+    return new Promise(fertig => {
+      const el = $('#szene'), a = $('#abspann');
+      el.classList.add('dunkel'); el.hidden = false; a.hidden = false;
+      $('#szeneBox').hidden = true; $('#szeneKarte').hidden = true;
+      $('#abspannRolle').innerHTML = PT.ABSPANN.map(([k, t], i) => `<div class="${i === 0 ? 'gross' : ''}">${k ? `<small>${esc(k)}</small>` : ''}<b>${esc(t)}</b></div>`).join('');
+      const rolle = $('#abspannRolle');
+      rolle.style.animation = 'none'; void rolle.offsetHeight; rolle.style.animation = '';
+      PT.Ton.musik('herz');
+      let ende = false;
+      const schluss = () => { if (ende) return; ende = true; a.hidden = true; el.hidden = true; el.onclick = null; szeneAktiv = null; fertig(); };
+      szeneAktiv = { weiter:() => {}, schluss };
+      el.onclick = null;
+      $('#szeneSkip').onclick = e => { e.stopPropagation(); schluss(); };
+      rolle.onanimationend = schluss;
+      setTimeout(schluss, 36000);
+    });
+  }
+
+  /* ---------- Funk im Kampf (Abenteuer) ---------- */
+  let funkSchlange = [], funkZeit = 0;
+  const funkGespielt = new Set();
+  function funk(schluessel, wiederholen) {
+    const l = kampagneAktiv && PT.LEVEL(kampagneAktiv);
+    if (!l || !l.funk || !l.funk[schluessel] || szeneAktiv) return;
+    if (!wiederholen && funkGespielt.has(schluessel)) return;
+    funkGespielt.add(schluessel);
+    funkSchlange.push(...l.funk[schluessel]);
+  }
+  // Zeit in echten Sekunden, damit Sprüche auch auf langsamen Geräten nicht zu lange stehen bleiben
+  function funkZeigen() {
+    if (funkZeit > 0) { if (performance.now() < funkZeit) return; funkZeit = 0; $('#funk').hidden = true; return; }
+    if (!funkSchlange.length || szeneAktiv) return;
+    const [wer, text] = funkSchlange.shift(), sp = PT.SPRECHER[wer] || PT.SPRECHER.erzaehler;
+    const bild = portrait(wer);
+    $('#funkBild').hidden = !bild;
+    if (bild) $('#funkBild').src = bild;
+    $('#funkName').textContent = sp.name || 'Funk';
+    $('#funkName').style.color = sp.farbe;
+    $('#funkText').textContent = text;
+    const f = $('#funk');
+    f.hidden = false; f.style.animation = 'none'; void f.offsetHeight; f.style.animation = '';
+    funkZeit = performance.now() + (2.4 + text.length * 0.045) * 1000;
+    PT.Ton.funk();
+  }
+  function funkLeeren() { funkSchlange = []; funkZeit = 0; funkGespielt.clear(); $('#funk').hidden = true; }
+
+  /* ---------- Pingu-Dorf ---------- */
+  let dorfReiter = false, dorfWelt = null, dorfAuswahl = null;
+  function erfolgeOhneSpiel() {
+    const neu = PT.erfolgePruefen({ spiel:{ statistik:{}, tuerme:[] }, lebenslang:fort.lebenslang, passStufe:passStufe(), medaillen, kampagne:fort.kampagne, dorf:fort.dorf,
+      lookZahl:PT.SKIN_REIHE.filter(id => PT.skinFrei(id, passStufe(), fort.besitz)).length }, fort.erfolge);
+    for (const e of neu) { fort.erfolge[e.id] = PT.heute(); fort.muenzen += e.muenzen; banner(`🏆 Erfolg: ${e.name}`, `${e.text} · +${e.muenzen} 🪙`, 3); }
+    if (neu.length) fortMerken();
+  }
+  function dorfBauen() {
+    const D = fort.dorf, phase = PT.dorfPhase(fort.kampagne), P = PT.DORF_PHASEN[phase];
+    $('#dorfTitel').textContent = `🏘️ ${phase ? P.name : 'Pingu-Dorf'}`;
+    $('#dorfVorrat').textContent = `❄️ ${zahl(D.kristalle)} · 🪙 ${zahl(fort.muenzen)} · 🐧 ${D.bewohner} Bewohner`;
+    $('#dorfText').textContent = phase ? `${P.text} ${phase < 4 ? 'Mit jedem Kapitel des Abenteuers wächst es weiter.' : ''}`
+      : 'Noch gibt es kein Dorf. Spiel das Abenteuer „Schwarzes Eis“ – nach Kapitel 2 schlagen die Überlebenden ihr erstes Lager auf.';
+    $('#dorfZu').hidden = phase > 0;
+    $('#dorfZu').textContent = '🔒 Nach Kapitel 2 des Abenteuers entsteht hier ein Flüchtlingslager.';
+    // Räucherei: Fischmünzen abholen
+    const proStunde = PT.dorfWert(D, 'raeucherei'), bereit = PT.dorfErnte(D, Date.now());
+    $('#dorfErnte').hidden = !proStunde;
+    if (proStunde) {
+      $('#dorfErnte').innerHTML = `<span>🐟 Räucherei: <b>${bereit}</b> Fischmünzen bereit <small>(${proStunde} pro Stunde, sammelt bis zu 12 Stunden)</small></span><button class="knopf" id="dorfAbholen" ${bereit ? '' : 'disabled'}>Abholen</button>`;
+      $('#dorfAbholen').onclick = () => {
+        const n = PT.dorfErnte(fort.dorf, Date.now());
+        if (!n) return;
+        fort.muenzen += n; fort.dorf.geerntet = Date.now(); fortMerken();
+        PT.Ton.upgrade(); kurzTipp(`🪙 +${n} Fischmünzen aus der Räucherei`);
+        menueBauen();
+      };
+    }
+    $('#dorfGebaeude').innerHTML = PT.DORF_REIHE.map(id => {
+      const g = PT.DORF_GEBAEUDE[id], st = PT.dorfStufe(D, id), max = PT.dorfMax(id);
+      const zu = phase < g.ab, k = st < max ? PT.dorfKosten(id, st + 1) : null;
+      const a = PT.dorfAusbau(D, id, phase, fort.muenzen);
+      const knopf = !zu && k ? `<button data-ausbau="${id}" ${a.ok ? '' : 'disabled'}>${esc(a.ok || a.grund === 'Zu wenig' ? `${st ? 'Ausbauen' : 'Bauen'}: ${k.muenzen} 🪙 · ${k.kristalle} ❄️` : a.grund)}</button>` : '';
+      return `<div class="gebaeude ${zu ? 'zu' : ''} ${dorfAuswahl === id ? 'gewaehlt' : ''}" data-gebaeude="${id}"><i>${g.symbol}</i>
+        <b>${esc(g.name)} <span class="pips">${'<i class="an"></i>'.repeat(st)}${'<i></i>'.repeat(max - st)}</span></b>
+        <small>${esc(zu ? `🔒 ab „${PT.DORF_PHASEN[g.ab].name}“` : st ? g.zeigen(g.wert[st]) : 'Noch nicht gebaut')}</small><small>${esc(g.text)}</small>${knopf}</div>`;
+    }).join('');
+    for (const b of document.querySelectorAll('[data-ausbau]')) b.onclick = () => ausbauen(b.dataset.ausbau);
+    if (!dorfWelt && PT.DorfWelt) {
+      try { dorfWelt = new PT.DorfWelt($('#dorfWelt')); dorfWelt.beiWahl = id => { dorfAuswahl = id; PT.Ton.klick(); dorfBauen(); const el = document.querySelector(`[data-gebaeude="${id}"]`); if (el) el.scrollIntoView({ block:'nearest', behavior:'smooth' }); }; }
+      catch (e) { console.error(e); }
+    }
+    if (dorfWelt) { dorfWelt.zeigen(D, phase, dorfAuswahl); dorfWelt.start(); }
+  }
+  function ausbauen(id) {
+    const phase = PT.dorfPhase(fort.kampagne), a = PT.dorfAusbau(fort.dorf, id, phase, fort.muenzen);
+    if (!a.ok) { PT.Ton.fehler(); return; }
+    fort.muenzen -= a.kosten.muenzen;
+    fort.dorf.kristalle -= a.kosten.kristalle;
+    fort.dorf.stufen[id] = PT.dorfStufe(fort.dorf, id) + 1;
+    const st = fort.dorf.stufen[id];
+    if (id === 'raeucherei' && !fort.dorf.geerntet) fort.dorf.geerntet = Date.now();
+    if (id === 'denkmal') { fort.besitz.skins.veteran = true; banner('🗿 Walters Denkmal', 'Neuer Look: Walters Helm', 3); }
+    if (id === 'leuchtfeuer' && st >= 3 && !fort.besitz.sockel.herzlicht) { fort.besitz.sockel.herzlicht = true; banner('💡 Das Leuchtfeuer brennt', 'Neuer Sockel: Herzlicht. Tief unten öffnet sich ein Auge …', 4); }
+    else banner(`${PT.DORF_GEBAEUDE[id].symbol} ${PT.DORF_GEBAEUDE[id].name}`, `Stufe ${st}: ${PT.DORF_GEBAEUDE[id].zeigen(PT.DORF_GEBAEUDE[id].wert[st])}`, 2.4);
+    fortMerken();
+    PT.Ton.upgrade();
+    dorfAuswahl = id;
+    if (dorfWelt) dorfWelt.gebaut(id);
+    erfolgeOhneSpiel();
+    menueBauen();
+  }
+
+  /* ---------- Versus „Eiskrieg“ im Spiel ---------- */
+  let vs = null, vsSchluessel = '', vsMalZeit = 0;
+  const gegnerSpiel = () => (vs ? vs.spiele.find(x => x !== spiel) : null);
+  const spielerName = id => { const x = vs && vs.spieler.find(y => y.id === id); return x ? x.name : 'Gegner'; };
+  function vsPanelBauen() {
+    const an = !!vs;
+    $('#vsPanel').hidden = !an; $('#vsGegner').hidden = !an; $('#vsEinkommen').hidden = !an;
+    $('#start').hidden = an; $('#auto').parentElement.hidden = an;
+    if (!an) return;
+    $('#vsFische').innerHTML = PT.VS_FISCHE.map(f => `<button data-schick="${f.typ}" title="${esc(PT.FISCHE[f.typ].name)} ab Runde ${f.ab}"><img src="${fischBilder[f.typ] || ''}" alt=""><b>${f.anzahl}× ${esc(PT.FISCHE[f.typ].name)}</b><span>${zahl(f.preis)}</span><em>+${f.einkommen}/Runde</em></button>`).join('');
+    for (const b of document.querySelectorAll('[data-schick]')) b.onclick = () => { PT.Ton.klick(); tun({ t:'schick', typ:b.dataset.schick }); };
+    $('#vsKarten').innerHTML = PT.VS_KARTEN_REIHE.map(k => `<button data-karte="${k}" title="${esc(PT.VS_KARTEN[k].name)}: ${esc(PT.VS_KARTEN[k].text)}" aria-label="${esc(PT.VS_KARTEN[k].name)}">${PT.VS_KARTEN[k].symbol}</button>`).join('');
+    for (const b of document.querySelectorAll('[data-karte]')) b.onclick = () => tun({ t:'karte', fk:b.dataset.karte });
+    vsSchluessel = '';
+  }
+  function vsZeigen(dt) {
+    if (!vs) return;
+    const i = vs.index(netz.id), runde = spiel.runde + 1;
+    const geld = meinGeld();
+    const s = PT.VS_FISCHE.map(f => (f.ab > runde ? 'z' : geld < f.preis || !vs.gestartet ? 'a' : 'o')).join('') + (i >= 0 ? PT.VS_KARTEN_REIHE.map(k => Math.ceil(vs.karten[i][k])).join() : '');
+    if (s !== vsSchluessel) {
+      vsSchluessel = s;
+      PT.VS_FISCHE.forEach((f, n) => { const b = document.querySelector(`[data-schick="${f.typ}"]`); if (!b) return; b.classList.toggle('zu', f.ab > runde); b.disabled = s[n] !== 'o' || i < 0; });
+      for (const k of PT.VS_KARTEN_REIHE) {
+        const b = document.querySelector(`[data-karte="${k}"]`); if (!b || i < 0) continue;
+        const rest = vs.karten[i][k];
+        b.style.setProperty('--rest', vs.gestartet ? rest / PT.VS_KARTEN[k].cd : 1);
+        b.classList.toggle('bereit', vs.gestartet && rest <= 0);
+        b.disabled = !vs.gestartet || rest > 0;
+      }
+    }
+    $('#vsEinkommen').querySelector('span').textContent = `+${zahl(spiel.einkommen)}/Runde`;
+    if (!vs.gestartet) { tipp(`⏳ Aufbauzeit: noch ${Math.max(0, Math.ceil(PT.VS_VORLAUF - vs.zeit))} s – setz deine Pinguine!`); tippZeit = 0.3; }
+    vsMalZeit -= dt;
+    if (vsMalZeit <= 0) { vsMalZeit = 0.12; vsKarteMalen(); }
+  }
+  function vsKarteMalen() {
+    const g = gegnerSpiel(); if (!g) return;
+    const c = $('#vsKarte'), x = c.getContext('2d'), W = c.width, H = c.height, k = W / PT.BREITE;
+    x.fillStyle = '#1d3a5c'; x.fillRect(0, 0, W, H);
+    x.strokeStyle = '#3fa8e0'; x.lineWidth = PT.WEG_BREITE * k; x.lineCap = 'round'; x.lineJoin = 'round';
+    for (const w of g.wege) {
+      x.beginPath();
+      for (let n = 0; n < w.pts.length; n += 6) { const [px, py] = w.pts[n]; if (n) x.lineTo(px * k, py * k); else x.moveTo(px * k, py * k); }
+      x.stroke();
+    }
+    x.fillStyle = 'rgba(200,220,235,.35)';
+    for (const [hx, hy, hr] of g.kartenDaten.hindernisse) { x.beginPath(); x.arc(hx * k, hy * k, hr * k, 0, 7); x.fill(); }
+    for (const t of g.tuerme) { x.fillStyle = PT.HELDEN[t.typ] ? '#ffd54a' : t.betaeubt > 0 ? '#9ff3ff' : '#ffffff'; x.beginPath(); x.arc(t.x * k, t.y * k, 3.6, 0, 7); x.fill(); }
+    for (const f of g.fische) {
+      const F = PT.FISCHE[f.typ];
+      x.globalAlpha = f.camo ? 0.45 : 1;
+      x.fillStyle = F.farbe; x.beginPath(); x.arc(f.x * k, f.y * k, Math.max(1.8, F.r * k), 0, 7); x.fill();
+    }
+    x.globalAlpha = 1;
+    if (g.zeit < g.finsternisBis) { x.fillStyle = 'rgba(0,0,0,.6)'; x.fillRect(0, 0, W, H); }
+    if (g.vorbei) { x.fillStyle = 'rgba(120,0,0,.5)'; x.fillRect(0, 0, W, H); }
+    const id = vs.spieler[vs.spiele.indexOf(g)].id;
+    $('#vsGegnerKopf').innerHTML = `<span>⚔️ ${esc(spielerName(id))}</span><span>❤️ ${Math.max(0, Math.ceil(g.leben))} · 🌊 ${g.runde} · 📈 ${zahl(g.einkommen)}</span>`;
+  }
+  function vsMeldung(m) {
+    const ich = m.von === netz.id;
+    if (m.art === 'geschickt') {
+      if (ich) PT.Ton.bauen();
+      else kurzTipp(`⚔️ ${spielerName(m.von)} schickt dir ${m.anzahl}× ${PT.FISCHE[m.typ].name}!`);
+    }
+    if (m.art === 'karte') {
+      const K = PT.VS_KARTEN[m.k];
+      if (ich) kurzTipp(`${K.symbol} ${K.name} trifft deinen Gegner!`);
+      else { banner(`${K.symbol} ${K.name}!`, `${spielerName(m.von)} sabotiert dich`, 2); PT.Ton.fehler(); }
+    }
+    if (m.art === 'los') { banner('⚔️ Eiskrieg!', 'Runde 1 – die Fische kommen. Ab Runde 30 jede Runde ein Boss!', 2.6); PT.Ton.start(); }
+    if (m.art === 'ende') versusEnde(m.sieger);
+  }
+  function versusEnde(sieger) {
+    if (endeArt === 'versus') return;
+    endeArt = 'versus';
+    const meins = !!vs.spielVon(netz.id), gewonnen = sieger === netz.id;
+    const i = vs.index(netz.id), st = i >= 0 ? vs.statistik[i] : null;
+    $('#ende').hidden = false;
+    $('#endeEmoji').textContent = sieger == null ? '🤝' : gewonnen ? '🏆' : meins ? '🐟' : '⚔️';
+    $('#endeTitel').textContent = sieger == null ? 'Unentschieden!' : gewonnen ? 'Sieg im Eiskrieg!' : `${spielerName(sieger)} gewinnt!`;
+    $('#endeText').textContent = `Runde ${vs.runde}.` + (st ? ` Du hast ${zahl(st.geschickt)} Fische für ${zahl(st.wert)} Geld geschickt und ${st.karten} ${st.karten === 1 ? 'Karte' : 'Karten'} gespielt.` : '');
+    if (meins) {
+      fort.lebenslang.vsSpiele++;
+      if (gewonnen) {
+        fort.lebenslang.vsSiege++;
+        xpDazu(400); muenzenDazu(15); kristalleDazu(6);
+        if (fort.lebenslang.vsSiege >= 10 && !fort.besitz.sockel.eiskrieg) { fort.besitz.sockel.eiskrieg = true; banner('⚔️ 10 Versus-Siege!', 'Neuer Sockel: Eiskrieg', 3.5); }
+      } else xpDazu(150);
+      fortMerken();
+      erfolgeCheck(true, gewonnen);
+    }
+    statistikZeigen();
+    const k = $('#endeKnoepfe');
+    k.innerHTML = (binHost() ? '<button class="knopf haupt" id="eLobby">Revanche (zurück in die Lobby)</button>' : '<p>Der Gastgeber kann alle zurück in die Lobby holen.</p>') + '<button class="knopf" id="eRaus">Raum verlassen</button>';
+    if ($('#eLobby')) $('#eLobby').onclick = () => senden({ t:'nochmal' });
+    $('#eRaus').onclick = koopVerlassen;
   }
 
   /* ---------- Spiel starten ---------- */
@@ -943,6 +1313,9 @@
     auswahl = null; bauTyp = null; zielModus = null; tempo = 1; pausiert = false; zeitRest = 0; autoWarte = 0;
     olympGemeldet = false;
     endeArt = null;
+    endeSzene = false; kampagneErgebnis = null;
+    funkLeeren();
+    if (!neu.koop) vs = null;
     $('#pauseTitel').textContent = 'Pause';
     $('#menue').hidden = true;
     $('#spiel').hidden = false;
@@ -988,6 +1361,8 @@
     $('#pNeu').hidden = !!olymp || spiel.koop;
     $('#pMenue').textContent = spiel.koop ? 'Raum verlassen' : 'Zum Hauptmenü';
     mitspielerZeigen();
+    vsPanelBauen();
+    if (vs) { $('#modusAnzeige').textContent = '⚔️ Versus'; banner('⚔️ Eiskrieg', `${vs.spieler.map(x => x.name).join(' gegen ')} · ${spiel.kartenDaten.name}`, 3); }
     if (spiel.koop) koopPauseZeigen();
   }
   function neuesSpiel() {
@@ -1053,7 +1428,10 @@
   PT.UI = { karteSpeichern, karteLink, karteTeilen, editorZu, kartenVorschau, speicher };
   function zumMenue() {
     if (spiel && !spiel.vorbei) fortschrittMelden('menue');
-    if (kampagneAktiv) { abenteuerReiter = true; koopReiter = false; }
+    if (kampagneAktiv) { abenteuerReiter = true; koopReiter = false; dorfReiter = false; }
+    if (szeneAktiv) szeneAktiv.schluss();
+    PT.Ton.musik(null);
+    vs = null;
     $('#spiel').hidden = true;
     $('#pause').hidden = true;
     $('#ende').hidden = true;
@@ -1088,7 +1466,7 @@
     $('#leben').textContent = spiel.unendlich ? '∞' : Math.max(0, Math.ceil(spiel.leben));
     $('#geld').textContent = spiel.unendlich ? '∞' : zahl(geld);
     $('#runde').textContent = Math.max(1, spiel.runde + 1);
-    $('#rundenZiel').textContent = spiel.endlos ? '∞' : spiel.zielRunden;
+    $('#rundenZiel').textContent = spiel.endlos || vs ? '∞' : spiel.zielRunden;
     const st = $('#start');
     if (spiel.laeuft) { st.textContent = `⏩ ${tempo}×`; st.classList.add('schnell'); st.setAttribute('aria-label', `Tempo ${tempo}-fach, ändern`); }
     else { st.textContent = '▶ Runde starten'; st.classList.remove('schnell'); st.setAttribute('aria-label', 'Nächste Runde starten'); }
@@ -1330,6 +1708,7 @@
   function einstOeffnen() {
     PT.Ton.klick();
     $('#eLaut').value = einstellung.laut;
+    $('#eMusik').value = Math.round(PT.Ton.musikLaut * 100);
     $('#eGrafik').value = grafikHoch ? 'hoch' : 'schnell';
     $('#eDesign').value = einstellung.design;
     $('#eVorschau').checked = einstellung.vorschau;
@@ -1342,6 +1721,7 @@
   }
   function einstUebernehmen() {
     einstellung.laut = +$('#eLaut').value;
+    PT.Ton.musikLautstaerke(+$('#eMusik').value / 100);
     einstellung.design = $('#eDesign').value;
     einstellung.vorschau = $('#eVorschau').checked;
     einstellung.balken = $('#eBalken').checked;
@@ -1503,6 +1883,11 @@
     welt.zoomen(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX, e.clientY);
   }
   function tasten(e) {
+    if (szeneAktiv) {
+      if (e.key === 'Escape') { e.preventDefault(); szeneAktiv.schluss(); }
+      else if ([' ', 'Enter', 'ArrowRight'].includes(e.key)) { e.preventDefault(); szeneAktiv.weiter(); }
+      return;
+    }
     if (e.key === 'Escape' && !$('#einstellungen').hidden) { e.preventDefault(); $('#einstZu').click(); return; }
     if (e.key === 'Escape' && !$('#levelDialog').hidden) { e.preventDefault(); $('#levelZu').click(); return; }
     if (e.key === 'Escape' && !$('#kisteDialog').hidden) { e.preventDefault(); $('#kisteZu').click(); return; }
@@ -1561,7 +1946,23 @@
         else banner(`Runde ${e.runde}`, rundenHinweis(e.runde));
         wetterHud();
       }
-      if (e.art === 'finsternis') kurzTipp('🏮 Abyssos löscht das Licht! Nur Pinguine mit Nachtsicht sehen jetzt die Fische.');
+      if (e.art === 'finsternis') {
+        kurzTipp(e.tiefe ? '🌑 Die Tiefe verschluckt das Licht! Nur Pinguine mit Nachtsicht sehen jetzt die Fische.'
+          : e.typ === 'zerbrochen' ? '💔 Pako löscht das Licht! Nur Pinguine mit Nachtsicht sehen jetzt die Fische.'
+          : vs && !e.typ ? '🏮 Finsternis vom Gegner! Nur Pinguine mit Nachtsicht sehen jetzt die Fische.' : '🏮 Abyssos löscht das Licht! Nur Pinguine mit Nachtsicht sehen jetzt die Fische.');
+        funk('dunkel');
+      }
+      if (e.art === 'rundeStart') { funk('r' + e.runde); if (e.boss) { funk('boss'); if (kampagneAktiv) PT.Ton.musik('boss'); } }
+      if (e.art === 'bossPhase') funk('phase' + e.phase);
+      if (e.art === 'zweitePhase') { banner('💔 Pako, der Zerbrochene', 'Abyssos steht wieder auf – stärker als zuvor!', 3.5); funk('zweite'); }
+      if (e.art === 'bossBesiegt' && kampagneAktiv && !spiel.fische.some(f => f.boss && !f.tot)) PT.Ton.musik(PT.KAPITEL_VON(PT.LEVEL(kampagneAktiv).kapitel).stimmung);
+      if (e.art === 'wegOffen') { banner('⚠️ Überfall!', 'Ein neuer Kanal ist offen – sie kommen von der Seite!', 3); funk('weg', true); }
+      if (e.art === 'sabotiert' && e.anzahl) { banner('💥 Sabotage!', `${e.anzahl} deiner teuersten Pinguine sind zerstört. Die Hälfte des Geldes gibt es zurück.`, 3.5); funk('sabotiert'); }
+      if (e.art === 'heldGefallen') { banner(`🗿 ${e.typ ? PT.HELDEN[e.typ].name : 'Dein Held'} ist gefallen`, 'Aus Wut greifen deine Pinguine eine Weile schneller an!', 4); funk('gefallen'); }
+      if (e.art === 'einsturzWarnung') { kurzTipp('🧊 Achtung: Nach dieser Runde bricht die rot blinkende Eisfläche weg! Was dort steht, ist verloren (ein Viertel gibt es zurück).'); funk('einsturz'); }
+      if (e.art === 'eingestuerzt') letzteAnzeige = '';
+      if (e.art === 'frostbefehl' && spiel.tuerme.some(t => t.betaeubtArt === 'eis' && t.betaeubt > 0 && (!spiel.koop || t.besitzer === ich()))) kurzTipp('❄️ Frostbefehl! Deine wertvollsten Pinguine sind eingefroren.');
+      if (e.art === 'leck' && spiel.leben < spiel.startLeben / 2) funk('knapp');
       if (e.art === 'rundeEnde') {
         const n = e.runde + 1;
         const boss = PT.bossFuer(spiel.modus);
@@ -1599,6 +2000,7 @@
         }
         if (!olymp) endeZeigen(true);
       }
+      if (e.art === 'verloren' && vs) continue;
       if (e.art === 'verloren') {
         speicher.weg('pt-stand');
         fortschrittMelden('verloren');
@@ -1621,8 +2023,26 @@
     else speicher.schreiben('pt-stand', { ...spiel.speichern(), tag:tagesAktiv, level:kampagneAktiv });
   }
 
-  let endeArt = null;
+  let endeArt = null, endeSzene = false, kampagneErgebnis = null;
   function endeZeigen(gewonnen) {
+    // Abenteuer: erst Sterne sichern, dann die Szene nach dem Level (im Finale: Ende, Abspann, das Auge)
+    if (gewonnen && kampagneAktiv && !spiel.koop && !endeSzene) {
+      endeSzene = true;
+      const l = PT.LEVEL(kampagneAktiv);
+      kampagneErgebnis = levelGewonnen();
+      pausiert = true;
+      (async () => {
+        if (l && (l.nachher || []).length) await szeneSpielen(l.nachher, { imSpiel:true });
+        if (l && l.finale) {
+          await szeneSpielen(PT.ENDE_SZENE, { stimmung:'herz' });
+          await abspannSpielen();
+          await szeneSpielen(PT.NACH_ABSPANN, { auge:2, stimmung:'tiefe' });
+          await szeneSpielen([], { karte:{ kapitel:'Pinguin Türmchen', titel:'Fortsetzung folgt …', zitat:['Neu-Pinguinhausen wartet auf dich.', ''] } });
+        }
+        endeZeigen(true);
+      })();
+      return;
+    }
     const k = $('#endeKnoepfe');
     $('#ende').hidden = false;
     endeArt = gewonnen ? 'gewonnen' : 'verloren';
@@ -1642,15 +2062,17 @@
       $('#eEndlos').onclick = () => { spiel.endlos = true; $('#ende').hidden = true; pausiert = false; speichern(); letzteAnzeige = ''; anzeigen(); };
       // Abenteuer: Sterne statt Medaille, weiter zum nächsten Level
       if (kampagneAktiv) {
-        const l = PT.LEVEL(kampagneAktiv), erg = levelGewonnen();
+        const l = PT.LEVEL(kampagneAktiv), erg = kampagneErgebnis || levelGewonnen();
         if (l && erg) {
           const i = PT.LEVELS.indexOf(l), naechstes = PT.LEVELS[i + 1];
           $('#endeEmoji').textContent = erg.neu.map(x => (x ? '⭐' : '☆')).join('');
-          $('#endeTitel').textContent = l.finale ? 'Pinguinhausen ist gerettet!' : 'Level geschafft!';
-          $('#endeText').textContent = l.finale ? PT.ENDE_TEXT : [`${l.name}: ${erg.neu.filter(Boolean).length} von 3 Sternen.`,
+          $('#endeTitel').textContent = l.finale ? 'Das Ende von Pinguinhausen' : 'Level geschafft!';
+          $('#endeText').textContent = l.finale ? 'Pinguinhausen ist versunken. Aber ihr lebt – und ihr baut neu. Dein Pingu-Dorf „Neu-Pinguinhausen“ wartet auf dich.' : [`${l.name}: ${erg.neu.filter(Boolean).length} von 3 Sternen.`,
             ...l.sterne.map((a, n) => `${erg.neu[n + 1] ? '✅' : '❌'} ${PT.sternAufgabe(a)}`)].join(' ');
-          k.innerHTML = (naechstes ? '<button class="knopf haupt" id="eWeiterLevel">Nächstes Level ▶</button>' : '') + '<button class="knopf" id="eNeu">Nochmal</button><button class="knopf" id="eMenue">Zum Abenteuer</button>';
+          k.innerHTML = (naechstes ? '<button class="knopf haupt" id="eWeiterLevel">Nächstes Level ▶</button>' : '') + (l.finale ? '<button class="knopf haupt" id="eDorf">🏘️ Zum Pingu-Dorf</button>' : '')
+            + '<button class="knopf" id="eNeu">Nochmal</button><button class="knopf" id="eMenue">Zum Abenteuer</button>';
           if ($('#eWeiterLevel')) $('#eWeiterLevel').onclick = () => { $('#ende').hidden = true; zumMenue(); levelOeffnen(naechstes.id); };
+          if ($('#eDorf')) $('#eDorf').onclick = () => { zumMenue(); abenteuerReiter = false; dorfReiter = true; menueBauen(); };
         }
       }
     } else {
@@ -1797,6 +2219,8 @@
       if (spiel.unendlich) { spiel.geld = 999999; spiel.leben = Math.max(spiel.leben, 999999); }
       if (autoWarte > 0) { autoWarte -= dt; if (autoWarte <= 0 && !spiel.laeuft && !spiel.vorbei) rundeStarten(); }
     }
+    if (vs) { for (const m of vs.meldungen.splice(0)) vsMeldung(m); vsZeigen(dt); }
+    funkZeigen();
     const ev = spiel.ereignisse.splice(0);
     if (ev.length) { welt.ereignisse(ev); PT.Ton.ereignisse(ev); ereignisse(ev); }
     if (auswahl && !spiel.tuerme.includes(auswahl)) turmWaehlen(null);
@@ -1808,6 +2232,17 @@
     anzeigen();
   }
 
+  // Das alte Abenteuer (k1-1 …) gibt es nicht mehr: einmal gegen eine Goldkiste und Eiskristalle tauschen
+  function altesAbenteuerTauschen() {
+    const n = PT.alteSterne(fort.kampagne);
+    if (!n) return;
+    for (const id of Object.keys(fort.kampagne)) if (/^k\d-\d$/.test(id)) delete fort.kampagne[id];
+    fort.kampagneAlt = { sterne:n };
+    fort.kisten.gold = (fort.kisten.gold || 0) + 1;
+    fort.dorf.kristalle += 10 + n;
+    fortMerken();
+  }
+
   /* ---------- Los ---------- */
   function init() {
     try {
@@ -1817,6 +2252,7 @@
       document.body.innerHTML = '<p style="padding:24px;font-size:1.2rem">Dein Browser kann leider kein WebGL (3D). Probier es mit einem aktuellen Chrome, Firefox, Safari oder Edge.</p>';
       return;
     }
+    altesAbenteuerTauschen();
     lexikonBauen();
     menueBauen();
     einstAnwenden();
@@ -1825,7 +2261,8 @@
       if (koopReiter) { if (binHost()) senden({ t:'start' }); return; }
       neuesSpiel();
     };
-    $('#reiterAllein').onclick = () => { PT.Ton.klick(); abenteuerReiter = false; koopReiterSetzen(false); };
+    $('#reiterAllein').onclick = () => { PT.Ton.klick(); abenteuerReiter = false; dorfReiter = false; koopReiterSetzen(false); };
+    $('#reiterDorf').onclick = () => { PT.Ton.klick(); dorfReiter = true; abenteuerReiter = false; koopReiter = false; menueBauen(); };
     $('#reiterKoop').onclick = () => { PT.Ton.klick(); koopReiterSetzen(true); };
     $('#koopNeu').onclick = () => { PT.Ton.start(); if (koopHallo()) senden({ t:'erstellen' }); };
     $('#koopRein').onclick = () => {
@@ -1838,10 +2275,10 @@
     $('#koopRaus').onclick = () => { PT.Ton.klick(); koopVerlassen(); };
     $('#kraftAn').onchange = () => {
       wahl.kraft = $('#kraftAn').checked; speicher.schreiben('pt-wahl', wahl);
-      if (koopReiter && netz && netz.raum) { const m = meinMitglied(); senden({ t:'wahl', held:m ? m.held : wahl.held, kraft:kraftAktivKoop(), skin:pass.skin, sockel:pass.sockel }); }
+      if (koopReiter && netz && netz.raum) { const m = meinMitglied(); senden({ t:'wahl', boni:dorfBoni(), held:m ? m.held : wahl.held, kraft:kraftAktivKoop(), skin:pass.skin, sockel:pass.sockel }); }
     };
     $('#tagLos').onclick = () => { PT.Ton.start(); tagesStarten(); };
-    $('#reiterAbenteuer').onclick = () => { PT.Ton.klick(); abenteuerReiter = true; koopReiter = false; menueBauen(); };
+    $('#reiterAbenteuer').onclick = () => { PT.Ton.klick(); abenteuerReiter = true; koopReiter = false; dorfReiter = false; menueBauen(); };
     $('#levelZu').onclick = () => { PT.Ton.klick(); $('#levelDialog').hidden = true; };
     $('#kisteZu').onclick = () => { PT.Ton.klick(); $('#kisteDialog').hidden = true; };
     $('#wetterAn').onchange = () => {
@@ -1859,7 +2296,8 @@
     $('#weiter').onclick = () => {
       PT.Ton.start();
       const stand = speicher.lesen('pt-stand');
-      if (stand && (PT.KARTEN[stand.karte] || stand.karte === 'eigen')) { tagesAktiv = stand.tag || null; kampagneAktiv = stand.level || null; spielStarten(PT.Spiel.laden(stand)); }
+      if (stand && (PT.KARTEN[stand.karte] || stand.karte === 'eigen')) { tagesAktiv = stand.tag || null; kampagneAktiv = PT.LEVEL(stand.level) ? stand.level : null; spielStarten(PT.Spiel.laden(stand));
+        if (kampagneAktiv) PT.Ton.musik(PT.KAPITEL_VON(PT.LEVEL(kampagneAktiv).kapitel).stimmung); }
     };
     $('#start').onclick = startKnopf;
     $('#pauseKnopf').onclick = () => pause(true);

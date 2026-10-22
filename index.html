@@ -830,6 +830,90 @@
   .kiste-inhalt i { font-style: normal; font-size: 1.6rem; }
   .kiste-inhalt img { width: 48px; height: 48px; }
   @media (prefers-reduced-motion: reduce) { .kiste:not(:disabled), .kiste-auf, .kiste-inhalt li { animation: none !important; } }
+  /* ================= Schwarzes Eis: Szenen, Funk, Dorf, Versus ================= */
+  .abenteuer-alt { background: linear-gradient(135deg, rgba(179,107,255,.18), var(--eis)); border-radius: 12px; padding: 8px 12px; font-weight: 700; color: var(--tinte) !important; }
+  .kapitel-zitat { margin: -4px 0 8px; font-size: .85rem; font-style: italic; color: var(--tinte-weich); }
+  .szene { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; cursor: pointer;
+    background: radial-gradient(900px 600px at 50% 40%, rgba(20,10,40,.25), rgba(0,0,0,.55)); color: #fff; user-select: none; -webkit-user-select: none; }
+  .szene.dunkel { background: radial-gradient(900px 600px at 50% 40%, #120a22, #000); }
+  .szene .balken { position: absolute; left: 0; right: 0; height: 11vh; background: #000; animation: balken .7s ease-out both; }
+  .szene .balken.oben { top: 0; } .szene .balken.unten { bottom: 0; }
+  @keyframes balken { from { transform: scaleY(0); } to { transform: none; } }
+  .szene-box { position: relative; z-index: 2; margin: 0 16px calc(11vh + 14px); width: min(860px, calc(100% - 32px)); display: flex; gap: 16px; align-items: flex-start;
+    background: linear-gradient(180deg, rgba(8,10,22,.88), rgba(4,6,14,.94)); border: 1px solid rgba(255,255,255,.14); border-radius: 18px; padding: 14px 18px 18px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6); animation: ein .35s ease-out; }
+  .szene-box img { width: 96px; height: 96px; flex: none; border-radius: 14px; background: radial-gradient(circle at 50% 35%, rgba(255,255,255,.18), rgba(255,255,255,.02)); border: 1px solid rgba(255,255,255,.15); object-fit: cover; }
+  .szene-box img[hidden] { display: none; }
+  .szene-inhalt { flex: 1; min-width: 0; }
+  .szene-inhalt b { font-size: 1.05rem; letter-spacing: .04em; text-transform: uppercase; }
+  .szene-inhalt p { margin: 6px 0 0; font-size: clamp(1.05rem, 2.4vw, 1.3rem); line-height: 1.5; min-height: 3em; }
+  .szene-box.erzaehler { background: transparent; border-color: transparent; box-shadow: none; justify-content: center; text-align: center; }
+  .szene-box.erzaehler p { font-style: italic; color: #d6dcea; text-shadow: 0 2px 12px #000; }
+  .szene-box.laut p { font-weight: 800; animation: zittern .35s linear 2; }
+  @keyframes zittern { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+  .szene-weiter { position: absolute; right: 16px; bottom: 6px; opacity: .6; animation: wippen 1s ease-in-out infinite; }
+  @keyframes wippen { 50% { transform: translateY(3px); } }
+  .szene-skip { position: absolute; z-index: 3; right: 16px; top: calc(11vh + 12px); border: 1px solid rgba(255,255,255,.3); background: rgba(0,0,0,.45); color: #fff; border-radius: 999px; padding: 8px 14px; font-weight: 700; min-height: 40px; }
+  .szene-karte { position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; text-align: center; padding: 0 24px; background: radial-gradient(800px 500px at 50% 50%, #140a24, #000); animation: ein 1.2s ease-out; }
+  .szene-karte small { letter-spacing: .4em; text-transform: uppercase; color: #9a8ac0; font-weight: 700; }
+  .szene-karte h2 { border: 0; padding: 0; color: #fff; font-size: clamp(2rem, 7vw, 4.4rem); margin: 10px 0 18px; letter-spacing: .02em; text-shadow: 0 0 40px rgba(180,120,255,.45); }
+  .szene-karte p { font-size: clamp(1.05rem, 2.6vw, 1.4rem); font-style: italic; max-width: 760px; margin: 0 auto; color: #d8d0ea; }
+  .szene-karte em { display: block; margin-top: 8px; color: #8a80a8; font-style: normal; }
+  .abspann { position: absolute; inset: 0; z-index: 2; overflow: hidden; background: #000; }
+  .abspann-rolle { position: absolute; left: 0; right: 0; top: 100%; text-align: center; animation: abspann 34s linear forwards; }
+  .abspann-rolle div { margin: 0 0 64px; }
+  .abspann-rolle small { display: block; letter-spacing: .3em; text-transform: uppercase; color: #8a80a8; font-weight: 700; margin-bottom: 8px; }
+  .abspann-rolle b { font-size: clamp(1.3rem, 4vw, 2.2rem); }
+  .abspann-rolle .gross b { font-size: clamp(2.2rem, 8vw, 4.6rem); text-shadow: 0 0 40px rgba(180,120,255,.5); }
+  @keyframes abspann { to { transform: translateY(calc(-100% - 100vh)); } }
+  .auge { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; background: #000; }
+  .auge i { width: min(60vw, 520px); height: min(60vw, 520px); border-radius: 50%; background: radial-gradient(circle, #000 0 9%, #ffd54a 10% 14%, #ff7a1a 22%, #6a1a00 44%, transparent 62%);
+    animation: auge 4s cubic-bezier(.6,0,.3,1) both; filter: drop-shadow(0 0 60px rgba(255,150,40,.6)); }
+  @keyframes auge { 0% { transform: scaleY(0); opacity: 0; } 35% { transform: scaleY(.04); opacity: 1; } 100% { transform: scaleY(.55); } }
+  @media (prefers-reduced-motion: reduce) { .szene .balken, .szene-box, .auge i, .szene-weiter { animation: none !important; } .abspann-rolle { animation-duration: 60s; } }
+  .funk { position: absolute; left: 50%; bottom: 76px; transform: translateX(-50%); width: min(560px, calc(100% - 24px)); display: flex; gap: 10px; align-items: center; z-index: 5;
+    background: linear-gradient(180deg, rgba(6,10,20,.9), rgba(4,8,16,.94)); border: 1px solid rgba(160,255,160,.35); border-radius: 14px; padding: 8px 12px; color: #fff; pointer-events: none;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.5); animation: ein .25s ease-out; }
+  .funk img { width: 52px; height: 52px; border-radius: 10px; flex: none; background: rgba(255,255,255,.08); }
+  .funk b { font-size: .8rem; letter-spacing: .05em; text-transform: uppercase; }
+  .funk b::before { content: '📻 '; }
+  .funk p { margin: 2px 0 0; font-size: .98rem; line-height: 1.35; }
+  .dorf-box { margin-top: 16px; background: var(--karte); border: 1px solid var(--linie); border-radius: var(--r); padding: 14px 16px; box-shadow: var(--schatten); }
+  .dorf-box > p { color: var(--tinte-weich); margin: 6px 0; line-height: 1.45; }
+  .dorf-welt { position: relative; margin: 10px 0; border-radius: 16px; overflow: hidden; background: #0b1630; aspect-ratio: 16 / 8; min-height: 220px; }
+  .dorf-welt canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+  .dorf-zu { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; color: #fff; padding: 20px; background: rgba(5,10,25,.72); font-weight: 700; line-height: 1.5; }
+  .dorf-ernte { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: var(--eis); border-radius: 12px; padding: 8px 12px; font-weight: 700; }
+  .dorf-gebaeude { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin-top: 10px; }
+  .gebaeude { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center; background: var(--eis); border: 1px solid var(--linie); border-radius: 14px; padding: 8px 10px; }
+  .gebaeude.gewaehlt { outline: 3px solid var(--akzent); }
+  .gebaeude.zu { opacity: .55; }
+  .gebaeude i { grid-row: 1 / span 3; font-style: normal; font-size: 2rem; }
+  .gebaeude small { color: var(--tinte-weich); line-height: 1.3; }
+  .gebaeude .pips i { width: 12px; height: 7px; font-size: 0; background: rgba(19,49,92,.15); grid-row: auto; display: inline-block; margin-right: 2px; border-radius: 3px; }
+  .gebaeude .pips i.an { background: var(--gold); }
+  .gebaeude button { grid-column: 1 / -1; margin-top: 6px; border: 1px solid #c99a14; border-radius: 10px; padding: 8px 10px; font-weight: 800; background: linear-gradient(180deg, #ffd45e, #f6c343); color: #13315c; min-height: 42px; }
+  .gebaeude button:disabled { opacity: .5; cursor: default; }
+  .dorf-hinweis { font-size: .85rem; }
+  .vs-wert { color: #9fe08a; }
+  .vs-panel { margin-bottom: 10px; }
+  .vs-panel .seiten-titel small { font-weight: 600; color: var(--panel-leise); }
+  .vs-fische { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+  .vs-fische button { position: relative; display: flex; flex-direction: column; align-items: center; border: 2px solid rgba(255,255,255,.12); border-radius: 12px; background: var(--panel-2); padding: 3px 2px 5px; color: inherit; min-height: 44px; }
+  .vs-fische button img { width: 44px; height: 44px; }
+  .vs-fische button b { font-size: .7rem; }
+  .vs-fische button span { font-weight: 800; color: var(--gold); font-size: .78rem; }
+  .vs-fische button em { font-style: normal; font-size: .68rem; color: #9fe08a; }
+  .vs-fische button:disabled { opacity: .4; }
+  .vs-fische button.zu { opacity: .25; }
+  .vs-karten { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+  .vs-karten button { position: relative; height: 52px; border-radius: 12px; border: 2px solid rgba(255,255,255,.2); background: var(--panel-2); font-size: 1.5rem; overflow: hidden; color: inherit; }
+  .vs-karten button::after { content: ''; position: absolute; inset: 0; background: conic-gradient(rgba(5,12,25,.78) calc(var(--rest, 0) * 1turn), transparent 0); pointer-events: none; }
+  .vs-karten button.bereit { border-color: #ff6a6a; box-shadow: 0 0 12px rgba(255,90,90,.6); }
+  .vs-gegner { position: absolute; right: 60px; top: 10px; width: min(300px, 42%); border-radius: 12px; overflow: hidden; border: 2px solid rgba(255,120,120,.55); background: rgba(6,10,20,.85); z-index: 4; }
+  .vs-gegner canvas { position: static; display: block; width: 100%; height: auto; pointer-events: none; }
+  .vs-kopf { display: flex; gap: 8px; justify-content: space-between; padding: 4px 8px; font-size: .8rem; font-weight: 800; color: #fff; background: rgba(120,20,20,.55); }
+  @media (max-width: 820px), (max-aspect-ratio: 1/1) { .vs-gegner { width: 46%; right: 54px; } .funk { bottom: 120px; } .szene-box img { width: 64px; height: 64px; } }
 </style>
 </head>
 <body>
@@ -908,12 +992,22 @@
     <div class="reiter" id="reiterReihe" role="group" aria-label="Spielart">
       <button id="reiterAllein" aria-pressed="true">🐧 Allein spielen</button>
       <button id="reiterAbenteuer" aria-pressed="false">📖 Abenteuer</button>
-      <button id="reiterKoop" aria-pressed="false">👥 Zusammen spielen</button>
+      <button id="reiterDorf" aria-pressed="false">🏘️ Dorf</button>
+      <button id="reiterKoop" aria-pressed="false">👥 Koop &amp; ⚔️ Versus</button>
     </div>
     <div class="abenteuer-box" id="abenteuerBox" hidden>
-      <div class="abenteuer-kopf"><b>📖 Die Reise nach Pinguinhausen</b><span id="abenteuerSterne"></span></div>
-      <p>Opa Pingo erzählt eine Geschichte: Vier Kapitel, 24 Levels und am Ende der Tiefseekönig. Jedes Level hat drei Sterne – einen für den Sieg und zwei für besondere Aufgaben. Für alle drei Sterne gibt es eine Kiste, für jedes Kapitel einen Look.</p>
+      <div class="abenteuer-kopf"><b>📖 Schwarzes Eis</b><span id="abenteuerSterne"></span></div>
+      <p>Seit fünfzig Jahren hat das Eis nicht gebebt. Dann wird das Wasser schwarz, und die Fische fliehen aus der Tiefe. Wovor? Ein Prolog, fünf Kapitel, 30 Levels – mit Szenen, Funksprüchen, Verrat und einem Ende, das du nicht vergisst. Jedes Level hat drei Sterne. Für alle drei gibt es eine Kiste, für jedes Kapitel einen Look, und die Geretteten ziehen in dein Pingu-Dorf.</p>
+      <p class="abenteuer-alt" id="abenteuerAlt" hidden></p>
       <div id="abenteuer"></div>
+    </div>
+    <div class="dorf-box" id="dorfBox" hidden>
+      <div class="abenteuer-kopf"><b id="dorfTitel">🏘️ Pingu-Dorf</b><span id="dorfVorrat"></span></div>
+      <p id="dorfText"></p>
+      <div class="dorf-welt" id="dorfWeltBox"><canvas id="dorfWelt" aria-label="Dein Dorf in 3D"></canvas><div class="dorf-zu" id="dorfZu" hidden></div></div>
+      <div class="dorf-ernte" id="dorfErnte" hidden></div>
+      <div class="dorf-gebaeude" id="dorfGebaeude"></div>
+      <p class="dorf-hinweis">Eiskristalle gibt es für Sterne im Abenteuer, Tagesaufträge, Kisten und Versus-Siege. Die Boni gelten im freien Spiel, im Abenteuer und im Koop (nicht bei Tages-Herausforderung, Olympiade und Versus).</p>
     </div>
     <div class="koop-box" id="koopBox" hidden>
       <div id="koopVerbinden">
@@ -924,7 +1018,7 @@
           <input id="koopCode" maxlength="4" placeholder="CODE" aria-label="Raum-Code" autocomplete="off">
           <button class="knopf" id="koopRein">Beitreten</button>
         </div>
-        <p style="color:var(--tinte-weich);margin:10px 0 0">Bis zu 4 Spieler verteidigen dieselbe Karte. Jeder setzt seine eigenen Pinguine und hat seinen eigenen Helden.</p>
+        <p style="color:var(--tinte-weich);margin:10px 0 0"><b>👥 Koop:</b> Bis zu 4 Spieler verteidigen dieselbe Karte. Jeder setzt seine eigenen Pinguine und hat seinen eigenen Helden.<br><b>⚔️ Versus „Eiskrieg“:</b> Zu zweit, jeder auf seiner eigenen Karte. Schick dem anderen Fische, setz Sabotage-Karten ein – wer zuerst alle Leben verliert, hat verloren. Erstell einen Raum und wähl dort „Versus“.</p>
       </div>
       <div id="koopRaum" hidden>
         <div class="raum-code">Raum-Code <b id="raumCode"></b></div>
@@ -959,8 +1053,12 @@
       <label class="kraft-wahl wetter-wahl"><input type="checkbox" id="wetterAn" checked> 🌦️ Wetter-Ereignisse ab Runde 6 (Schneesturm, Polarlicht, Eisregen, Tauwetter, Nebel)</label>
 
       <div id="geldBereich" hidden>
-        <h2>Geld im Koop</h2>
-        <div class="stufen" id="geldModi"></div>
+        <h2>Spielart</h2>
+        <div class="stufen" id="spielArten"></div>
+        <div id="geldWahl">
+          <h2>Geld im Koop</h2>
+          <div class="stufen" id="geldModi"></div>
+        </div>
       </div>
     </div>
 
@@ -1039,6 +1137,7 @@
     <div class="wert" title="Runde">🌊 <span id="runde">1</span><small>/<span id="rundenZiel">40</span></small></div>
     <span class="modus-anzeige" id="modusAnzeige"></span>
     <span class="wetter-anzeige" id="wetterAnzeige" hidden></span>
+    <div class="wert vs-wert" id="vsEinkommen" title="Einkommen pro Runde (Versus)" hidden>📈 <span>0</span></div>
     <div class="mitspieler" id="mitspieler" hidden></div>
     <div class="luecke"></div>
     <label class="auto" title="Nächste Runde automatisch starten"><input type="checkbox" id="auto"><span>Auto</span></label>
@@ -1052,6 +1151,8 @@
     <div id="banner"></div>
     <div id="tipp" hidden></div>
     <div id="faehigkeiten" aria-label="Fähigkeiten"></div>
+    <div id="funk" class="funk" hidden aria-live="polite"><img id="funkBild" alt=""><div><b id="funkName"></b><p id="funkText"></p></div></div>
+    <div id="vsGegner" class="vs-gegner" hidden><div class="vs-kopf" id="vsGegnerKopf"></div><canvas id="vsKarte" width="300" height="192" aria-label="Karte des Gegners"></canvas></div>
     <button id="vorschau" class="vorschau" hidden aria-label="Vorschau auf die nächste Runde"></button>
     <div class="zoom">
       <button id="zoomRein" aria-label="Hineinzoomen">＋</button>
@@ -1060,6 +1161,12 @@
     </div>
   </div>
   <aside id="seite" aria-live="polite">
+    <div class="vs-panel" id="vsPanel" hidden>
+      <p class="seiten-titel">⚔️ Fische schicken <small>mehr Einkommen!</small></p>
+      <div class="vs-fische" id="vsFische"></div>
+      <p class="seiten-titel">🃏 Sabotage</p>
+      <div class="vs-karten" id="vsKarten"></div>
+    </div>
     <div id="laden">
       <div class="laden" id="ladenListe"></div>
       <p class="info-kurz" id="ladenInfo">Wähle einen Pinguin und setz ihn neben den Kanal.</p>
@@ -1113,6 +1220,7 @@
     <ul class="level-sterne" id="levelSterne"></ul>
     <p class="level-held" id="levelHeld"></p>
     <button class="knopf haupt" id="levelLos">Los geht's!</button>
+    <button class="knopf" id="levelSzene" hidden>🎬 Szenen nochmal ansehen</button>
     <button class="knopf" id="levelZu">Zurück</button>
   </div>
 </div>
@@ -1130,6 +1238,7 @@
   <div class="dialog einst" role="dialog" aria-modal="true" aria-labelledby="einstTitel">
     <h2 id="einstTitel">⚙️ Einstellungen</h2>
     <label class="einst-zeile">🔊 Lautstärke <input type="range" id="eLaut" min="0" max="100" step="5"></label>
+    <label class="einst-zeile">🎵 Musik (Abenteuer) <input type="range" id="eMusik" min="0" max="100" step="5"></label>
     <label class="einst-zeile"><span>✨ Grafik</span><select id="eGrafik"><option value="hoch">Hoch (schön)</option><option value="schnell">Schnell (für ältere Geräte)</option></select></label>
     <label class="einst-zeile"><span>🎨 Menü-Design</span><select id="eDesign"><option value="auto">Wie das Gerät</option><option value="light">Hell</option><option value="dark">Dunkel</option></select></label>
     <label class="einst-zeile"><span>🔍 Vorschau auf die nächste Runde</span><input type="checkbox" id="eVorschau"></label>
@@ -1141,15 +1250,27 @@
   </div>
 </div>
 
+<div id="szene" class="szene" hidden>
+  <div class="balken oben"></div><div class="balken unten"></div>
+  <div class="szene-karte" id="szeneKarte" hidden><small id="szeneKapitel"></small><h2 id="szeneTitel"></h2><p id="szeneZitat"></p><em id="szeneVon"></em></div>
+  <div class="szene-box" id="szeneBox" hidden><img id="szeneBild" alt=""><div class="szene-inhalt"><b id="szeneName"></b><p id="szeneText"></p></div><span class="szene-weiter" aria-hidden="true">▼</span></div>
+  <div class="abspann" id="abspann" hidden><div class="abspann-rolle" id="abspannRolle"></div></div>
+  <div class="auge" id="auge" hidden><i></i></div>
+  <button class="szene-skip" id="szeneSkip">Überspringen ⏭</button>
+</div>
+
 <script src="vendor/three.min.js"></script>
 <script src="js/daten.js"></script>
 <script src="js/pinguine.js"></script>
 <script src="js/logik.js"></script>
+<script src="js/versus.js"></script>
 <script src="js/pass.js"></script>
 <script src="js/fortschritt.js"></script>
 <script src="js/kampagne.js"></script>
+<script src="js/dorf.js"></script>
 <script src="js/modelle.js"></script>
 <script src="js/welt3d.js"></script>
+<script src="js/dorf3d.js"></script>
 <script src="js/ton.js"></script>
 <script src="js/oberflaeche.js"></script>
 <script src="js/editor.js"></script>
