@@ -246,6 +246,30 @@
     return verschmelzen(teile);
   }
   // Hai-König: großer Hai mit Krone und Zähnen
+  // Abyssos: riesiger Tiefsee-Anglerfisch mit Laterne, Zahnmaul und Krone
+  function abyssosGeo(r) {
+    const teile = [], kM = kleineKugel(r);
+    const haut = (x, y, z) => (hash(Math.round(x / 5), Math.round(z / 5) + Math.round(y / 5) * 3) > 0.85 ? rgb(0x7a4ab8) : y < -0.25 * r ? rgb(0x3a2a5a) : mischen(0x2a1a4a, 0x1a1030, glatt(0, 0.6 * r, y)));
+    teile.push([G.kugel, haut, matrix(0, 0, 0, 0, 0, 0, 1.25 * r, 0.95 * r, 0.9 * r)]);
+    teile.push([G.kegel, 0x2a1a4a, matrix(-1.45 * r, 0, 0, 0, 0, Math.PI / 2, 0.55 * r, 0.8 * r, 0.12 * r)]);
+    // Maul mit Zähnen oben und unten
+    teile.push([G.box, 0x120818, matrix(1.05 * r, -0.2 * r, 0, 0, 0, 0, 0.35 * r, 0.3 * r, 1.1 * r)]);
+    for (let i = -5; i <= 5; i++) {
+      teile.push([G.kegel4, 0xf4f0e0, matrix(1.15 * r, -0.08 * r, i * 0.1 * r, Math.PI, 0, 0, 0.04 * r, 0.22 * r, 0.04 * r)]);
+      teile.push([G.kegel4, 0xf4f0e0, matrix(1.12 * r, -0.33 * r, i * 0.1 * r + 0.05 * r, 0, 0, 0, 0.035 * r, 0.18 * r, 0.035 * r)]);
+    }
+    // Laterne an einer langen Angel
+    teile.push([G.zyl, 0x3a2a5a, matrix(0.5 * r, 1.3 * r, 0, 0, 0, -0.7, 0.05 * r, 0.9 * r, 0.05 * r)]);
+    teile.push([G.zyl, 0x3a2a5a, matrix(1.05 * r, 1.62 * r, 0, 0, 0, -1.5, 0.045 * r, 0.6 * r, 0.045 * r)]);
+    teile.push([G.kugel, 0xfff27a, matrix(1.42 * r, 1.5 * r, 0, 0, 0, 0, 0.22 * r, 0.22 * r, 0.22 * r)]);
+    for (const s of [-1, 1]) {
+      teile.push([kM, 0xff4a3a, matrix(0.75 * r, 0.45 * r, s * 0.55 * r, 0, 0, 0, 0.16 * r, 0.16 * r, 0.12 * r)]);
+      teile.push([kM, 0x111111, matrix(0.86 * r, 0.47 * r, s * 0.6 * r, 0, 0, 0, 0.07 * r, 0.09 * r, 0.06 * r)]);
+      teile.push([G.kugel, 0x3a2a5a, matrix(0.1 * r, -0.4 * r, s * 0.85 * r, s * 0.6, 0, -0.3, 0.5 * r, 0.06 * r, 0.3 * r)]);
+    }
+    krone(teile, r, -0.1 * r, 0.9 * r, 0.32);
+    return verschmelzen(teile);
+  }
   function haiGeo(r) {
     const teile = [];
     const haut = (x, y) => y < -0.12 * r ? mischen(0xf4f6f8, 0xd5dee8, glatt(-0.1 * r, -0.5 * r, y)) : mischen(0x4a6a8a, 0x2c4560, glatt(0, 0.5 * r, y));
@@ -272,6 +296,7 @@
     if (typ === 'tinte') return tinteGeo(r, c);
     if (typ === 'leviathan') return leviathanGeo(r);
     if (typ === 'haikoenig') return haiGeo(r);
+    if (typ === 'abyssos') return abyssosGeo(r);
     if (typ === 'krake') return krakeGeo(r, c, false);
     if (typ === 'krakus') return krakeGeo(r, c, true);
     if (typ === 'rochen') return rochenGeo(r);
@@ -417,6 +442,29 @@
       for (const z of [-1, 1]) { const a = mesh(G.kugelGrob, mat(0xff2a2a, 'basic'), 7.9 * s, 32 * s, z * 3.5 * s); a.scale.setScalar(1.2 * s); g.add(a); }
       const narbe = mesh(G.box, mat(0x2a3a20), 4 * s, 36 * s, 4 * s); narbe.scale.set(0.6 * s, 0.6 * s, 4 * s); narbe.rotation.y = 0.6; g.add(narbe);
       for (let i = 0; i < 3; i++) { const st = mesh(G.box, mat(0x2a3a20), 4 * s, 36 * s, (2.6 + i * 1.2) * s); st.scale.set(0.5 * s, 2 * s, 0.4 * s); g.add(st); }
+    }
+    if (L && L.extra) {
+      const E = L.extra, M = (geo, farbe, x, y, z, sx, sy, sz, art = 'lambert', extra = {}) => { const m = mesh(geo, mat(farbe, art, extra), x * s, y * s, z * s); m.scale.set(sx * s, sy * s, sz * s); g.add(m); return m; };
+      if (E === 'hoerner') for (const z of [-1, 1]) { const h = M(G.kegel, 0xf2e08a, -1, 40, z * 4.5, 1.6, 6, 1.6); h.rotation.set(z * 0.5, 0, 0.5); M(G.kegel4, 0x1f6a2a, -8, 30 - 4, z * 9, 1, 5, 3).rotation.set(z * 0.9, 0, 1.2); }
+      if (E === 'horn') { const h = M(G.kegel, 0xffd54a, 6, 41, 0, 1.4, 9, 1.4, 'phong', { shininess:120 }); h.rotation.z = -0.5; M(G.kugel, 0xff8ad5, -4, 37, 0, 3, 5, 2).rotation.z = 0.6; }
+      if (E === 'kamm') for (let i = 0; i < 4; i++) { const f = M(G.kugel, i % 2 ? 0xffc040 : 0xff6a1a, -1 - i * 2.5, 39 + i * 0.5, 0, 1.4, 5, 1.2, 'basic'); f.rotation.z = 0.4 + i * 0.25; }
+      if (E === 'geist') { const k = M(G.kugel, 0xffffff, -2, 10, 0, 12, 6, 12, 'basic', { transparent:true, opacity:0.35, depthWrite:false }); k.castShadow = false; }
+      if (E === 'stacheln') for (let i = 0; i < 14; i++) { const w = i * 2.4, h = 8 + (i % 5) * 5; const st = M(G.kegel4, 0xf6f0c0, Math.cos(w) * 9.5, h, Math.sin(w) * 9.5, 0.4, 2.4, 0.4); st.rotation.set(Math.sin(w) * 1.4, 0, -Math.cos(w) * 1.4); }
+      if (E === 'samurai') { M(G.halbkugel, 0x1a1a1a, 1, 32, 0, 9, 7, 9, 'phong', { shininess:120 }); const c = M(G.kegel, 0xffd54a, 6, 40, 0, 0.8, 9, 3); c.rotation.z = -0.4; M(G.torus, 0xb3261e, 1, 33, 0, 9.2, 9.2, 4).rotation.x = Math.PI / 2; }
+      if (E === 'tropenhut') { M(G.zyl, 0xd8c08a, 1, 37, 0, 11, 1, 11); M(G.halbkugel, 0xd8c08a, 1, 37, 0, 7, 6, 7); M(G.zyl, 0x6b4a2a, 1, 38, 0, 7.2, 1.2, 7.2); }
+      if (E === 'stirnlampe') { M(G.torus, 0x2b2f38, 1, 34, 0, 8.3, 8.3, 3).rotation.x = Math.PI / 2; M(G.zyl, 0x5a6573, 8.6, 35, 0, 2, 1.6, 2).rotation.z = Math.PI / 2; M(G.kugelGrob, 0xfff6c0, 9.6, 35, 0, 1.4, 1.4, 1.4, 'basic'); M(G.halbkugel, 0xe2463b, 1, 34, 0, 8.6, 6, 8.6); }
+      if (E === 'taucherhelm') { const h = M(G.kugel, 0xc8913a, 1, 31, 0, 10.5, 10.5, 10.5, 'phong', { shininess:140, specular:0xffe0a0 }); h.castShadow = true; M(G.zyl, 0x9fe4ff, 8.8, 31, 0, 4.6, 1.2, 4.6, 'phong', { transparent:true, opacity:0.6 }).rotation.z = Math.PI / 2; for (const z of [-1, 1]) M(G.zyl, 0x9fe4ff, 1, 31, z * 9.6, 3, 1.2, 3, 'phong', { transparent:true, opacity:0.6 }).rotation.x = Math.PI / 2; }
+      if (E === 'umhang') { M(G.kugel, 0xd8262b, -5, 18, 0, 6, 15, 12, 'phong', { emissive:0x2a0000 }); M(G.kugelGrob, 0xffd54a, 7, 25, 0, 1.8, 1.8, 1.8, 'basic'); }
+      if (E === 'zylinder') { M(G.zyl, 0x1a1a1a, 1, 37.5, 0, 9, 1, 9); M(G.zyl, 0x1a1a1a, 1, 43, 0, 6, 10, 6); M(G.zyl, 0xe2463b, 1, 39.5, 0, 6.2, 1.6, 6.2); const n = M(G.kegel, 0xff8a1a, 10.5, 30, 0, 1.4, 6, 1.4); n.rotation.z = -Math.PI / 2; }
+      if (E === 'clown') { M(G.kugel, 0xff2a2a, 10.2, 30, 0, 2.6, 2.6, 2.6, 'phong', { shininess:120 }); for (let i = 0; i < 6; i++) { const w = i / 6 * Math.PI * 2; M(G.kugel, [0x2f7fe0, 0xf6c343, 0x35b04a][i % 3], 1 + Math.cos(w) * 7, 38, Math.sin(w) * 7, 3, 3, 3); } }
+      if (E === 'blume') { M(G.zyl, 0x35b04a, 1, 41, 3, 0.4, 6, 0.4); for (let i = 0; i < 6; i++) { const w = i / 6 * Math.PI * 2; M(G.kugel, L.rumpf === 0x4a8a3a ? 0xffd54a : 0xffffff, 1 + Math.cos(w) * 2.4, 44.5, 3 + Math.sin(w) * 2.4, 1.6, 0.6, 1.6); } M(G.kugelGrob, 0xff9a1a, 1, 44.8, 3, 1.3, 0.8, 1.3); }
+      if (E === 'hasenohren') for (const z of [-1, 1]) { const o = M(G.kugel, 0xe8d0b0, 0, 44, z * 3.5, 1.8, 8, 1.2); o.rotation.x = z * 0.2; M(G.kugel, 0xffb4be, 0.6, 44, z * 3.5, 1, 6, 0.8).rotation.x = z * 0.2; }
+      if (E === 'sonnenhut') { M(G.zyl, 0xf2d880, 1, 37, 0, 13, 0.8, 13); M(G.halbkugel, 0xf2d880, 1, 37, 0, 6.5, 5, 6.5); M(G.zyl, 0x2f7fe0, 1, 38, 0, 6.6, 1.4, 6.6); }
+      if (E === 'kirsche') { M(G.kugel, 0xfff0d6, 1, 38.5, 0, 6, 3, 6); M(G.kugelGrob, 0xd8262b, 1, 42.5, 0, 2.2, 2.2, 2.2, 'phong', { shininess:140 }); }
+      if (E === 'blatt') { const b = M(G.kugel, 0xe0701a, 0, 41, 0, 5, 0.6, 3); b.rotation.set(0.4, 0.5, 0.3); M(G.zyl, 0x6b4a2a, -3, 40, 0, 0.3, 4, 0.3).rotation.z = 0.8; }
+      if (E === 'kuerbis') { const k = M(G.kugel, 0xff8a1a, 1, 31, 0, 9.5, 8.5, 9.5, 'phong', { emissive:0x2a0e00 }); k.castShadow = true; for (const z of [-1, 1]) M(G.kegel4, 0xfff27a, 9.4, 33, z * 3.4, 1.6, 2, 0.6, 'basic').rotation.z = -Math.PI / 2; M(G.box, 0xfff27a, 9.4, 27.5, 0, 0.6, 1.4, 6, 'basic'); M(G.zyl, 0x3a6a1a, 1, 40.5, 0, 1.2, 3, 1.2); }
+      if (E === 'laterne') { M(G.zyl, 0x6b4a2a, 7, 26, 11, 0.4, 14, 0.4).rotation.z = -0.3; M(G.kugel, 0xff9a3a, 9.5, 18, 11, 3.6, 4.2, 3.6, 'basic', { transparent:true, opacity:0.9 }); M(G.torus, 0x3a2a5a, 1, 33, 0, 8.3, 8.3, 3).rotation.x = Math.PI / 2; }
+      if (E === 'geweih') for (const z of [-1, 1]) { const a = M(G.zyl, 0x8b5a2b, -1, 42, z * 4, 0.7, 9, 0.7); a.rotation.x = z * 0.5; for (let i = 0; i < 2; i++) M(G.zyl, 0x8b5a2b, -1 + (i ? 2 : -2), 43 + i * 2.5, z * (6 + i * 1.5), 0.5, 4, 0.5).rotation.set(z * 0.9, 0, i ? -0.6 : 0.6); M(G.kugelGrob, 0xe2463b, 10.2, 30, 0, 2, 2, 2, 'phong', { emissive:0x400000 }); }
     }
     if (L && L.extra === 'glitzer') for (let i = 0; i < 5; i++) {
       const st = mesh(G.okta, mat(i % 2 ? 0xffe066 : 0xffffff, 'basic'), 9.6 * s, (9 + i * 3.2) * s, ((i * 1.7) % 5 - 2.5) * s); st.scale.setScalar(0.9 * s); g.add(st);
@@ -734,6 +782,50 @@
       // Titan-Mecha: goldene Leuchtstreifen
       if (p[0] >= 5) for (const z of [-1, 1]) teil(G.box, mat(0xffe28a, 'basic'), 0, 26, z * 9.6, 16, 0.8, 0.4);
     },
+    feuerwerk(g, p, t) {
+      pinguinKoerper(g, t);
+      // Raketenwerfer auf der Schulter, bunte Raketen im Köcher, Schutzbrille
+      const rohr = mesh(G.zyl, mat(p[1] >= 3 ? 0xffd54a : 0xe2463b, 'phong', { shininess:80 }), 4, 30, -11); rohr.scale.set(3.4, 22, 3.4); rohr.rotation.z = -1.1; g.add(rohr);
+      const ring = mesh(G.torus, mat(0xffffff), 13, 34.5, -11); ring.scale.set(3.6, 3.6, 3); ring.rotation.y = Math.PI / 2; ring.rotation.x = 0.5; g.add(ring);
+      const koecher = mesh(G.zyl, mat(0x8b5a2b), -10, 20, 4); koecher.scale.set(4, 14, 4); g.add(koecher);
+      const n = p[1] >= 3 ? 5 : p[0] >= 3 ? 4 : 3;
+      for (let i = 0; i < n; i++) {
+        const f = [0xe2463b, 0x2f7fe0, 0x35b04a, 0xf6c343, 0xb36bff][i];
+        const r = mesh(G.kegel, mat(f), -10 + (i - (n - 1) / 2) * 1.8, 30, 4 + (i % 2) * 1.5); r.scale.set(1.3, 5, 1.3); g.add(r);
+      }
+      const brille = mesh(G.box, mat(0x2b2f38), 7.6, 33, 0); brille.scale.set(1.4, 2.2, 9); g.add(brille);
+      if (p[2] >= 3) { const l = mesh(G.kugelGrob, mat(0xfff27a, 'basic'), 1, 41, 0); l.scale.setScalar(2.2); g.add(l); t.orb = l; t.orbGroesse = 2.2; }
+      if (p[0] >= 4 || p[1] >= 4) for (let i = 0; i < 4; i++) { const st = mesh(G.okta, mat([0xff5ec8, 0xffd54a, 0x5ec8ff, 0x7dffb2][i], 'basic'), Math.cos(i * 1.57) * 12, 46, Math.sin(i * 1.57) * 12); st.scale.setScalar(2); g.add(st); }
+    },
+    hexe(g, p, t) {
+      pinguinKoerper(g, t, 1, 0x1d2230);
+      // spitzer Hut, Umhang, Kessel und Besen
+      const farbe = p[0] >= 4 ? 0x3a1a5a : p[1] >= 4 ? 0x1a4a2a : 0x2b1d4a;
+      const krempe = mesh(G.zyl, mat(farbe), 1, 36.5, 0); krempe.scale.set(12, 0.8, 12); g.add(krempe);
+      const h = hut(g, farbe, 1, 36.5, 22, 7.5); h.rotation.z = 0.25;
+      const band = mesh(G.zyl, mat(0x7dffb2), 1, 38, 0); band.scale.set(7.6, 1.4, 7.6); g.add(band);
+      const umhang = mesh(G.kugel, mat(farbe), -5, 17, 0); umhang.scale.set(6, 15, 11.5); g.add(umhang);
+      const kessel = mesh(G.kugel, mat(0x2b2f38, 'phong', { shininess:60 }), 13, 7, -12); kessel.scale.set(7, 6, 7); g.add(kessel);
+      const brei = mesh(G.zyl, mat(p[0] >= 4 ? 0xb36bff : 0x7dffb2, 'basic'), 13, 12, -12); brei.scale.set(5.6, 0.5, 5.6); g.add(brei);
+      const blasen = mesh(G.kugelGrob, mat(0x7dffb2, 'basic', { transparent:true, opacity:0.8 }), 13, 15, -12); blasen.scale.setScalar(1.8); blasen.castShadow = false; g.add(blasen); t.orb = blasen; t.orbGroesse = 1.8;
+      const flasche = mesh(G.kugel, mat(0xb36bff, 'phong', { transparent:true, opacity:0.85, shininess:140 }), 10, 22, 11); flasche.scale.set(2.6, 3, 2.6); g.add(flasche);
+      if (p[2] >= 2) { const besen = mesh(G.zyl, mat(0x8b5a2b), -4, 6, 13); besen.scale.set(0.7, 30, 0.7); besen.rotation.z = 1.2; g.add(besen); const reisig = mesh(G.kegel, mat(0xd8b46a), -17, 1, 13); reisig.scale.set(3, 7, 3); reisig.rotation.z = 1.2; g.add(reisig); }
+      if (p[2] >= 3) { const katze = mesh(G.kugel, mat(0x111111), -14, 5, -6); katze.scale.set(4, 3.5, 3); g.add(katze); const kk = mesh(G.kugel, mat(0x111111), -10, 9, -6); kk.scale.setScalar(2.6); g.add(kk); for (const z of [-1, 1]) { const o = mesh(G.kegel4, mat(0x111111), -10, 12, -6 + z * 1.3); o.scale.set(0.8, 2, 0.8); g.add(o); } }
+    },
+    sturm(g, p, t) {
+      pinguinKoerper(g, t);
+      // Wolke über dem Kopf, Wetterfahne, Wirbel am Boden
+      const wolke = new T.Group(); wolke.position.y = 52;
+      const wf = p[1] >= 3 ? 0x5a6573 : 0xf4f8ff;
+      for (const [x, z, r] of [[0, 0, 6], [5, 2, 4.5], [-5, -1, 4.6], [1, 4, 4], [2, -4, 4]]) { const k = mesh(G.kugel, mat(wf), x, 0, z); k.scale.setScalar(r); wolke.add(k); }
+      if (p[1] >= 1) { const b = mesh(G.kegel4, mat(0xfff27a, 'basic'), 1, -7, 0); b.scale.set(1.4, 7, 0.6); b.rotation.z = 0.3; wolke.add(b); }
+      g.add(wolke); t.dreher = wolke;
+      const schal = mesh(G.torus, mat(0x5ec8ff), 1, 24, 0); schal.scale.set(9.5, 9.5, 11); schal.rotation.x = Math.PI / 2; g.add(schal);
+      const wirbel = mesh(G.torus, mat(0xdff4ff, 'basic', { transparent:true, opacity:0.6 }), 0, 3, 0); wirbel.scale.set(p[0] >= 3 ? 22 : 17, p[0] >= 3 ? 22 : 17, 5); wirbel.rotation.x = Math.PI / 2; wirbel.castShadow = false; g.add(wirbel);
+      const fahne = mesh(G.zyl, mat(0x8a93a3), -11, 22, 10); fahne.scale.set(0.6, 34, 0.6); g.add(fahne);
+      const pfeil = mesh(G.kegel4, mat(0xe2463b), -11, 39, 10); pfeil.scale.set(1.6, 6, 0.4); pfeil.rotation.z = -Math.PI / 2; g.add(pfeil);
+      if (p[0] >= 5 || p[1] >= 5 || p[2] >= 5) { const aura = mesh(G.kugel, mat(0x5ec8ff, 'basic', { transparent:true, opacity:0.18 }), 0, 20, 0); aura.scale.set(18, 24, 18); aura.castShadow = false; g.add(aura); }
+    },
     polar(g, p, t) {
       pinguinKoerper(g, t);
       const farbe = p[2] >= 5 ? 0x111133 : p[2] >= 4 ? 0x2b1d6b : 0x6b4fd1;
@@ -889,6 +981,35 @@
       const orb = mesh(G.okta, mat(0xb49bff, 'basic', { transparent:true, opacity:0.9 }), 8, 37, 12); orb.scale.setScalar(4); g.add(orb);
       t.orb = orb; t.orbGroesse = L >= 7 ? 5 : 4;
     },
+    nova(g, L, t) {
+      pinguinKoerper(g, t, 1, 0x2b1d4a);
+      // Raumhelm-Visier, Jetpack, Plasmablaster
+      const visier = mesh(G.kugel, mat(0x9fe4ff, 'phong', { transparent:true, opacity:0.45, shininess:160, depthWrite:false }), 2, 30, 0); visier.scale.setScalar(10.6); visier.castShadow = false; g.add(visier);
+      const kragen = mesh(G.torus, mat(0xb49bff, 'phong', { shininess:120 }), 1, 21, 0); kragen.scale.set(10, 10, 5); kragen.rotation.x = Math.PI / 2; g.add(kragen);
+      const pack = mesh(G.box, mat(0xdfe6ee, 'phong', { shininess:100 }), -11, 20, 0); pack.scale.set(5, 14, 12); g.add(pack);
+      for (const z of [-4, 4]) { const d = mesh(G.kegel, mat(0x7dffb2, 'basic', { transparent:true, opacity:0.85 }), -11, 9, z); d.scale.set(1.8, 5, 1.8); d.rotation.x = Math.PI; g.add(d); }
+      const blaster = mesh(G.zyl, mat(0x6b4fd1, 'phong', { shininess:100 }), 12, 19, 11); blaster.scale.set(2.4, 13, 2.4); blaster.rotation.z = -Math.PI / 2; g.add(blaster);
+      const muendung = mesh(G.kugelGrob, mat(L >= 7 ? 0xffd54a : 0x7dffb2, 'basic'), 19, 19, 11); muendung.scale.setScalar(2.2); g.add(muendung); t.orb = muendung; t.orbGroesse = 2.2;
+      const stern = mesh(G.okta, mat(0xffd54a, 'basic'), 9.8, 22, 0); stern.scale.set(0.6, 2.6, 2.6); g.add(stern);
+    },
+    walter(g, L, t) {
+      // ein Walross: dicker brauner Körper, Schnurrbart und lange Stoßzähne
+      const haut = mat(0x9b6a3c, 'lambert', { vertexColors:true });
+      const k = mesh(G.kugelAO, haut, -2, 15, 0); k.scale.set(17, 14, 14); g.add(k);
+      const kopf = mesh(G.kugelAO, haut, 12, 24, 0); kopf.scale.set(9, 8.5, 9); g.add(kopf);
+      const schnauze = mesh(G.kugel, mat(0xc8986a), 19, 21, 0); schnauze.scale.set(4.5, 4, 6.5); g.add(schnauze);
+      for (const z of [-1, 1]) {
+        const zahn = mesh(G.kegel, mat(0xfff8e8, 'phong', { shininess:80 }), 20, 13, z * 2.6); zahn.scale.set(1.2, 10, 1.2); zahn.rotation.x = Math.PI; g.add(zahn);
+        const au = mesh(G.kugelGrob, mat(0x111111), 17.5, 28, z * 4); au.scale.setScalar(1.2); g.add(au);
+        const flosse = mesh(G.kugel, mat(0x8b5a2b), 6, 4, z * 13); flosse.scale.set(6, 2, 4); g.add(flosse);
+        if (t) t[z < 0 ? 'fluegelL' : 'fluegelR'] = flosse;
+        for (let i = 0; i < 3; i++) { const b = mesh(G.zyl, mat(0xe8d8c0), 22, 21 + i * 0.8 - 0.8, z * (5 + i * 0.6)); b.scale.set(0.2, 6, 0.2); b.rotation.x = Math.PI / 2 + z * 0.3; g.add(b); }
+      }
+      const schwanz = mesh(G.kugel, mat(0x8b5a2b), -18, 4, 0); schwanz.scale.set(5, 2, 8); g.add(schwanz);
+      const muetze = mesh(G.halbkugel, mat(0x2f7fe0), 11, 31, 0); muetze.scale.set(6.5, 4, 6.5); g.add(muetze);
+      const bommel = mesh(G.kugelGrob, mat(0xffffff), 11, 35.5, 0); bommel.scale.setScalar(2); g.add(bommel);
+      if (L >= 5) { const schal = mesh(G.torus, mat(0xe2463b), 9, 19, 0); schal.scale.set(8, 8, 9); schal.rotation.y = Math.PI / 2; g.add(schal); }
+    },
     frosti(g, L, t) {
       pinguinKoerper(g, t);
       const kittel = mesh(G.kugel, mat(0xffffff), -0.5, 15, 0); kittel.scale.set(10.2, 13.5, 10.4); g.add(kittel);
@@ -975,6 +1096,14 @@
     const vc = (farbe, art = 'phong', extra = {}) => mat(farbe, art, Object.assign({ vertexColors:true }, extra));
     const dreizackGeo = verschmelzen([[G.zyl, 0x8a93a3, matrix(-3, 0, 0, 0, 0, Math.PI / 2, 0.5, 10, 0.5)],
       ...[-1.6, 0, 1.6].map(z => [G.kegel, 0xe8eef6, matrix(3.5, 0, z, 0, 0, -Math.PI / 2, 0.7, 4, 0.7)]), [G.box, 0xe8eef6, matrix(1.6, 0, 0, 0, 0, 0, 0.6, 0.6, 4)]]);
+    const raketeBunt = farbe => verschmelzen([[G.zyl, farbe, matrix(0, 0, 0, 0, 0, Math.PI / 2, 1.6, 9, 1.6)], [G.kegel, 0xffffff, matrix(5.5, 0, 0, 0, 0, -Math.PI / 2, 1.7, 3, 1.7)],
+      [G.zyl, 0x8b5a2b, matrix(-7, 0, 0, 0, 0, Math.PI / 2, 0.3, 6, 0.3)]]);
+    const trankGeo = verschmelzen([[G.kugel, 0xffffff, matrix(0, 0, 0, 0, 0, 0, 2.6, 2.6, 2.6)], [G.zyl, 0xffffff, matrix(0, 2.6, 0, 0, 0, 0, 0.9, 2.2, 0.9)], [G.zyl, 0x8b5a2b, matrix(0, 3.9, 0, 0, 0, 0, 1, 0.8, 1)]]);
+    const katzeGeo = verschmelzen([[G.kugel, 0x111111, matrix(0, 0, 0, 0, 0, 0, 3.4, 2.6, 2.2)], [G.kugel, 0x111111, matrix(3, 1.6, 0, 0, 0, 0, 1.8, 1.8, 1.8)],
+      [G.kegel4, 0x111111, matrix(3, 3.4, 0.9, 0, 0, 0, 0.5, 1.4, 0.5)], [G.kegel4, 0x111111, matrix(3, 3.4, -0.9, 0, 0, 0, 0.5, 1.4, 0.5)],
+      [G.kugelMini, 0xfff27a, matrix(4.5, 2, 0.7, 0, 0, 0, 0.4, 0.4, 0.4)], [G.kugelMini, 0xfff27a, matrix(4.5, 2, -0.7, 0, 0, 0, 0.4, 0.4, 0.4)],
+      [G.zyl, 0x111111, matrix(-3.8, 1.6, 0, 0, 0, 0.8, 0.3, 4, 0.3)]]);
+    const tornadoGeo = new T.CylinderGeometry(1, 0.25, 2.4, 10, 3, true);
     const torpedoGeo = verschmelzen([[G.kugel, 0x5a6573, matrix(0, 0, 0, 0, 0, 0, 7, 2.2, 2.2)], [G.kugel, 0xe2463b, matrix(5.5, 0, 0, 0, 0, 0, 2, 2, 2)],
       [G.box, 0x3d4a5c, matrix(-6, 0, 0, 0, 0, 0, 1.5, 5, 0.4)], [G.box, 0x3d4a5c, matrix(-6, 0, 0, 0, 0, 0, 1.5, 0.4, 5)]]);
     return {
@@ -1017,7 +1146,14 @@
       sternGold:{ geo:sternGeo, mat:mat(0xffd54a, 'phong', { shininess:120 }), y:16, drehen:true },
       dreizack:{ geo:dreizackGeo, mat:vc(0xffffff), y:12 },
       dreizackGold:{ geo:dreizackGeo, mat:vc(0xffd54a), y:12 },
-      torpedo:{ geo:torpedoGeo, mat:vc(0xffffff), y:8 }
+      torpedo:{ geo:torpedoGeo, mat:vc(0xffffff), y:8 },
+      feuerwerk:{ geo:raketeBunt(0xe2463b), mat:vc(0xffffff, 'basic'), y:24 },
+      feuerwerkGold:{ geo:raketeBunt(0xffd54a), mat:vc(0xffffff, 'basic'), y:24, skala:1.2 },
+      feuerwerkBlau:{ geo:raketeBunt(0x5ec8ff), mat:vc(0xffffff, 'basic'), y:24 },
+      trank:{ geo:trankGeo, mat:mat(0x7dffb2, 'phong', { vertexColors:true, shininess:140, transparent:true, opacity:0.9 }), y:20, drehen:true },
+      trankLila:{ geo:trankGeo, mat:mat(0xb36bff, 'phong', { vertexColors:true, shininess:140, transparent:true, opacity:0.9 }), y:20, drehen:true },
+      katze:{ geo:katzeGeo, mat:vc(0xffffff), y:8 },
+      tornado:{ geo:tornadoGeo, mat:mat(0xdff4ff, 'basic', { transparent:true, opacity:0.55, side:T.DoubleSide, depthWrite:false }), y:null, drehen:true, kugelig:true }
     };
   }
   // Stachelhaufen im Kanal

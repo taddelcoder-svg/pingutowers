@@ -283,5 +283,60 @@ for (const held of PT.HELDEN_REIHE) {
   pruefe(neu.some(e => e.id === 'schwer') && neu.some(e => e.id === 'orka') && neu.some(e => e.id === 'perfekt'), 'Erfolge: ' + neu.map(e => e.id));
 }
 
+
+// Großes Update 3: Gift, Zurückwehen, Verwandeln, Wetter, Finsternis, Kampagne, Kisten, Wochen-Quests
+{
+  require('../js/kampagne.js');
+  const s = new PT.Spiel({ karte:'scholle', modus:'sandkasten' });
+  s.sandFische('koffer', 1);
+  for (let i = 0; i < 40; i++) s.schritt(1 / 60);
+  const k = s.fische[0], hp = k.hp, dist = k.dist;
+  s.treffer(k, PT.angriff({ schaden:0, typ:'normal', gift:{ dps:4, dauer:2 }, zurueck:30 }), null, null);
+  pruefe(k.dist < dist, 'Sturm weht nicht zurück');
+  for (let i = 0; i < 60; i++) s.schritt(1 / 60);
+  pruefe(k.hp <= hp - 3, 'Gift wirkt nicht: ' + k.hp);
+  s.sandFische('zebra', 1);
+  for (let i = 0; i < 40; i++) s.schritt(1 / 60);
+  const z = s.fische.find(f => f.typ === 'zebra');
+  s.treffer(z, PT.angriff({ schaden:1, typ:'normal', verwandeln:1 }), null, null);
+  pruefe(z.typ === 'rot', 'Krötentrank verwandelt nicht');
+  // Wetter
+  const w = new PT.Spiel({ karte:'scholle', regeln:{ wetter:'schneesturm' } });
+  w.rundeStarten();
+  pruefe(w.wetter === 'schneesturm', 'festes Wetter');
+  const w2 = new PT.Spiel({ karte:'eisbergring', wetter:true, seed:7 });
+  let gesehen = 0;
+  for (let r = 1; r < 40; r++) { w2.runde = r - 1; w2.laeuft = false; w2.rundeStarten(); if (w2.wetter) gesehen++; }
+  pruefe(gesehen > 5, 'Wetter kommt nie: ' + gesehen);
+  const w3 = new PT.Spiel({ karte:'scholle', wetter:false });
+  for (let r = 1; r < 40; r++) { w3.runde = r - 1; w3.laeuft = false; w3.rundeStarten(); pruefe(!w3.wetter, 'Wetter trotz aus'); }
+  const z2 = PT.Spiel.ausZustand(JSON.parse(JSON.stringify(w2.zustand())));
+  pruefe(z2.wetterAn && z2.wetter === w2.wetter, 'Wetter im Koop-Zustand');
+  // Finsternis von Abyssos
+  const a = new PT.Spiel({ karte:'scholle', modus:'sandkasten' });
+  a.sandFische('abyssos', 1); a.sandFische('rot', 3);
+  for (let i = 0; i < 60 * 12; i++) a.schritt(1 / 60);
+  pruefe(a.finsternisBis > 0, 'keine Finsternis');
+  // Kampagne: Bosse, Startrunde, Sterne
+  for (const l of PT.LEVELS) {
+    pruefe(PT.KARTEN[l.karte] && PT.STUFEN[l.stufe] && l.sterne.length === 2, 'Level ' + l.id);
+    const sp = new PT.Spiel({ karte:l.karte, stufe:l.stufe, regeln:l.regeln, held:'kiel' });
+    pruefe(sp.zielRunden === l.regeln.runden && sp.runde === Math.max(0, (l.regeln.startRunde || 1) - 1), 'Level-Runden ' + l.id);
+    for (const [n, [typ]] of Object.entries(l.regeln.bosse || {})) pruefe(PT.runde(+n, 'standard', l.regeln.bosse).bossTyp === typ, 'Level-Boss ' + l.id);
+  }
+  const l1 = PT.LEVELS[0], sp = new PT.Spiel({ karte:l1.karte, stufe:l1.stufe, regeln:l1.regeln });
+  pruefe(PT.levelSterne(l1, sp).length === 3 && PT.levelFrei('k1-1', {}) && !PT.levelFrei('k1-2', {}) && PT.levelFrei('k1-2', { 'k1-1':[true] }), 'Sterne und Freischalten');
+  // Kisten, Händler, Wochen-Quests, Saison
+  let n = 0; const zuf = () => (n = (n * 9301 + 49297) % 233280) / 233280;
+  for (const art of PT.KISTEN_REIHE) pruefe(PT.kisteOeffnen(art, {}, zuf).length >= PT.KISTEN[art].teile, 'Kiste ' + art);
+  const alle = { skins:{}, sockel:{} };
+  for (const k of PT.kistenKosmetik()) (k.skin ? alle.skins : alle.sockel)[k.skin || k.sockel] = true;
+  pruefe(!PT.kisteOeffnen('gold', alle, zuf).some(i => i.skin || i.sockel), 'Kiste gibt Doppeltes');
+  pruefe(PT.haendlerAngebote('2026-10-22').length === 4 && PT.wochenQuests('2026-W43').length === 5, 'Händler und Wochen');
+  for (let m = 1; m <= 12; m++) pruefe(PT.saisonLook(m), 'Saison-Look ' + m);
+  pruefe(PT.saisonStufe(1e6) === 10 && PT.saisonStufe(799) === 1, 'Saison-Stufen');
+  for (const id of PT.SKIN_REIHE) pruefe(/^[a-z]{1,16}$/.test(id), 'Look-Name für den Server: ' + id);
+}
+
 console.log(fehler ? `${fehler} Fehler` : 'alles in Ordnung');
 process.exit(fehler ? 1 : 0);

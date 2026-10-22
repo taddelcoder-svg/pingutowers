@@ -75,9 +75,31 @@ Fisch – vom Rotbarsch bis zur Riesenkrake, zu Krakus und Kaiser Orka. Allein o
   hat die Farbe der schwersten geschafften Stufe (Bronze, Silber, Gold, Diamant). Dazu Kamera-Zoom (Mausrad, zwei Finger,
   Knöpfe), Tempo 1×/2×/3×, automatischer Rundenstart, Spielstand nach jeder Runde im Browser gespeichert.
 
-Tasten: Buchstaben am Pinguin im Laden (`Q W E R T S P O V B M Z N L U I D K A`), Held `H`, Fähigkeiten `1`–`9`,
+Tasten: Buchstaben am Pinguin im Laden (`Q W E R F T S P O V B M Z N L X G U I D K A`), Held `H`, Fähigkeiten `1`–`9`,
 `Leertaste` Runde/Tempo, `,` `.` `-` Upgrades, `Entf` verkaufen, `Tab` Ziel bzw. Flugbahn wechseln,
 `Esc` abbrechen/Pause. Mit gedrückter Umschalttaste mehrere gleiche Pinguine setzen.
+
+## Großes Update: Abenteuer, Wetter, Kisten
+
+- **Abenteuer (Kampagne):** „Die Reise nach Pinguinhausen“ – 4 Kapitel mit je 6 Levels und kleiner Geschichte
+  (Opa Pingo erzählt). Jedes Level hat feste Karte, Stufe und Regeln (Startrunde, Startgeld, festes Wetter,
+  erlaubte Pinguine, Bosse) und drei Sterne: Sieg plus zwei Aufgaben (keine Leben verlieren, höchstens N Pinguine,
+  nicht verkaufen, keine Fähigkeit …). Drei Sterne bringen eine Kiste, jedes Kapitel einen Look. Endgegner: Abyssos.
+- **Neue Pinguine:** Feuerwerks-Pinguin (`F`, bunte Raketen mit Sternen, Finale), Hexen-Pinguin (`X`, Gift, das
+  nachwirkt, Krötentrank verwandelt kleine Fische in Rotbarsche, Riesen-Fluch, Hexenkatze, Großer Fluch) und
+  Sturm-Pinguin (`G`, Tornados wehen Fische zurück, Gewitterblitze, Gegenwind, Orkan).
+- **Neue Helden:** Sternenkapitänin Nova (Plasmablaster, Meteoritenhagel, Schwarzes Loch, Meisterkraft Supernova)
+  und Walter Walross (Stoßzahn-Hiebe, Bauchklatscher, Walross-Ruf, Meisterkraft Walross-Lawine).
+- **Neuer Boss Abyssos, der Tiefseekönig** mit Modus „Tiefsee-Finsternis“ (Runde 35 und 70): löscht immer
+  wieder das Licht, dann sehen nur Pinguine mit Nachtsicht die Fische.
+- **Neue Karten:** Leuchtturm-Bucht (Anfänger), Pinguin-Labyrinth (Mittel, zwei Tunnel, Kreuzungen) und
+  Eisbergring (Profi, rund um einen riesigen Eisberg, hier zieht oft Wetter auf).
+- **Wetter-Ereignisse** ab Runde 6 (im Menü abschaltbar, im Koop stellt es der Gastgeber ein): Schneesturm
+  (Fische langsamer, Pinguine sehen weniger weit), Polarlicht (schneller, getarnte sichtbar), Eisregen
+  (kleine Fische frieren kurz ein), Tauwetter (Fische flinker, mehr Geld), Nebel (weniger Reichweite).
+- **Kisten** (Holz, Silber, Gold) mit Fischmünzen, Erfahrung und Kisten-Looks/-Sockeln; **Händler** mit
+  täglich wechselndem Angebot; **Wochen-Quests** (5 pro Woche, Belohnung Kisten); **Saison** pro Monat mit
+  eigener Leiste (10 Stufen) und Monats-Look; **Doppel-Erfahrung** als Booster.
 
 ## Olympiade
 
@@ -123,7 +145,8 @@ js/
   pinguine.js      Pinguine mit allen Upgrades, Fähigkeiten, Helden
   logik.js         Spiellogik ohne Grafik (Kanäle, Ziele, Schaden, Fähigkeiten, Bosse, Befehle, Koop-Kassen, Speichern)
   pass.js          Pinguin-Pass: Stufen, Looks, Sockel, Münzen, Meisterkräfte
-  fortschritt.js   Erfolge, Pinguin-Wissen, Tagesaufträge, Tages-Herausforderung
+  fortschritt.js   Erfolge, Pinguin-Wissen, Tagesaufträge, Tages-Herausforderung, Kisten, Händler, Wochen-Quests
+  kampagne.js      Abenteuer: Kapitel, Levels, Sterne-Aufgaben
   editor.js        Karten-Editor
   modelle.js       3D-Modelle: Fische, Pinguine, Helden, Albatros, Geschosse
   welt3d.js        Szene: Scholle, Kanäle, Wasserlöcher, Themen, Kamera mit Zoom, Effekte

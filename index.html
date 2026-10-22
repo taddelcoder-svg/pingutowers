@@ -762,6 +762,74 @@
   @media (prefers-reduced-motion: reduce) {
     .pfad button.fuenf.leistbar, #endeEmoji .muenze { animation: none; }
   }
+
+  /* ================= Großes Update 3: Abenteuer, Kisten, Händler, Wochen-Quests, Saison, Wetter ================= */
+  .reiter button { flex: 1 1 160px; }
+  .saison { margin-top: 10px; padding: 8px 10px; border-radius: 14px; background: linear-gradient(135deg, rgba(255,154,42,.14), rgba(179,107,255,.10)); border: 1px solid var(--linie); }
+  .saison .pass-kopf b { font-size: 1rem; }
+  .saison-xp i { background: linear-gradient(90deg, #ff9a2a, #b36bff) !important; }
+  .booster { font-weight: 800; color: #b36bff !important; }
+  .booster:empty { display: none; }
+  .kisten { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+  .kiste { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: 12px; border: 1px solid var(--linie); background: var(--eis); min-height: 44px; }
+  .kiste i { font-style: normal; font-size: 1.8rem; }
+  .kiste b { font-size: .85rem; }
+  .kiste small { color: var(--tinte-weich); font-size: .75rem; }
+  .kiste:not(:disabled) { animation: wackel 2.4s ease-in-out infinite; }
+  .kiste.k-gold:not(:disabled) { background: linear-gradient(180deg, #fff3c4, #ffe28a); color: #5a4300; }
+  .kiste.k-silber:not(:disabled) { background: linear-gradient(180deg, #f4f8ff, #d6e2f0); color: #13315c; }
+  .kiste:disabled { opacity: .5; cursor: default; }
+  @keyframes wackel { 0%, 80%, 100% { transform: rotate(0); } 85% { transform: rotate(-6deg); } 90% { transform: rotate(6deg); } 95% { transform: rotate(-3deg); } }
+  .haendler { display: grid; gap: 6px; margin-top: 8px; }
+  .angebot { display: grid; grid-template-columns: 44px 1fr auto; gap: 8px; align-items: center; background: var(--eis); border-radius: 12px; padding: 6px 8px; }
+  .angebot img { width: 44px; height: 44px; }
+  .angebot i { font-style: normal; font-size: 1.7rem; text-align: center; }
+  .angebot.selten { background: linear-gradient(135deg, rgba(179,107,255,.18), var(--eis)); }
+  .angebot button { border: 1px solid #c99a14; border-radius: 10px; padding: 8px 10px; font-weight: 800; background: linear-gradient(180deg, #ffd45e, #f6c343); color: #13315c; min-height: 44px; }
+  .angebot button:disabled { opacity: .5; cursor: default; }
+  .wochen { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+  .wochen li { background: var(--eis); border-radius: 12px; padding: 7px 10px; font-size: .9rem; line-height: 1.3; border: 1px solid var(--linie); }
+  .wochen li.fertig { background: linear-gradient(135deg, rgba(53,176,74,.18), var(--eis)); }
+  .wochen li small { display: block; color: var(--tinte-weich); }
+  .wochen .mini { height: 6px; border-radius: 4px; background: rgba(19,49,92,.12); overflow: hidden; margin-top: 4px; }
+  .wochen .mini i { display: block; height: 100%; background: linear-gradient(90deg, #2f7fe0, #7fd6e0); }
+  .wetter-wahl { margin-top: 14px; }
+  .wetter-anzeige { font-size: .9rem; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: var(--chip-bg); border: 1px solid rgba(255,255,255,.18); color: #fff; }
+  .abenteuer-box { margin-top: 16px; background: var(--karte); border: 1px solid var(--linie); border-radius: var(--r); padding: 14px 16px; box-shadow: var(--schatten); }
+  .abenteuer-box > p { color: var(--tinte-weich); margin: 6px 0 4px; line-height: 1.45; }
+  .abenteuer-kopf { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: 1.15rem; }
+  .abenteuer-kopf span { font-weight: 800; }
+  .kapitel { margin-top: 14px; padding: 10px 12px; border-radius: 16px; background: var(--eis); border: 1px solid var(--linie); }
+  .kapitel.zu { opacity: .55; }
+  .kapitel h3 { margin: 0 0 8px; font-size: 1.05rem; }
+  .level-pfad { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+  .level { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px; border-radius: 14px; border: 1px solid var(--linie); background: var(--karte); min-height: 96px; box-shadow: var(--schatten); }
+  .level i { font-style: normal; font-weight: 800; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(180deg, #4a97f0, #2f7fe0); color: #fff; font-size: 1.05rem; }
+  .level.gespielt i { background: linear-gradient(180deg, #ffd45e, #f6c343); color: #13315c; }
+  .level.bosslevel i { background: linear-gradient(180deg, #e8574c, #b3261e); font-size: 1.2rem; }
+  .level b { font-size: .85rem; text-align: center; line-height: 1.15; }
+  .level .sterne { font-size: .9rem; letter-spacing: .05em; }
+  .level:disabled { opacity: .55; cursor: default; box-shadow: none; }
+  .level:not(:disabled):hover { transform: translateY(-2px); box-shadow: var(--schatten-hoch); }
+  .kapitel-lohn { margin: 8px 0 0; font-size: .85rem; color: var(--tinte-weich); }
+  .level-dialog { text-align: left; max-width: 480px; }
+  .level-dialog h2 { text-align: center; }
+  .story { font-style: italic; background: var(--eis); border-radius: 12px; padding: 10px 12px; border-left: 5px solid var(--gold); }
+  .level-infos { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .level-infos span { font-size: .85rem; font-weight: 700; background: var(--eis); border: 1px solid var(--linie); border-radius: 999px; padding: 4px 10px; }
+  .level-sterne { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 4px; }
+  .level-sterne li { background: var(--eis); border-radius: 10px; padding: 6px 10px; font-weight: 700; }
+  .level-sterne li.da { background: linear-gradient(135deg, rgba(246,195,67,.3), var(--eis)); }
+  .level-held { font-size: .9rem; }
+  .kiste-dialog .kiste-auf { animation: kisteAuf .8s cubic-bezier(.2,.9,.3,1.4) both; }
+  @keyframes kisteAuf { 0% { transform: scale(.4) rotate(-20deg); opacity: 0; } 60% { transform: scale(1.25) rotate(8deg); } 100% { transform: none; opacity: 1; } }
+  .kiste-inhalt { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 6px; }
+  .kiste-inhalt li { display: flex; align-items: center; gap: 10px; background: var(--eis); border-radius: 12px; padding: 6px 10px; font-weight: 700; text-align: left;
+    animation: ein .35s ease-out both; animation-delay: calc(var(--n) * .25s + .5s); }
+  .kiste-inhalt li.selten { background: linear-gradient(135deg, rgba(179,107,255,.3), rgba(246,195,67,.25)); }
+  .kiste-inhalt i { font-style: normal; font-size: 1.6rem; }
+  .kiste-inhalt img { width: 48px; height: 48px; }
+  @media (prefers-reduced-motion: reduce) { .kiste:not(:disabled), .kiste-auf, .kiste-inhalt li { animation: none !important; } }
 </style>
 </head>
 <body>
@@ -784,6 +852,11 @@
       <div class="xp"><i id="passBalken" style="width:0"></i></div>
       <p id="passNaechst"></p>
       <div class="pass-leiste" id="passLeiste" aria-label="Belohnungen der nächsten Stufen"></div>
+      <div class="saison">
+        <div class="pass-kopf"><b id="saisonName">🍂 Saison</b><small id="saisonXp"></small><small id="booster" class="booster"></small></div>
+        <div class="xp saison-xp"><i id="saisonBalken" style="width:0"></i></div>
+        <div class="pass-leiste" id="saisonLeiste" aria-label="Belohnungen der Saison"></div>
+      </div>
       <div class="auftraege">
         <p class="auftraege-titel"><b>📋 Tagesaufträge</b> <small>neue Aufträge jeden Tag</small></p>
         <ul id="auftraege"></ul>
@@ -814,6 +887,18 @@
         <label class="kraft-wahl"><input type="checkbox" id="wissenAn" checked> Pinguin-Wissen benutzen</label>
         <div class="wissen" id="wissen"></div>
       </details>
+      <div class="extra-box kisten-box">
+        <b>🎁 Kisten <small id="kistenKurz"></small></b>
+        <div class="kisten" id="kisten"></div>
+      </div>
+      <details class="extra-box" id="haendlerBox">
+        <summary>🛒 Händler <small>neues Angebot jeden Tag</small></summary>
+        <div class="haendler" id="haendler"></div>
+      </details>
+      <details class="extra-box" id="wochenBox">
+        <summary>🗓️ Wochen-Quests <small id="wochenKurz"></small></summary>
+        <ul class="wochen" id="wochen"></ul>
+      </details>
       <details class="extra-box" id="erfolgeBox">
         <summary>🏆 Erfolge <small id="erfolgeKurz"></small></summary>
         <div class="erfolge-liste" id="erfolgeListe"></div>
@@ -822,7 +907,13 @@
 
     <div class="reiter" id="reiterReihe" role="group" aria-label="Spielart">
       <button id="reiterAllein" aria-pressed="true">🐧 Allein spielen</button>
+      <button id="reiterAbenteuer" aria-pressed="false">📖 Abenteuer</button>
       <button id="reiterKoop" aria-pressed="false">👥 Zusammen spielen</button>
+    </div>
+    <div class="abenteuer-box" id="abenteuerBox" hidden>
+      <div class="abenteuer-kopf"><b>📖 Die Reise nach Pinguinhausen</b><span id="abenteuerSterne"></span></div>
+      <p>Opa Pingo erzählt eine Geschichte: Vier Kapitel, 24 Levels und am Ende der Tiefseekönig. Jedes Level hat drei Sterne – einen für den Sieg und zwei für besondere Aufgaben. Für alle drei Sterne gibt es eine Kiste, für jedes Kapitel einen Look.</p>
+      <div id="abenteuer"></div>
     </div>
     <div class="koop-box" id="koopBox" hidden>
       <div id="koopVerbinden">
@@ -864,6 +955,8 @@
 
       <h2>Spielmodus</h2>
       <div class="modi" id="modi"></div>
+
+      <label class="kraft-wahl wetter-wahl"><input type="checkbox" id="wetterAn" checked> 🌦️ Wetter-Ereignisse ab Runde 6 (Schneesturm, Polarlicht, Eisregen, Tauwetter, Nebel)</label>
 
       <div id="geldBereich" hidden>
         <h2>Geld im Koop</h2>
@@ -945,6 +1038,7 @@
     <div class="wert" title="Geld">💰 <span id="geld">650</span></div>
     <div class="wert" title="Runde">🌊 <span id="runde">1</span><small>/<span id="rundenZiel">40</span></small></div>
     <span class="modus-anzeige" id="modusAnzeige"></span>
+    <span class="wetter-anzeige" id="wetterAnzeige" hidden></span>
     <div class="mitspieler" id="mitspieler" hidden></div>
     <div class="luecke"></div>
     <label class="auto" title="Nächste Runde automatisch starten"><input type="checkbox" id="auto"><span>Auto</span></label>
@@ -1010,6 +1104,28 @@
   </div>
 </div>
 
+<div class="overlay" id="levelDialog" hidden>
+  <div class="dialog level-dialog" role="dialog" aria-modal="true" aria-labelledby="levelTitel">
+    <h2 id="levelTitel"></h2>
+    <p class="story" id="levelStory" hidden></p>
+    <p id="levelText"></p>
+    <div class="level-infos" id="levelInfos"></div>
+    <ul class="level-sterne" id="levelSterne"></ul>
+    <p class="level-held" id="levelHeld"></p>
+    <button class="knopf haupt" id="levelLos">Los geht's!</button>
+    <button class="knopf" id="levelZu">Zurück</button>
+  </div>
+</div>
+
+<div class="overlay" id="kisteDialog" hidden>
+  <div class="dialog kiste-dialog" role="dialog" aria-modal="true" aria-labelledby="kisteTitel">
+    <div class="gross kiste-auf">🎁</div>
+    <h2 id="kisteTitel"></h2>
+    <ul class="kiste-inhalt" id="kisteInhalt"></ul>
+    <button class="knopf haupt" id="kisteZu">Super!</button>
+  </div>
+</div>
+
 <div class="overlay" id="einstellungen" hidden>
   <div class="dialog einst" role="dialog" aria-modal="true" aria-labelledby="einstTitel">
     <h2 id="einstTitel">⚙️ Einstellungen</h2>
@@ -1031,6 +1147,7 @@
 <script src="js/logik.js"></script>
 <script src="js/pass.js"></script>
 <script src="js/fortschritt.js"></script>
+<script src="js/kampagne.js"></script>
 <script src="js/modelle.js"></script>
 <script src="js/welt3d.js"></script>
 <script src="js/ton.js"></script>
