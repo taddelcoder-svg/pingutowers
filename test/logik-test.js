@@ -325,7 +325,96 @@ for (const held of PT.HELDEN_REIHE) {
     for (const [n, [typ]] of Object.entries(l.regeln.bosse || {})) pruefe(PT.runde(+n, 'standard', l.regeln.bosse).bossTyp === typ, 'Level-Boss ' + l.id);
   }
   const l1 = PT.LEVELS[0], sp = new PT.Spiel({ karte:l1.karte, stufe:l1.stufe, regeln:l1.regeln });
-  pruefe(PT.levelSterne(l1, sp).length === 3 && PT.levelFrei('k1-1', {}) && !PT.levelFrei('k1-2', {}) && PT.levelFrei('k1-2', { 'k1-1':[true] }), 'Sterne und Freischalten');
+  pruefe(PT.levelSterne(l1, sp).length === 3 && PT.levelFrei('s0-1', {}) && !PT.levelFrei('s1-1', {}) && PT.levelFrei('s1-1', { 's0-1':[true] }), 'Sterne und Freischalten');
+  // Schwarzes Eis: Szenen, Sprecher, Funk, Kapitel
+  pruefe(PT.LEVELS.length === 30 && PT.KAPITEL.length === 6, 'Anzahl Levels und Kapitel');
+  for (const l of PT.LEVELS) {
+    for (const z of [...(l.vorher || []), ...(l.nachher || []), ...Object.values(l.funk || {}).flat()]) pruefe(Array.isArray(z) && PT.SPRECHER[z[0]] && typeof z[1] === 'string' && z[1].length, 'Szene ' + l.id + ' ' + z);
+    if (l.held) pruefe(PT.HELDEN[l.held], 'Held ' + l.id);
+    for (const sp of Object.values(PT.SPRECHER)) if (sp.bild && sp.bild.look) pruefe(PT.SKINS[sp.bild.look], 'Porträt ' + sp.name);
+    if (l.regeln.thema) pruefe(PT.STIMMUNGEN.includes(l.regeln.thema), 'Stimmung ' + l.id);
+    if (l.regeln.wegeAb) pruefe(l.regeln.wegeAb.length === PT.KARTEN[l.karte].wege.length, 'Kanäle ' + l.id);
+  }
+  for (const z of [...PT.ENDE_SZENE, ...PT.NACH_ABSPANN]) pruefe(PT.SPRECHER[z[0]], 'Ende ' + z[0]);
+  pruefe(PT.alteSterne({ 'k1-1':[true, true], 'k4-6':[true], 's0-1':[true] }) === 3, 'Alte Sterne zählen');
+  // Story-Mechaniken: Überfall, Sabotage, Held fällt, Einsturz, zweite Phase
+  {
+    const s1 = new PT.Spiel({ karte:'doppel', stufe:'leicht', regeln:{ runden:10, wegeAb:[1, 3] } });
+    s1.rundeStarten();
+    pruefe(s1.warteschlange.every(q => q.p === 0), 'Kanal 2 noch zu');
+    s1.laeuft = false; s1.runde = 2; s1.rundeStarten();
+    pruefe(s1.warteschlange.some(q => q.p === 1) && s1.ereignisse.some(e => e.art === 'wegOffen'), 'Kanal 2 öffnet');
+    const s2 = new PT.Spiel({ karte:'scholle', stufe:'mittel', held:'walter', regeln:{ runden:10, geld:5000, zerstoeren:{ 1:1 }, heldFaellt:1 } });
+    const h = s2.bauen('walter', 160, 200), t1 = s2.bauen('zapfen', 330, 200), t2 = s2.bauen('zapfen', 500, 300);
+    s2.upgraden(t2, 0);
+    s2.rundeStarten();
+    pruefe(h && !s2.tuerme.includes(h) && s2.denkmaeler.length === 1 && !s2.tuerme.includes(t2) && s2.tuerme.includes(t1), 'Sabotage und Held fällt');
+    pruefe(!s2.platzFrei('zapfen', 160, 200), 'Denkmal blockiert');
+    const s3 = new PT.Spiel({ karte:'scholle', stufe:'mittel', regeln:{ runden:10, geld:5000, einsturz:[[330, 200, 60, 1]] } });
+    const t3 = s3.bauen('zapfen', 330, 200);
+    s3.rundeStarten(); for (let i = 0; i < 60 * 120 && s3.laeuft; i++) s3.schritt(1 / 60);
+    pruefe(t3 && !s3.tuerme.includes(t3) && !s3.platzFrei('zapfen', 330, 200), 'Einsturz');
+    const s4 = new PT.Spiel({ karte:'scholle', modus:'sandkasten', regeln:{ zweitePhase:true } });
+    s4.sandFische('abyssos', 1);
+    s4.schritt(1 / 60); s4.schritt(1);
+    const boss = s4.fische.find(f => f.typ === 'abyssos');
+    s4.treffer(boss, PT.angriff({ schaden:1e6, typ:'normal' }), null, null);
+    pruefe(s4.fische.some(f => f.typ === 'zerbrochen' && !f.tot), 'Pako steht auf');
+    // Kapitän Frost friert Pinguine ein und verteilt Eispanzer
+    const s5 = new PT.Spiel({ karte:'scholle', modus:'sandkasten' });
+    const t5 = s5.bauen('zapfen', 330, 200);
+    s5.sandFische('kapitaen', 1); s5.sandFische('rot', 5);
+    for (let i = 0; i < 60 * 11; i++) s5.schritt(1 / 60);
+    pruefe(s5.tuerme.includes(t5) && s5.statistik !== null && s5.fische.some(f => f.typ === 'kapitaen'), 'Frost lebt');
+    // Finsternis im Abenteuer
+    const s6 = new PT.Spiel({ karte:'scholle', stufe:'leicht', regeln:{ runden:5, finsternis:{ alle:2, dauer:1 } } });
+    s6.rundeStarten(); for (let i = 0; i < 60 * 3; i++) s6.schritt(1 / 60);
+    pruefe(s6.finsternisBis > 0, 'Finsternis im Abenteuer');
+    // Zusatzfische
+    pruefe(PT.runde(12, 'standard', null, { '10+':'3 verderbt 1 0' }).gruppen.some(g => g.typ === 'verderbt') && !PT.runde(9, 'standard', null, { '10+':'3 verderbt 1 0' }).gruppen.some(g => g.typ === 'verderbt'), 'Zusatzfische');
+    // Speichern und Laden mit Denkmal
+    const s7 = PT.Spiel.laden(JSON.parse(JSON.stringify(s2.speichern())));
+    pruefe(s7.denkmaeler.length === 1, 'Denkmal gespeichert');
+  }
+  // Pingu-Dorf
+  {
+    require('../js/dorf.js');
+    const D = PT.dorfNeu();
+    pruefe(PT.dorfPhase({}) === 0, 'Dorf zu');
+    const bisK2 = {}; for (const l of PT.LEVELS.filter(l => l.kapitel <= 2)) bisK2[l.id] = [true];
+    pruefe(PT.dorfPhase(bisK2) === 1, 'Lager nach Kapitel 2');
+    pruefe(!PT.dorfAusbau(D, 'hafen', 1, 0).ok && PT.dorfAusbau({ ...D, kristalle:5 }, 'hafen', 1, 15).ok, 'Ausbau Kosten');
+    pruefe(!PT.dorfAusbau({ ...D, kristalle:999, stufen:{ hafen:2 } }, 'hafen', 1, 999).ok, 'Ausbau Phasen-Grenze');
+    pruefe(!PT.dorfAusbau({ ...D, kristalle:999 }, 'schmiede', 1, 999).ok, 'Schmiede erst später');
+    const b = PT.dorfBoni({ ...D, stufen:{ hafen:2, schmiede:3, wachturm:1, lazarett:1 } });
+    pruefe(b.geld === 60 && b.tempo === 0.06 && b.reichweite === 0.02 && b.leben === 5, 'Dorf-Boni');
+    const sb = new PT.Spiel({ karte:'scholle', stufe:'mittel', boni:b });
+    const sn = new PT.Spiel({ karte:'scholle', stufe:'mittel' });
+    const tb = sb.bauen('zapfen', 330, 200), tn = sn.bauen('zapfen', 330, 200);
+    pruefe(sb.geld === sn.geld + 60 - (tb.investiert - tn.investiert) && tb.eff.reichweite > tn.eff.reichweite && tb.eff.angriffe[0].intervall < tn.eff.angriffe[0].intervall, 'Boni wirken');
+    pruefe(PT.dorfErnte({ ...D, stufen:{ raeucherei:2 }, geerntet:1 }, 3600000 * 30) === 48, 'Räucherei höchstens 12 h');
+    pruefe(JSON.stringify(PT.boniOk({ geld:1e9, tempo:5, quatsch:3 })) === JSON.stringify({ geld:400, tempo:0.15 }), 'Boni begrenzt');
+  }
+  // Versus
+  {
+    require('../js/versus.js');
+    const v = new PT.Versus({ karte:'scholle', seed:3, spieler:[{ id:'a', name:'A', held:'kiel' }, { id:'b', name:'B' }] });
+    pruefe(v.befehl('a', { t:'schick', typ:'rot' }) === false, 'Schicken erst nach dem Start');
+    for (let i = 0; i < 60 * (PT.VS_VORLAUF + 1); i++) v.schritt(1 / 60);
+    pruefe(v.gestartet && v.spiele.every(s => s.laeuft), 'Versus startet');
+    const g0 = v.spielVon('a').geld;
+    pruefe(v.befehl('a', { t:'schick', typ:'rot' }) && v.spielVon('a').geld === g0 - 40 && v.spielVon('a').einkommen === 2 && v.spielVon('b').extra.length === 12, 'Fische schicken');
+    pruefe(v.befehl('a', { t:'karte', fk:'nebel' }) === false, 'Karte lädt noch');
+    for (let i = 0; i < 60 * 31; i++) v.schritt(1 / 60);
+    pruefe(v.befehl('a', { t:'karte', fk:'nebel' }) && v.spielVon('b').vs.nebelBis > v.zeit, 'Nebel-Karte');
+    pruefe(v.befehl('a', { t:'start' }) === false, 'Kein Rundenstart von Hand');
+    const z = PT.Versus.ausZustand(JSON.parse(JSON.stringify(v.zustand())));
+    pruefe(z.pruefsumme() === v.pruefsumme(), 'Versus-Zustand');
+    for (let i = 0; i < 60 * 20; i++) { v.schritt(1 / 60); z.schritt(1 / 60); }
+    pruefe(z.pruefsumme() === v.pruefsumme() && v.spiele[0].runde === v.spiele[1].runde, 'Versus bleibt im Takt');
+    for (let i = 0; i < 60 * 900 && !v.vorbei; i++) v.schritt(1 / 60);
+    pruefe(v.vorbei && v.meldungen.some(m => m.art === 'ende'), 'Versus endet');
+  }
   // Kisten, Händler, Wochen-Quests, Saison
   let n = 0; const zuf = () => (n = (n * 9301 + 49297) % 233280) / 233280;
   for (const art of PT.KISTEN_REIHE) pruefe(PT.kisteOeffnen(art, {}, zuf).length >= PT.KISTEN[art].teile, 'Kiste ' + art);

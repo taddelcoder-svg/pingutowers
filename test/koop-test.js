@@ -3,6 +3,7 @@
 // Die "Browser" hier rechnen genauso nach wie js/oberflaeche.js. node test/koop-test.js
 const PT = require('../js/pinguine.js');
 require('../js/logik.js');
+require('../js/versus.js');
 const { raeume } = require('../raeume');
 
 let fehler = 0;
@@ -23,7 +24,7 @@ function browser(name) {
       if (m.t === 'raum') b.raum = m;
       if (m.t === 'fehler') b.fehler = m.text;
       if (m.t === 'zustand') {
-        b.spiel = PT.Spiel.ausZustand(m.z); b.takt = m.n; b.serverTakt = Math.max(b.serverTakt, m.n); b.zustaende++;
+        b.spiel = m.z.versus ? PT.Versus.ausZustand(m.z) : PT.Spiel.ausZustand(m.z); b.takt = m.n; b.serverTakt = Math.max(b.serverTakt, m.n); b.zustaende++;
         for (const k of [...b.befehle.keys()]) if (k <= m.n) b.befehle.delete(k);
       }
       if (m.t === 'takt') {
@@ -40,7 +41,7 @@ function browser(name) {
       for (const [sp, bef] of b.befehle.get(k) || []) { const r = b.spiel.befehl(sp, bef); if (sp === b.id) b.erfolge.push([bef.t, !!r]); }
       b.befehle.delete(k);
       b.spiel.schritt(1 / 60);
-      b.spiel.ereignisse.length = 0;
+      if (b.spiel.versus) { b.spiel.ereignisseLeeren(); b.spiel.meldungen.length = 0; } else b.spiel.ereignisse.length = 0;
       if (k % 60 === 0) b.schicken({ t:'p', n:k, h:b.spiel.pruefsumme() });
     }
   };
@@ -194,6 +195,34 @@ pruefe(a.raum.phase === 'lobby', 'zurück in die Lobby');
   for (let i = 0; i < 60 * 20; i++) { s.schritt(1 / 60); kopie.schritt(1 / 60); }
   pruefe(s.pruefsumme() === kopie.pruefsumme() && s.fische.length === kopie.fische.length, 'Zustand mitten in der Boss-Runde');
   pruefe(s.fische.some(f => f.typ === 'orka') || s.statistik.platzer > 0, 'Kaiser Orka ist da');
+}
+
+// Versus „Eiskrieg“ über den Server: zwei Spieler, jeder auf seiner Karte, alles im Gleichschritt
+{
+  const x = browser('Xenia'), y = browser('Yuri'), z3 = browser('Zoe');
+  x.schicken({ t:'hallo', name:'Xenia' }); y.schicken({ t:'hallo', name:'Yuri' }); z3.schicken({ t:'hallo', name:'Zoe' });
+  x.schicken({ t:'erstellen' }); x.verarbeiten();
+  y.schicken({ t:'beitreten', code:x.raum.code }); z3.schicken({ t:'beitreten', code:x.raum.code });
+  x.schicken({ t:'einst', karte:'scholle', stufe:'mittel', versus:true });
+  x.schicken({ t:'wahl', held:'kiel', kraft:false, skin:'standard', boni:{ geld:200 } });
+  x.schicken({ t:'start' });
+  for (const w of [x, y, z3]) w.verarbeiten();
+  pruefe(x.raum.einst.versus && x.raum.phase === 'lobby' && /zu zweit/.test(x.fehler || ''), 'Versus nur zu zweit');
+  z3.schicken({ t:'verlassen' }); z3.verarbeiten();
+  x.schicken({ t:'start' });
+  laufen(300, [x, y]);
+  pruefe(x.spiel && x.spiel.versus && y.spiel && y.spiel.versus, 'Versus gestartet');
+  pruefe(x.spiel.spielVon(x.id).geld === 650, 'Versus ohne Dorf-Boni');
+  const ox = [[150, 180], [300, 250], [480, 300]];
+  for (const [px, py] of ox) { x.schicken({ t:'b', b:{ t:'bau', typ:'zapfen', x:px, y:py } }); y.schicken({ t:'b', b:{ t:'bau', typ:'zapfen', x:px, y:py } }); }
+  laufen(17000, [x, y]);
+  x.schicken({ t:'b', b:{ t:'schick', typ:'rot' } });
+  laufen(3000, [x, y]);
+  pruefe(x.erfolge.some(([t, r]) => t === 'schick' && r), 'Fische geschickt');
+  pruefe(y.spiel.spielVon(y.id).fische.some(f => f.geschickt) || y.spiel.spielVon(y.id).statistik.platzer > 0, 'geschickte Fische sind beim Gegner');
+  pruefe(x.spiel.pruefsumme() === y.spiel.pruefsumme() && x.zustaende === 1 && y.zustaende === 1, 'Versus im Gleichschritt');
+  laufen(60000, [x, y]);
+  pruefe(x.spiel.pruefsumme() === y.spiel.pruefsumme(), 'Versus nach einer Minute gleich');
 }
 
 console.log(fehler ? `${fehler} Fehler` : 'Koop: alles in Ordnung');

@@ -79,12 +79,26 @@ Tasten: Buchstaben am Pinguin im Laden (`Q W E R F T S P O V B M Z N L X G U I D
 `Leertaste` Runde/Tempo, `,` `.` `-` Upgrades, `Entf` verkaufen, `Tab` Ziel bzw. Flugbahn wechseln,
 `Esc` abbrechen/Pause. Mit gedrückter Umschalttaste mehrere gleiche Pinguine setzen.
 
+## Schwarzes Eis: Story, Pingu-Dorf, Versus
+
+- **Abenteuer „Schwarzes Eis“** (ersetzt das alte Abenteuer): Prolog und 5 Kapitel, 30 Levels. Düstere Geschichte
+  um das gestohlene Herzlicht, Kapitän Frosts Verrat, Walters Tod, Opa Pingos Bruder Pako und den Untergang von
+  Pinguinhausen. Szenen mit Titelkarten, Porträts und Schreibmaschinen-Text vor und nach jedem Level (überspringbar),
+  Funksprüche mitten im Kampf, Musik pro Kapitel (Web Audio), Abspann und eine Szene nach dem Abspann.
+- **Neue Level-Mechaniken** (`regeln` in `kampagne.js`): Stimmung (Tiefsee, Blutnacht), Kanäle öffnen sich später
+  (Überfall), Extra-Fische, keine Pausen, Sabotage zerstört Pinguine, ein Held fällt (Denkmal), Finsternis,
+  weniger Reichweite, einstürzende Eisflächen, zweite Boss-Phase.
+- **Neue Gegner:** Schattenfisch, Verderbter Fisch, Splitterling; Bosse Kapitän Frost (friert die teuersten
+  Pinguine ein, Eispanzer) und Pako, der Zerbrochene (zweite Gestalt von Abyssos).
+- Alter Abenteuer-Fortschritt wird einmal gegen eine Goldkiste und Eiskristalle getauscht.
+- **Pingu-Dorf** (`dorf.js`, `dorf3d.js`): wächst mit dem Abenteuer (Lager → Zuflucht → Festung → Neu-Pinguinhausen),
+  8 Gebäude mit Stufen für Fischmünzen und Eiskristalle, Boni (Startgeld, Leben, Angriffstempo, Reichweite,
+  Pass-Erfahrung, Räucherei mit Offline-Münzen), 3D-Ansicht mit Bewohnern. Gilt im freien Spiel, Abenteuer und Koop.
+- **Versus „Eiskrieg“** (`versus.js`): zwei Spieler, je eine eigene Karte im Gleichschritt über den Server.
+  Fische schicken erhöht das Einkommen, vier Sabotage-Karten, ab Runde 30 jede Runde ein Boss.
+
 ## Großes Update: Abenteuer, Wetter, Kisten
 
-- **Abenteuer (Kampagne):** „Die Reise nach Pinguinhausen“ – 4 Kapitel mit je 6 Levels und kleiner Geschichte
-  (Opa Pingo erzählt). Jedes Level hat feste Karte, Stufe und Regeln (Startrunde, Startgeld, festes Wetter,
-  erlaubte Pinguine, Bosse) und drei Sterne: Sieg plus zwei Aufgaben (keine Leben verlieren, höchstens N Pinguine,
-  nicht verkaufen, keine Fähigkeit …). Drei Sterne bringen eine Kiste, jedes Kapitel einen Look. Endgegner: Abyssos.
 - **Neue Pinguine:** Feuerwerks-Pinguin (`F`, bunte Raketen mit Sternen, Finale), Hexen-Pinguin (`X`, Gift, das
   nachwirkt, Krötentrank verwandelt kleine Fische in Rotbarsche, Riesen-Fluch, Hexenkatze, Großer Fluch) und
   Sturm-Pinguin (`G`, Tornados wehen Fische zurück, Gewitterblitze, Gegenwind, Orkan).
@@ -144,9 +158,12 @@ js/
   daten.js         Fische, Karten, Stufen, Spielmodi, Runden (auch im Server genutzt)
   pinguine.js      Pinguine mit allen Upgrades, Fähigkeiten, Helden
   logik.js         Spiellogik ohne Grafik (Kanäle, Ziele, Schaden, Fähigkeiten, Bosse, Befehle, Koop-Kassen, Speichern)
+  versus.js        Versus „Eiskrieg“: zwei Spiele im Gleichschritt, Fische schicken, Sabotage-Karten
+  dorf.js          Pingu-Dorf: Phasen, Gebäude, Kosten, Boni
   pass.js          Pinguin-Pass: Stufen, Looks, Sockel, Münzen, Meisterkräfte
   fortschritt.js   Erfolge, Pinguin-Wissen, Tagesaufträge, Tages-Herausforderung, Kisten, Händler, Wochen-Quests
-  kampagne.js      Abenteuer: Kapitel, Levels, Sterne-Aufgaben
+  kampagne.js      Abenteuer „Schwarzes Eis“: Kapitel, Levels, Szenen, Funk, Abspann, Sterne-Aufgaben
+  dorf3d.js        3D-Ansicht des Pingu-Dorfs
   editor.js        Karten-Editor
   modelle.js       3D-Modelle: Fische, Pinguine, Helden, Albatros, Geschosse
   welt3d.js        Szene: Scholle, Kanäle, Wasserlöcher, Themen, Kamera mit Zoom, Effekte

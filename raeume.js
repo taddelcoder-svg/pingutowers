@@ -9,6 +9,7 @@
 const crypto = require('crypto');
 const PT = require('./js/pinguine.js');
 require('./js/logik.js');
+require('./js/versus.js');
 
 const MAX_RAEUME = 40;
 const LEER_MS = 15 * 60_000;           // Raum ohne Verbindung wird danach aufgeräumt
@@ -48,7 +49,8 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
     return {
       t:'raum', code:raum.code, host:raum.host, phase:raum.phase, du:m.id, einst:raum.einst,
       tempo:raum.tempo, pause:raum.pause, auto:raum.auto,
-      mitglieder:mitglieder(raum).map(x => ({ id:x.id, name:x.name, held:x.held, kraft:x.kraft, skin:x.skin, sockel:x.sockel, online:!!x.transport, mit:!!x.mitspieler }))
+      mitglieder:mitglieder(raum).map(x => ({ id:x.id, name:x.name, held:x.held, kraft:x.kraft, skin:x.skin, sockel:x.sockel, online:!!x.transport, mit:!!x.mitspieler })),
+      versus:!!(raum.spiel && raum.spiel.versus)
     };
   }
   function raumSenden(raum) { for (const m of raum.mitglieder.values()) senden(m, raumFuer(raum, m)); }
@@ -62,7 +64,7 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
     if (liste.size >= MAX_RAEUME) return null;
     const raum = {
       code:code(), host:null, phase:'lobby', mitglieder:new Map(), spiel:null, zuletzt:jetzt(),
-      einst:{ karte:'scholle', stufe:'mittel', modus:'standard', geldModus:'geteilt', wetter:true },
+      einst:{ karte:'scholle', stufe:'mittel', modus:'standard', geldModus:'geteilt', wetter:true, versus:false },
       takt:0, rest:0, tempo:1, pause:null, auto:false, autoWarte:0, ausstehend:[], summen:new Map(), letzteZeit:jetzt()
     };
     liste.set(raum.code, raum);
@@ -113,9 +115,14 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
     const mit = online(raum);
     if (!mit.length) return;
     const e = raum.einst;
-    raum.spiel = new PT.Spiel({
+    // Versus „Eiskrieg“: genau zwei Spieler, jeder auf seiner eigenen Karte (ohne Dorf-Boni, ohne Wetter)
+    if (e.versus) {
+      if (mit.length !== 2) { const h = raum.mitglieder.get(raum.host); if (h) senden(h, { t:'fehler', text:'Versus geht nur zu zweit – im Raum müssen genau 2 Spieler sein.' }); return; }
+      raum.spiel = new PT.Versus({ karte:e.karte, stufe:e.stufe, seed:seed() & 0xffffff, eigeneKarte:e.eigen,
+        spieler:mit.map(m => ({ id:m.id, name:m.name, held:m.held, kraft:m.kraft })) });
+    } else raum.spiel = new PT.Spiel({
       karte:e.karte, stufe:e.stufe, modus:e.modus, seed:seed() & 0xffffff, geldModus:e.geldModus, eigeneKarte:e.eigen, wetter:e.wetter !== false,
-      spieler:mit.map(m => ({ id:m.id, name:m.name, held:m.held, kraft:m.kraft }))
+      spieler:mit.map(m => ({ id:m.id, name:m.name, held:m.held, kraft:m.kraft, boni:m.boni }))
     });
     // Wer nur zuschaut (später kommt), spielt ab der nächsten Lobby mit
     for (const m of raum.mitglieder.values()) m.mitspieler = mit.includes(m);
@@ -180,6 +187,7 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
           if (raum.phase !== 'lobby') return;
           m.held = d.held === null || PT.HELDEN[d.held] ? d.held : m.held;
           m.kraft = !!d.kraft; m.skin = skinOk(d.skin); m.sockel = skinOk(d.sockel);
+          m.boni = PT.boniOk(d.boni);
           return raumSenden(raum);
         case 'einst': {
           if (!istHost || raum.phase !== 'lobby') return;
@@ -191,6 +199,7 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
           if (PT.MODI[d.modus]) e.modus = d.modus;
           if (PT.KOOP_GELD[d.geldModus]) e.geldModus = d.geldModus;
           if (typeof d.wetter === 'boolean') e.wetter = d.wetter;
+          if (typeof d.versus === 'boolean') e.versus = d.versus;
           return raumSenden(raum);
         }
         case 'start':
@@ -251,7 +260,7 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
         for (const [spId, b] of raum.ausstehend) { sp.befehl(spId, b); neu.push([k, spId, b]); }
         raum.ausstehend = [];
         // Auto: nächste Runde kommt kurz nach dem Ende der letzten (als Befehl des Servers, damit alle ihn sehen)
-        if (raum.auto && !sp.laeuft && !sp.vorbei && (!sp.gewonnen || sp.endlos) && sp.modus !== 'sandkasten') {
+        if (raum.auto && !sp.versus && !sp.laeuft && !sp.vorbei && (!sp.gewonnen || sp.endlos) && sp.modus !== 'sandkasten') {
           if (++raum.autoWarte >= AUTO_PAUSE) {
             raum.autoWarte = 0;
             const b = { t:'start', runde:sp.runde + 1 };
@@ -259,7 +268,7 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
           }
         } else raum.autoWarte = 0;
         sp.schritt(1 / 60);
-        sp.ereignisse.length = 0;
+        if (sp.versus) { sp.ereignisseLeeren(); sp.meldungen.length = 0; } else sp.ereignisse.length = 0;
         if (k % SUMME_JEDE === 0) {
           raum.summen.set(k, sp.pruefsumme());
           if (raum.summen.size > 40) raum.summen.delete(raum.summen.keys().next().value);

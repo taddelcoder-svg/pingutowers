@@ -42,6 +42,12 @@
     feuerwehr:{ name:'Vulkan-Wächter', rumpf:0x8a1a1a, bauch:0xffd27a, extra:'helm', glanz:true, herkunft:'kampagne' },
     tiefsee:  { name:'Tiefseetaucher', rumpf:0x14304a, bauch:0x9fe4ff, extra:'taucherhelm', herkunft:'kampagne' },
     held:     { name:'Held von Pinguinhausen', rumpf:0x1d2230, bauch:0xfff2c4, extra:'umhang', glanz:true, leuchten:0x1a1400, herkunft:'kampagne' },
+    // Schwarzes Eis: Figuren aus dem Abenteuer und Walters Helm aus dem Pingu-Dorf
+    kueken:   { name:'Mia', rumpf:0x8a8f99, bauch:0xe4e7ee, extra:'kueken', herkunft:'kampagne' },
+    kapitaen: { name:'Kapitän Frost', rumpf:0x163450, bauch:0xdff4ff, glanz:true, extra:'kapitaen', leuchten:0x061826, herkunft:'kampagne' },
+    pako:     { name:'Pako, der Zerbrochene', rumpf:0x1a0f2a, bauch:0x6a3a9a, leuchten:0x2a0a4a, extra:'maske', herkunft:'kampagne' },
+    opa:      { name:'Opa Pingo', rumpf:0x4a4f5a, bauch:0xf0ece0, extra:'opa', herkunft:'kampagne' },
+    veteran:  { name:'Walters Helm', rumpf:0x3a3a30, bauch:0xe8e0c8, extra:'stahlhelm', herkunft:'dorf' },
     // Saison-Looks: einer pro Monat (herkunft: saison, monat 1–12)
     schneemann:{ name:'Schneemann', rumpf:0xf4f8ff, bauch:0xffffff, extra:'zylinder', herkunft:'saison', monat:1 },
     karneval: { name:'Karneval', rumpf:0xe2463b, bauch:0xfff27a, extra:'clown', herkunft:'saison', monat:2 },
@@ -72,7 +78,9 @@
     diamant:  { name:'Diamant', farbe:0xe6fdff, leuchten:0x2a6a80 },
     sterne:   { name:'Sternenhimmel', farbe:0x2a3a8a, leuchten:0x1a2060, herkunft:'kiste' },
     kirsche:  { name:'Kirschblüte', farbe:0xffb6d5, leuchten:0x3a0a20, herkunft:'kiste' },
-    smaragd:  { name:'Smaragd', farbe:0x35d07a, leuchten:0x0a4020, herkunft:'kiste' }
+    smaragd:  { name:'Smaragd', farbe:0x35d07a, leuchten:0x0a4020, herkunft:'kiste' },
+    eiskrieg: { name:'Eiskrieg', farbe:0x9fd8ff, leuchten:0x4a0a0a, herkunft:'versus' },
+    herzlicht:{ name:'Herzlicht', farbe:0xffe9a8, leuchten:0x5a3a00, herkunft:'dorf' }
   };
   PT.SOCKEL_REIHE = Object.keys(PT.SOCKEL);
 
