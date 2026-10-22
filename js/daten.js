@@ -37,7 +37,8 @@
     krakus:  { name:'Krakus der Boss',    hp:6000, tempo:13,  r:72, farbe:'#c0392b', kinder:[], riese:true, boss:true },
     orka:    { name:'Kaiser Orka',        hp:9000, tempo:19,  r:64, farbe:'#1b1d24', kinder:[], riese:true, boss:true },
     leviathan:{ name:'Eis-Leviathan',     hp:16000, tempo:14, r:70, farbe:'#7fd6ff', kinder:[], riese:true, boss:true },
-    haikoenig:{ name:'Hai-König',         hp:7000, tempo:21,  r:60, farbe:'#4a6a8a', kinder:[], riese:true, boss:true }
+    haikoenig:{ name:'Hai-König',         hp:7000, tempo:21,  r:60, farbe:'#4a6a8a', kinder:[], riese:true, boss:true },
+    abyssos: { name:'Abyssos, der Tiefseekönig', hp:22000, tempo:12, r:74, farbe:'#2a1a4a', kinder:[], riese:true, boss:true }
   };
   for (const id of Object.keys(FISCHE)) FISCHE[id].id = id;
   // Wie viele "Schichten" ein Fisch insgesamt hat (so viele Leben kostet er, wenn er durchkommt)
@@ -48,7 +49,7 @@
   }
   Object.keys(FISCHE).forEach(rbe);
   PT.FISCHE = FISCHE;
-  PT.BOSS_REIHE = ['krakus', 'orka', 'leviathan', 'haikoenig'];
+  PT.BOSS_REIHE = ['krakus', 'orka', 'leviathan', 'haikoenig', 'abyssos'];
   PT.FISCH_REIHE = ['rot', 'blau', 'gruen', 'gelb', 'rosa', 'flug', 'schwarz', 'weiss', 'tinte', 'panzer', 'zebra', 'regen', 'kugel', 'koffer', 'wal', 'rochen', 'mega', 'krake'];
   // Gepanzert gibt es nur für zähe Fische (wie im Vorbild)
   PT.kannGepanzert = typ => typ === 'panzer' || FISCHE[typ].hp > 1;
@@ -91,10 +92,25 @@
     boss:       { name:'Boss-Jagd', symbol:'🐙', text:'Krakus der Boss taucht in Runde 20 und 40 auf. Lässt du ihn durch, ist es vorbei.', runden:40 },
     orka:       { name:'Orka-Angriff', symbol:'🐋', text:'Kaiser Orka kommt in Runde 25 und 50. Seine Flutwellen betäuben Pinguine am Ufer. Lässt du ihn durch, ist es vorbei.', runden:50 },
     hai:        { name:'Hai-König', symbol:'🦈', text:'Der Hai-König kommt in Runde 20 und 40 und ruft ständig neue Fische herbei. Lässt du ihn durch, ist es vorbei.', runden:40 },
+    tiefsee:    { name:'Tiefsee-Finsternis', symbol:'🏮', text:'Abyssos, der Tiefseekönig, kommt in Runde 35 und 70. Immer wieder wird es stockdunkel – dann sehen nur Pinguine mit Nachtsicht die Fische.', runden:70 },
     leviathan:  { name:'Leviathan-Erwachen', symbol:'🐉', text:'Der Eis-Leviathan taucht in Runde 30 und 60 auf. Sein Eisatem friert Pinguine am Ufer ein. Lässt du ihn durch, ist es vorbei.', runden:60 },
     sandkasten: { name:'Sandkasten', symbol:'🏖️', text:'Unendlich Geld und Leben. Schick die Fische selbst los und probier alles aus.' }
   };
-  PT.MODI_REIHE = ['standard', 'grund', 'umgekehrt', 'halb', 'flut', 'boss', 'orka', 'hai', 'leviathan', 'sandkasten'];
+  PT.MODI_REIHE = ['standard', 'grund', 'umgekehrt', 'halb', 'flut', 'boss', 'orka', 'hai', 'leviathan', 'tiefsee', 'sandkasten'];
+
+  /* ---------- Wetter ----------
+     Ab Runde 6 kann zu Beginn einer Runde Wetter aufziehen (bis zur nächsten Runde).
+     fischTempo, reichweite, angriff (Angriffstempo), geld: Faktoren. camo: alle sehen getarnte Fische.
+     frost: friert kleine Fische alle paar Sekunden kurz ein. */
+  PT.WETTER = {
+    schneesturm:{ name:'Schneesturm', symbol:'🌨️', text:'Die Fische kämpfen sich langsamer durch, aber die Pinguine sehen nicht so weit.', fischTempo:0.8, reichweite:0.85 },
+    polarlicht: { name:'Polarlicht', symbol:'🌌', text:'Das Polarlicht beflügelt: Pinguine greifen schneller an und sehen getarnte Fische.', angriff:1.2, camo:true },
+    eisregen:   { name:'Eisregen', symbol:'🧊', text:'Eiskörner prasseln: Kleine Fische frieren immer wieder kurz ein.', frost:{ alle:4, dauer:0.7 } },
+    tauwetter:  { name:'Tauwetter', symbol:'☀️', text:'Warm! Die Fische sind flinker, dafür gibt es ein Viertel mehr Geld.', fischTempo:1.15, geld:1.25 },
+    nebel:      { name:'Nebel', symbol:'🌫️', text:'Dichter Nebel: Die Pinguine sehen ein Fünftel weniger weit.', reichweite:0.8 }
+  };
+  PT.WETTER_REIHE = Object.keys(PT.WETTER);
+  PT.WETTER_AB = 6;
 
   /* ---------- Karten ----------
      wege: ein oder mehrere Kanäle (Eckpunkte, werden abgerundet). Endet ein Kanal mitten auf der Karte,
@@ -201,7 +217,32 @@
     wasser:[[960, 560, 28]],
     deko:'schmelz'
   };
-  PT.KARTEN_REIHE = ['scholle', 'bucht', 'kreuz', 'spalte', 'tunnel', 'schmelze', 'erebus', 'nacht', 'doppel', 'inseln', 'dreizack'];
+  PT.KARTEN.leuchtturm = {
+    name:'Leuchtturm-Bucht', stufe:'Anfänger', thema:'tag',
+    text:'Ein langer Kanal rund um den alten Leuchtturm. Er endet im Eisloch mitten in der Bucht.',
+    wege:[[[-40, 520], [200, 520], [200, 100], [820, 100], [820, 540], [420, 540], [420, 300], [640, 300]]],
+    hindernisse:[[90, 260, 32], [960, 330, 28], [320, 420, 24], [520, 200, 22], [630, 430, 22]],
+    wasser:[[940, 590, 30], [300, 200, 26]],
+    deko:'leuchtturm'
+  };
+  PT.KARTEN.labyrinth = {
+    name:'Pinguin-Labyrinth', stufe:'Mittel', thema:'daemmerung',
+    text:'Ein verschlungener Irrgarten mit zwei Tunneln und zwei Kreuzungen. Lang, aber eng.',
+    wege:[[[-40, 80], [920, 80], [920, 560], [80, 560], [80, 200], [800, 200], [800, 440], [200, 440], [200, 320], [1040, 320]]],
+    tunnel:[[500, 560, 56], [500, 80, 52]],
+    hindernisse:[[300, 140, 20], [700, 140, 20], [140, 380, 22], [860, 380, 22], [500, 380, 22]],
+    wasser:[[980, 520, 26], [980, 160, 24]],
+    deko:'gletscher'
+  };
+  PT.KARTEN.eisbergring = {
+    name:'Eisbergring', stufe:'Profi', thema:'nacht', wetterOft:true,
+    text:'Der Kanal läuft einmal rund um den riesigen Eisberg. Hier zieht ständig Wetter auf.',
+    wege:[[[-40, 420], [150, 420], [150, 560], [850, 560], [850, 80], [150, 80], [150, 240], [-40, 240]]],
+    hindernisse:[[500, 320, 95], [960, 320, 30], [40, 330, 24], [300, 200, 22], [700, 440, 22]],
+    wasser:[[960, 590, 26], [960, 50, 24], [300, 440, 26], [700, 200, 26]],
+    deko:'eisbergring'
+  };
+  PT.KARTEN_REIHE = ['scholle', 'bucht', 'leuchtturm', 'kreuz', 'spalte', 'tunnel', 'schmelze', 'labyrinth', 'erebus', 'nacht', 'doppel', 'inseln', 'eisbergring', 'dreizack'];
   PT.THEMEN_REIHE = ['tag', 'daemmerung', 'nacht', 'vulkan'];
 
   /* ---------- Eigene Karten (Karten-Editor) ----------
@@ -339,14 +380,18 @@
     leviathan:{ modus:'leviathan', runden:{ 30:1, 60:2 }, hp:[0, 2600, 16000], belohnung:2500, symbol:'🐉',
       welle:[[['weiss', 8], ['zebra', 2]], [['koffer', 4], ['wal', 2]]], eisatem:{ alle:7, radius:170, dauer:[0, 1.8, 2.8] } },
     haikoenig:{ modus:'hai', runden:{ 20:1, 40:2 }, hp:[0, 650, 7000], belohnung:1800, symbol:'🦈',
-      welle:[[['rosa', 6], ['koffer', 1]], [['koffer', 3], ['wal', 1]]], ruf:{ alle:6, welle:[[['rosa', 3], ['gelb', 3]], [['koffer', 2], ['regen', 2]]] } }
+      welle:[[['rosa', 6], ['koffer', 1]], [['koffer', 3], ['wal', 1]]], ruf:{ alle:6, welle:[[['rosa', 3], ['gelb', 3]], [['koffer', 2], ['regen', 2]]] } },
+    // Abyssos: macht es immer wieder stockdunkel (alle Fische außer ihm sind dann getarnt)
+    abyssos:{ modus:'tiefsee', runden:{ 35:1, 70:2 }, hp:[0, 3500, 22000], belohnung:3000, symbol:'🏮',
+      welle:[[['schwarz', 8], ['tinte', 4]], [['koffer', 4], ['rochen', 1]]], finsternis:{ alle:9, dauer:3.5 } }
   };
   PT.BOSS_HP = PT.BOSSE.krakus.hp;
   PT.bossFuer = modus => PT.BOSS_REIHE.find(id => PT.BOSSE[id].modus === modus) || null;
 
   // Gruppen einer Runde; nach Runde 80 geht es endlos mit immer zäheren Riesen weiter.
   // Boss-Jagd: In Runde 20 und 40 kommt Krakus (Stufe 1 und 2) mit Begleitung, beim Orka-Angriff Kaiser Orka in 25 und 50.
-  PT.runde = function (n, modus) {
+  // bosse (Kampagne): { runde:[typ, stufe] } – zusätzliche Bosse unabhängig vom Spielmodus
+  PT.runde = function (n, modus, bosse) {
     let text = R[n], zaeh = 1;
     if (!text) {
       const k = n - PT.RUNDEN_FEST;
@@ -359,6 +404,10 @@
       r.boss = PT.BOSSE[boss].runden[n];
       r.bossTyp = boss;
       r.gruppen.unshift({ anzahl:1, typ:boss, abstand:1, start:0 });
+    } else if (bosse && bosse[n] && PT.BOSSE[bosse[n][0]]) {
+      r.boss = bosse[n][1] === 2 ? 2 : 1;
+      r.bossTyp = bosse[n][0];
+      r.gruppen.unshift({ anzahl:1, typ:r.bossTyp, abstand:1, start:0 });
     }
     return r;
   };

@@ -472,6 +472,7 @@
       this.scene = new T.Scene();
       this.pinguine.clear(); this.flieger.clear(); this.eulen.clear(); this.geschossAlt = null; this.halos = [];
       this.strudel = []; this.lavaLicht = null; this.glutPos = null; this.rauch = [];
+      this.leuchtKegel = null; this.finsternis = null;
       this.effekte = [];
       this.texte = [];
       this.zoom = 1; this.schwenk.set(0, 0);
@@ -481,6 +482,8 @@
       const sc = this.scene;
       sc.background = new T.Color(thema.himmel);
       sc.fog = new T.Fog(thema.nebel, 1500, 3400);
+      this.nebelBasis = new T.Color(thema.nebel);
+      this.wetterAnzeige = 0;
 
       sc.add(new T.HemisphereLight(thema.himmelsLicht, thema.bodenLicht, thema.halb));
       // Gegenlicht von hinten (ohne Schatten): gibt Pinguinen und Fischen eine helle Kante und mehr Volumen
@@ -761,7 +764,30 @@
       karte.hindernisse.forEach(([hx, hy, hr], i) => {
         const g = new T.Group();
         g.position.set(X(hx), 0, Z(hy));
-        if (i === 0 && karte.deko === 'iglu') {
+        if (i === 0 && karte.deko === 'leuchtturm') {
+          // rot-weiß gestreifter Leuchtturm mit drehendem Lichtkegel
+          const fels = mesh(new T.DodecahedronGeometry(hr, 0), mat(0x8a929c, 'lambert', { flatShading:true }), 0, hr * 0.2, 0); fels.scale.set(1, 0.45, 1); g.add(fels);
+          for (let k = 0; k < 5; k++) {
+            const seg = mesh(new T.CylinderGeometry(hr * (0.42 - k * 0.04), hr * (0.46 - k * 0.04), 18, 16), mat(k % 2 ? 0xffffff : 0xe2463b), 0, 14 + k * 18, 0); g.add(seg);
+          }
+          const haus = mesh(new T.CylinderGeometry(hr * 0.32, hr * 0.32, 14, 12), mat(0xfff6c0, 'basic', { transparent:true, opacity:0.9 }), 0, 112, 0); g.add(haus);
+          const dach = mesh(G.kegel, mat(0x2b2f38), 0, 127, 0); dach.scale.set(hr * 0.4, 16, hr * 0.4); g.add(dach);
+          const kegel = new T.Mesh(new T.ConeGeometry(28, 160, 16, 1, true), new T.MeshBasicMaterial({ color:0xfff2a8, transparent:true, opacity:0.18, depthWrite:false, side:T.DoubleSide, blending:T.AdditiveBlending }));
+          kegel.rotation.z = Math.PI / 2; kegel.position.x = 80;
+          const dreh = new T.Group(); dreh.position.y = 112; dreh.add(kegel); g.add(dreh);
+          this.leuchtKegel = dreh;
+          const l = new T.PointLight(0xfff2a8, 0.8, 300, 1.5); l.position.y = 112; g.add(l);
+        } else if (i === 0 && karte.deko === 'eisbergring') {
+          // ein gewaltiger Eisberg in der Mitte mit Kristallspitzen
+          const berg = mesh(new T.DodecahedronGeometry(hr, 1), mat(0xdff3ff, 'phong', { flatShading:true, shininess:70, specular:0x88bbdd }), 0, hr * 0.5, 0);
+          berg.scale.set(1, 1.15, 0.9); g.add(berg);
+          for (let k = 0; k < 7; k++) {
+            const w = k * 0.9, d = hr * 0.5, h = hr * (0.7 + (k % 3) * 0.25);
+            const c = mesh(G.kegel4, mat(0x9ff3ff, 'phong', { flatShading:true, shininess:140, emissive:0x1d5a8a, transparent:true, opacity:0.9 }), Math.cos(w) * d, hr * 0.9 + h * 0.4, Math.sin(w) * d);
+            c.scale.set(hr * 0.12, h, hr * 0.12); g.add(c);
+          }
+          const kappe = mesh(G.kugel, mat(0xffffff), 0, hr * 1.55, 0); kappe.scale.set(hr * 0.45, hr * 0.15, hr * 0.4); g.add(kappe);
+        } else if (i === 0 && karte.deko === 'iglu') {
           const kuppel = mesh(new T.SphereGeometry(hr * 0.9, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), mat(0xf6fbff, 'phong', { shininess:20 }));
           const tunnel = mesh(new T.CylinderGeometry(hr * 0.35, hr * 0.35, hr * 0.8, 12, 1, false, 0, Math.PI), mat(0xeaf4fb));
           tunnel.rotation.set(0, 0, Math.PI / 2); tunnel.position.set(hr * 0.8, 0, 0);
@@ -1034,10 +1060,11 @@
 
     /* ---------- Ereignisse aus der Logik ---------- */
     ereignisse(liste) {
-      const ringFarben = { ring:0xbfeaff, ringLila:0xb36bff, sonne:0xffb020, frost:0x7fd6ff, frostStark:0x5ec8ff, saeule:0x9ff3ff, netz:0xd9c49a, schall:0xff5ec8, schallGross:0xffd54a, strudel:0x2fa8e0, bruell:0xfff2c4, stampfer:0xffb020 };
+      const ringFarben = { gift:0x7dffb2, wind:0xdff4ff, ring:0xbfeaff, ringLila:0xb36bff, sonne:0xffb020, frost:0x7fd6ff, frostStark:0x5ec8ff, saeule:0x9ff3ff, netz:0xd9c49a, schall:0xff5ec8, schallGross:0xffd54a, strudel:0x2fa8e0, bruell:0xfff2c4, stampfer:0xffb020 };
       const flashFarben = { schneesturm:'#dff6ff', kaelteschock:'#9ff3ff', himmelsfeuer:'#ff9a4a', himmelsblitz:'#7dffb2', bombenteppich:'#ffb37a', knall:'#ffd29a', sabotage:'#b49bff', geldregen:'#ffd54a', stachelsturm:'#dff6ff',
         nordlicht:'#5effc8', orbital:'#fff2a8', party:'#ff5ec8', tanz:'#b36bff', sternschnuppe:'#ffe066', eiszeit:'#bfeaff', anker:'#8a93a3',
-        tsunami:'#5ec8ff', stampf:'#fff2c4', festmahl:'#ffb347', overdrive:'#ff6a3a', raketenhagel:'#ffb37a', beben:'#ffd29a' };
+        tsunami:'#5ec8ff', stampf:'#fff2c4', festmahl:'#ffb347', finale:'#ff5ec8', fluch:'#7dffb2', orkan:'#dff4ff', meteor:'#ff9a4a',
+        schwarzloch:'#3a1a5a', supernova:'#fff7d6', bauchklatscher:'#9fe4ff', walrossruf:'#ffd54a', lawine:'#ffffff', overdrive:'#ff6a3a', raketenhagel:'#ffb37a', beben:'#ffd29a' };
       for (const e of liste) {
         switch (e.art) {
           case 'platzen': {
@@ -1070,6 +1097,17 @@
             this.funken(e.x, e.y, 10, 0x9fe4ff, 40, { streu:e.r, tempo:60, hoch:150, groesse:8, dauer:0.9 });
             this.effekte.push({ art:'welle', x:e.x, y:e.y, r:e.r, t:0, dauer:0.9, farbe:0xdff6ff });
             this.texte.push({ x:e.x, y:e.y, h:70, text:'🌊 Flutwelle!', farbe:'#9fe4ff', t:0, dauer:1.6, gross:24 });
+            break;
+          case 'verwandelt':
+            this.funken(e.x, e.y, 14, 0x7dffb2, 8, { tempo:50, hoch:70, groesse:6, dauer:0.6 });
+            this.texte.push({ x:e.x, y:e.y, h:24, text:'🐸', farbe:'#7dffb2', t:0, dauer:0.8, gross:16 });
+            break;
+          case 'eisregen':
+            this.flash = { farbe:'#dff6ff', t:0, dauer:0.35 };
+            break;
+          case 'finsternis':
+            this.finsternis = { t:0, dauer:e.dauer, x:e.x, y:e.y };
+            this.texte.push({ x:e.x, y:e.y, h:90, text:'🏮 Finsternis!', farbe:'#b49bff', t:0, dauer:1.6, gross:24 });
             break;
           case 'aufblasen':
             this.funken(e.x, e.y, 14, 0xffe08a, 6, { tempo:60, hoch:40, groesse:5, dauer:0.35 });
@@ -1105,6 +1143,20 @@
             break;
           case 'explosion': {
             const r = Math.max(12, e.r);
+            if (e.bild === 'feuerwerk' || e.bild === 'feuerwerkGold' || e.bild === 'feuerwerkBlau') {
+              // buntes Feuerwerk: Funken in vielen Farben
+              const r0 = Math.max(14, e.r);
+              for (const fc of [0xff5ec8, 0xffd54a, 0x5ec8ff, 0x7dffb2, 0xff6a3a]) this.funken(e.x, e.y, 20, fc, 5, { tempo:r0 * 3, hoch:120, groesse:7, dauer:0.7, grav:120 });
+              this.effekte.push({ art:'ring', x:e.x, y:e.y, r:r0 * 1.2, t:0, dauer:0.35, farbe:e.bild === 'feuerwerkBlau' ? 0x9fe4ff : 0xffd54a });
+              break;
+            }
+            if (e.bild === 'trank' || e.bild === 'trankLila' || e.bild === 'meteor') {
+              const fc = e.bild === 'meteor' ? 0xff7a2a : e.bild === 'trankLila' ? 0xb36bff : 0x7dffb2;
+              this.staubWolke(e.x, e.y, 8, fc, 6, { groesse:Math.max(22, e.r * 0.8), tempo:e.r * 0.6, dauer:1 });
+              this.effekte.push({ art:'welle', x:e.x, y:e.y, r:e.r, t:0, dauer:0.6, farbe:fc });
+              if (e.bild === 'meteor') { this.wackeln = 0.25; this.funken(e.x, e.y, 14, fc, 16, { tempo:200, hoch:150, groesse:9, dauer:0.7 }); }
+              break;
+            }
             const farbe = e.bild === 'schneeballBlau' ? 0xa8dcff : e.bild === 'rakete' ? 0xffb37a : e.bild === 'mine' ? 0xff6a3a : e.bild === 'rauch' ? 0x9aa3ad : e.bild === 'blitzbombe' ? 0xfff27a : 0xffffff;
             this.effekte.push({ art:'kugel', x:e.x, y:e.y, r, t:0, dauer:0.28, farbe });
             for (let i = 0; i < 6; i++) this.teilchenDazu(e.x, e.y, 10, 0xffffff, 2, r * 3);
@@ -1235,6 +1287,11 @@
         z.g.visible = z.runde <= spiel.runde;
         z.warn.material.opacity = z.runde === spiel.runde + 1 ? 0.35 + Math.sin(this.zeit * 5) * 0.3 : 0;
       }
+      // Wetter: Nebel kommt näher, der Leuchtturm dreht sein Licht
+      const nebel = spiel.wetter === 'nebel' ? 1 : spiel.wetter === 'schneesturm' ? 0.6 : 0;
+      this.wetterAnzeige += (nebel - this.wetterAnzeige) * Math.min(1, dt * 1.5);
+      if (sc.fog) { sc.fog.near = 1500 - this.wetterAnzeige * 1000; sc.fog.far = 3400 - this.wetterAnzeige * 1900; sc.fog.color.copy(this.nebelBasis).lerp(new T.Color(0xdfe6ee), this.wetterAnzeige * 0.7); }
+      if (this.leuchtKegel) this.leuchtKegel.rotation.y += dt * 0.8;
       this.pinguineZeichnen(spiel, dt);
       this.fischeZeichnen(spiel);
       this.geschosseZeichnen(spiel);
@@ -1280,10 +1337,13 @@
       });
       // Schneefall (weiche Flocken, leichter Wind)
       if (this.schneeP) {
-        const S = this.schneeP, c = this.schneeFarbe, wind = Math.sin(this.zeit * 0.2) * 5;
+        const W = spiel.wetter;
+        const sturm = W === 'schneesturm' ? 1 : 0, regen = W === 'eisregen' ? 1 : 0;
+        const S = this.schneeP, c = regen ? [0.7, 0.88, 1] : this.schneeFarbe, wind = Math.sin(this.zeit * 0.2) * 5 + sturm * 140 + regen * 30;
+        const fall = 1 + sturm * 2.5 + regen * 6;
         let i = 0;
         for (const f of this.schneeFlocken) {
-          f.y -= f.v * dt; if (f.y < 0) f.y += 500;
+          f.y -= f.v * dt * fall; if (f.y < 0) f.y += 500;
           f.x += (wind + Math.sin(this.zeit * 0.9 + f.ph) * 6) * dt;
           if (f.x > 750) f.x -= 1500; else if (f.x < -750) f.x += 1500;
           S.pos[i * 3] = f.x; S.pos[i * 3 + 1] = f.y; S.pos[i * 3 + 2] = f.z;
@@ -1640,6 +1700,22 @@
         x.fillStyle = t.farbe; x.fillText(t.text, sx, sy);
       }
       x.globalAlpha = 1;
+      // Wetter-Schleier: Polarlicht-Bänder, warmes Tauwetter, Finsternis von Abyssos
+      if (spiel.wetter === 'polarlicht') {
+        for (let k = 0; k < 3; k++) {
+          const g = x.createLinearGradient(0, 0, this.pw, 0);
+          const ph = this.zeit * 0.3 + k * 2;
+          g.addColorStop(0, 'rgba(60,255,160,0)'); g.addColorStop(0.5 + Math.sin(ph) * 0.3, `rgba(${k ? 150 : 60},${k === 2 ? 120 : 255},${k ? 255 : 170},0.13)`); g.addColorStop(1, 'rgba(60,160,255,0)');
+          x.fillStyle = g; x.fillRect(0, this.ph * (0.05 + k * 0.08) + Math.sin(ph * 1.3) * 20, this.pw, this.ph * 0.12);
+        }
+      } else if (spiel.wetter === 'tauwetter') { x.fillStyle = 'rgba(255,170,60,0.07)'; x.fillRect(0, 0, this.pw, this.ph); }
+      else if (spiel.wetter === 'nebel') { x.fillStyle = 'rgba(225,232,240,0.16)'; x.fillRect(0, 0, this.pw, this.ph); }
+      if (this.finsternis && spiel.zeit < spiel.finsternisBis) {
+        const k = Math.min(1, (spiel.finsternisBis - spiel.zeit) * 2);
+        const g = x.createRadialGradient(this.pw / 2, this.ph / 2, Math.min(this.pw, this.ph) * 0.1, this.pw / 2, this.ph / 2, Math.max(this.pw, this.ph) * 0.7);
+        g.addColorStop(0, `rgba(10,5,25,${0.45 * k})`); g.addColorStop(1, `rgba(5,0,15,${0.85 * k})`);
+        x.fillStyle = g; x.fillRect(0, 0, this.pw, this.ph);
+      }
       // Aufblitzen bei großen Fähigkeiten
       if (this.flash) {
         this.flash.t += dt;
@@ -1706,7 +1782,7 @@
         const m = new T.Mesh(fischGeo(typ), new T.MeshPhongMaterial({ vertexColors:true, shininess:50 }));
         m.rotation.y = -0.5;
         sc.add(m);
-        const d = f.r * (typ === 'krake' || typ === 'krakus' || typ === 'rochen' ? 6.5 : typ === 'orka' || typ === 'haikoenig' ? 7.2 : typ === 'leviathan' ? 8.5 : typ === 'flug' ? 6.2 : 5.2);
+        const d = f.r * (typ === 'krake' || typ === 'krakus' || typ === 'rochen' ? 6.5 : typ === 'orka' || typ === 'haikoenig' ? 7.2 : typ === 'leviathan' ? 8.5 : typ === 'abyssos' ? 6.8 : typ === 'flug' ? 6.2 : 5.2);
         k.position.set(d * 0.2, d * 0.45, d); k.lookAt(0, 0, 0);
         r.render(sc, k);
         fisch[typ] = c.toDataURL('image/png');

@@ -21,7 +21,8 @@
       bild:'zapfen', anzahl:1, streuung:0, splash:0, splashDurchschlag:0, riesen:0, frost:0,
       verlangsam:0, verlangsamDauer:0, betaeuben:0, riesenBetaeuben:0, riesenLangsam:0, zielsuchend:false, kette:0,
       kettenWeite:80, reichweite:0, splitter:0, nurRiesen:false, ablenken:0, panzerBrecher:false,
-      flugzeit:0.9, ungenau:0, haufen:null, mine:null
+      flugzeit:0.9, ungenau:0, haufen:null, mine:null,
+      gift:null, zurueck:0, verwandeln:0, schrumpf:0
     }, werte);
   }
   PT.angriff = angriff;
@@ -64,7 +65,16 @@
     eiszeit:      { name:'Eiszeit', symbol:'🧊', text:'Alle Fische schwimmen eine Weile halb so schnell, Pinguine in der Nähe werden schneller.' },
     tsunami:      { name:'Tsunami', symbol:'🌊', text:'Eine Riesenwelle spült alle Fische zurück und verletzt sie.' },
     stampf:       { name:'Bärenstampfer', symbol:'🐾', text:'Der Eisbär stampft: Alle Fische in der Nähe sind betäubt und verletzt.' },
-    festmahl:     { name:'Festmahl', symbol:'🍲', text:'Pinguine in der Nähe greifen kurz doppelt so schnell an.' }
+    festmahl:     { name:'Festmahl', symbol:'🍲', text:'Pinguine in der Nähe greifen kurz doppelt so schnell an.' },
+    finale:       { name:'Feuerwerks-Finale', symbol:'🎆', text:'Ein riesiges Feuerwerk explodiert entlang aller Kanäle.' },
+    fluch:        { name:'Großer Fluch', symbol:'🧪', text:'Alle Fische auf der Karte werden vergiftet.' },
+    orkan:        { name:'Orkan', symbol:'🌪️', text:'Ein Orkan weht alle Fische weit zurück.' },
+    meteor:       { name:'Meteoritenhagel', symbol:'☄️', text:'Meteoriten schlagen bei den stärksten Fischen ein.' },
+    schwarzloch:  { name:'Schwarzes Loch', symbol:'🕳️', text:'Saugt alle Fische ein Stück zurück und hält sie kurz fest.' },
+    supernova:    { name:'Supernova', symbol:'🌟', text:'Eine Sternenexplosion trifft jeden Fisch schwer.' },
+    bauchklatscher:{ name:'Bauchklatscher', symbol:'💦', text:'Walter springt: Alle Fische in der Nähe sind betäubt und verletzt.' },
+    walrossruf:   { name:'Walross-Ruf', symbol:'📣', text:'Pinguine in der Nähe greifen kurz doppelt so schnell an, dazu gibt es Geld.' },
+    lawine:       { name:'Walross-Lawine', symbol:'🏔️', text:'Eine Lawine schiebt alle Fische zurück und friert die kleinen ein.' }
   };
 
   /* ---------- Pinguine ---------- */
@@ -200,6 +210,39 @@
           { name:'Blizzard', preis:3000, text:'Reichweite +45, friert schneller und länger ein.', fx:s => { const a = A(s); s.reichweite += 45; a.intervall *= 0.6; a.frost += 0.5; for (const b of s.angriffe) if (b.reichweite) b.reichweite += 45; a.bild = 'frostStark'; } },
           { name:'Eiskristall-Kanone', preis:25000, text:'Eisstrahlen mit +15 Schaden und +30 gegen Riesen, dreimal so schnell.', fx:s => {
             const b = A(s, 'strahl'); if (b) { b.schaden += 15; b.riesen += 30; b.intervall *= 0.33; b.durchschlag += 5; b.typ = 'normal'; b.bild = 'eisstrahlGross'; } } }
+        ]
+      ]
+    },
+
+    feuerwerk: {
+      name:'Feuerwerks-Pinguin', preis:450, gruppe:'Primär', taste:'f', kurz:'Schießt Raketen, die als buntes Feuerwerk explodieren. Trifft viele Fische auf einmal.',
+      basis:() => ({ reichweite:150, camo:false, angriffe:[angriff({ intervall:1.6, schaden:1, typ:'explosion', tempo:430, flug:320, groesse:6, bild:'feuerwerk', splash:30, splashDurchschlag:10 })] }),
+      pfade:[
+        [
+          { name:'Knallfrösche', preis:300, text:'Größere Explosion.', fx:s => { const a = A(s); a.splash += 12; a.splashDurchschlag += 8; } },
+          { name:'Bunte Sterne', preis:500, text:'Jede Explosion verstreut 6 spitze Sterne.', fx:s => { A(s).splitterNadeln = 6; } },
+          { name:'Doppelknaller', preis:1400, text:'Zwei Raketen auf einmal.', fx:s => { const a = A(s); a.anzahl = Math.max(a.anzahl, 2); a.streuung = 0.2; } },
+          { name:'Silvesternacht', preis:5000, text:'+3 Schaden, 12 Sterne, riesige Explosion, +8 gegen Riesen.', fx:s => {
+            const a = A(s); a.schaden += 3; a.splitterNadeln = 12; a.splash += 20; a.splashDurchschlag += 20; a.riesen += 8; a.bild = 'feuerwerkGold'; } },
+          { name:'Feuerwerks-Finale', preis:30000, text:'+10 Schaden, +30 gegen Riesen. Fähigkeit: Feuerwerk entlang aller Kanäle.', fx:s => {
+            const a = A(s); a.schaden += 10; a.riesen += 30; a.splash += 15; F(s, { id:'finale', cd:45, schaden:40, riesen:700 }); } }
+        ],
+        [
+          { name:'Schnellzünder', preis:250, text:'Schießt 20 % schneller.', fx:s => { A(s).intervall *= 0.8; } },
+          { name:'Dauerfeuer', preis:500, text:'Schießt noch 33 % schneller.', fx:s => { A(s).intervall *= 0.67; } },
+          { name:'Raketenbatterie', preis:1600, text:'Drei Raketen auf einmal.', fx:s => { const a = A(s); a.anzahl = 3; a.streuung = 0.25; } },
+          { name:'Raketen-Orgel', preis:4500, text:'Doppelt so schnell, +2 Schaden.', fx:s => { const a = A(s); a.intervall *= 0.5; a.schaden += 2; } },
+          { name:'Himmelsspektakel', preis:26000, text:'Fünf Raketen, +5 Schaden, +15 gegen Riesen, noch schneller.', fx:s => {
+            const a = A(s); a.anzahl = 5; a.streuung = 0.3; a.schaden += 5; a.riesen += 15; a.intervall *= 0.6; a.bild = 'feuerwerkGold'; } }
+        ],
+        [
+          { name:'Weitflug', preis:200, text:'Reichweite +30.', fx:s => { s.reichweite += 30; A(s).flug += 30; } },
+          { name:'Blendrakete', preis:650, text:'Betäubt getroffene Fische kurz.', fx:s => { A(s).betaeuben = 0.4; } },
+          { name:'Leuchtraketen', preis:1500, text:'Sieht getarnte Fische und enttarnt sie in seiner Nähe.', fx:s => { s.camo = true; s.enttarnen = true; } },
+          { name:'Eisfeuerwerk', preis:4000, text:'Explosionen frieren ein und trifft auch Anglerfische, +2 Schaden.', fx:s => {
+            const a = A(s); a.frost = 0.6; a.riesenLangsam = 0.7; a.typ = 'normal'; a.schaden += 2; a.bild = 'feuerwerkBlau'; } },
+          { name:'Polarlicht-Show', preis:22000, text:'Pinguine in der Nähe greifen 20 % schneller an. Fähigkeit Party-Zeit.', fx:s => {
+            s.buff = { reichweite:0.1, camo:false, tempo:0.8, schaden:0, durchschlag:0, rabatt:0 }; A(s).schaden += 4; F(s, { id:'party', cd:40, dauer:10, faktor:2 }); } }
         ]
       ]
     },
@@ -497,6 +540,71 @@
     },
 
 
+    hexe: {
+      name:'Hexen-Pinguin', preis:600, gruppe:'Magie', taste:'x', kurz:'Wirft Zaubertränke: Gift frisst Fische nach und nach auf, später werden sie zu Rotbarschen.',
+      basis:() => ({ reichweite:135, camo:false, angriffe:[angriff({ intervall:1.3, schaden:1, typ:'normal', tempo:420, flug:300, groesse:6, bild:'trank', splash:28, splashDurchschlag:10, gift:{ dps:1.5, dauer:3 } })] }),
+      pfade:[
+        [
+          { name:'Starkes Gift', preis:400, text:'Gift wirkt doppelt so stark.', fx:s => { A(s).gift.dps *= 2; } },
+          { name:'Giftnebel', preis:800, text:'Größere Giftwolke.', fx:s => { const a = A(s); a.splash += 16; a.splashDurchschlag += 15; } },
+          { name:'Säurebad', preis:2500, text:'Gift wirkt länger und frisst auch Riesen fünfmal so schnell.', fx:s => { const g = A(s).gift; g.dauer = 5; g.riesen = 5; g.dps += 2; } },
+          { name:'Pestwolke', preis:8000, text:'Gift +10 pro Sekunde, riesige Wolke.', fx:s => { const a = A(s); a.gift.dps += 10; a.splash += 25; a.splashDurchschlag += 30; a.bild = 'trankLila'; } },
+          { name:'Hexenkessel', preis:30000, text:'Gift +40 pro Sekunde. Fähigkeit Großer Fluch: alle Fische vergiftet.', fx:s => {
+            A(s).gift.dps += 40; F(s, { id:'fluch', cd:45, dps:30, dauer:6 }); } }
+        ],
+        [
+          { name:'Schrumpftrank', preis:500, text:'+1 Schaden.', fx:s => { A(s).schaden += 1; } },
+          { name:'Krötentrank', preis:1200, text:'Kleine Fische werden manchmal (10 %) zum Rotbarsch.', fx:s => { A(s).verwandeln = 0.1; } },
+          { name:'Großer Krötentrank', preis:3500, text:'Jeder vierte kleine Fisch wird zum Rotbarsch.', fx:s => { A(s).verwandeln = 0.25; A(s).intervall *= 0.8; } },
+          { name:'Riesen-Fluch', preis:9000, text:'Jeder Treffer nimmt Riesen 2 % ihres Lebens.', fx:s => { A(s).schrumpf = 0.02; } },
+          { name:'Oberhexe', preis:32000, text:'40 % werden zum Rotbarsch, Riesen verlieren 4 % pro Treffer, schneller.', fx:s => {
+            const a = A(s); a.verwandeln = 0.4; a.schrumpf = 0.04; a.intervall *= 0.6; } }
+        ],
+        [
+          { name:'Kristallkugel', preis:300, text:'Sieht getarnte Fische.', fx:s => { s.camo = true; } },
+          { name:'Besenflug', preis:600, text:'Reichweite +40.', fx:s => { s.reichweite += 40; A(s).flug += 40; } },
+          { name:'Hexenkatze', preis:1500, text:'Eine schwarze Katze springt zusätzlich auf Fische.', fx:s => {
+            s.angriffe.push(angriff({ id:'katze', intervall:0.5, schaden:2, durchschlag:3, typ:'normal', tempo:520, flug:300, groesse:6, bild:'katze', zielsuchend:true, reichweite:s.reichweite + 40 })); } },
+          { name:'Hexenzirkel', preis:4500, text:'Pinguine in der Nähe: +1 Schaden. Katze +3 Schaden.', fx:s => {
+            s.buff = { reichweite:0, camo:false, tempo:1, schaden:1, durchschlag:0, rabatt:0 }; const k = A(s, 'katze'); if (k) k.schaden += 3; } },
+          { name:'Walpurgisnacht', preis:20000, text:'Zwei Katzen mit +8 Schaden. Fähigkeit Großer Fluch.', fx:s => {
+            const k = A(s, 'katze'); if (k) { k.anzahl = 2; k.streuung = 0.3; k.schaden += 8; k.riesen += 15; } F(s, { id:'fluch', cd:50, dps:20, dauer:6 }); } }
+        ]
+      ]
+    },
+
+    sturm: {
+      name:'Sturm-Pinguin', preis:700, gruppe:'Magie', taste:'g', kurz:'Schickt Wirbelstürme in den Kanal, die Fische zurückwehen. Später Blitze und Wind.',
+      basis:() => ({ reichweite:130, camo:false, angriffe:[angriff({ intervall:2.0, schaden:1, durchschlag:8, typ:'normal', tempo:200, flug:240, groesse:13, bild:'tornado', zurueck:35 })] }),
+      pfade:[
+        [
+          { name:'Wirbel', preis:350, text:'Tornados treffen 4 Fische mehr.', fx:s => { A(s).durchschlag += 4; } },
+          { name:'Windhose', preis:900, text:'Größere Tornados, wehen weiter zurück.', fx:s => { const a = A(s); a.groesse = 19; a.zurueck += 20; } },
+          { name:'Doppeltornado', preis:2400, text:'Zwei Tornados auf einmal.', fx:s => { const a = A(s); a.anzahl = 2; a.streuung = 0.35; } },
+          { name:'Hurrikan', preis:7000, text:'+3 Schaden, +10 gegen Riesen, +12 Durchschlag.', fx:s => { const a = A(s); a.schaden += 3; a.riesen += 10; a.durchschlag += 12; a.groesse = 24; } },
+          { name:'Jahrhundertsturm', preis:30000, text:'+8 Schaden. Fähigkeit Orkan: alle Fische weit zurück.', fx:s => {
+            const a = A(s); a.schaden += 8; a.riesen += 30; F(s, { id:'orkan', cd:50, weite:220, schaden:20, riesen:300 }); } }
+        ],
+        [
+          { name:'Gewitterwolke', preis:700, text:'Zusätzlich Blitze, die zu 4 Fischen springen.', fx:s => {
+            s.angriffe.push(angriff({ id:'blitz', art:'blitz', intervall:1.6, schaden:1, kette:4, typ:'normal', bild:'blitz' })); } },
+          { name:'Kugelblitz', preis:1500, text:'Blitze springen zu 8 Fischen, +1 Schaden.', fx:s => { const b = A(s, 'blitz'); if (b) { b.kette = 8; b.schaden += 1; } } },
+          { name:'Donnerschlag', preis:3000, text:'Blitze betäuben kurz und kommen öfter.', fx:s => { const b = A(s, 'blitz'); if (b) { b.betaeuben = 0.4; b.intervall *= 0.7; } } },
+          { name:'Superzelle', preis:8000, text:'Blitze springen zu 16 Fischen, +4 Schaden.', fx:s => { const b = A(s, 'blitz'); if (b) { b.kette = 16; b.schaden += 4; b.riesen += 6; b.bild = 'blitzGross'; } } },
+          { name:'Wettergott', preis:28000, text:'30 Sprünge, +10 Schaden, doppelt so oft.', fx:s => { const b = A(s, 'blitz'); if (b) { b.kette = 30; b.schaden += 10; b.riesen += 20; b.intervall *= 0.5; } } }
+        ],
+        [
+          { name:'Rückenwind', preis:250, text:'Greift 20 % schneller an.', fx:s => { for (const a of s.angriffe) a.intervall *= 0.8; } },
+          { name:'Fernwind', preis:500, text:'Reichweite +30.', fx:s => { s.reichweite += 30; A(s).flug += 30; } },
+          { name:'Gegenwind', preis:1200, text:'Fische in Reichweite schwimmen langsamer.', fx:s => { s.wind = 0.75; } },
+          { name:'Föhn', preis:4000, text:'Pinguine in der Nähe greifen 15 % schneller an, sehen getarnte Fische.', fx:s => {
+            s.buff = { reichweite:0, camo:true, tempo:0.85, schaden:0, durchschlag:0, rabatt:0 }; s.camo = true; } },
+          { name:'Wetterkontrolle', preis:18000, text:'Starker Gegenwind (auch für Riesen), Pinguine in der Nähe noch schneller.', fx:s => {
+            s.wind = 0.5; s.windRiesen = 0.75; s.buff.tempo = 0.75; s.reichweite += 20; } }
+        ]
+      ]
+    },
+
     laser: {
       name:'Laser-Pinguin', preis:2500, gruppe:'Magie', taste:'l', kurz:'Ein Super-Pinguin mit Laserblick. Teuer, aber schießt ohne Pause.',
       basis:() => ({ reichweite:165, camo:false, angriffe:[angriff({ intervall:0.11, schaden:1, durchschlag:1, typ:'normal', tempo:900, flug:300, groesse:4, bild:'laser' })] }),
@@ -686,7 +794,7 @@
   };
   for (const id of Object.keys(PINGUINE)) PINGUINE[id].id = id;
   PT.PINGUINE = PINGUINE;
-  PT.PINGUIN_REIHE = ['zapfen', 'rundum', 'schneeball', 'frost', 'harpune', 'boot', 'flieger', 'moerser', 'taucher', 'eisbaer', 'mecha', 'polar', 'ninja', 'laser', 'markt', 'haeuptling', 'disco', 'koch', 'fabrik'];
+  PT.PINGUIN_REIHE = ['zapfen', 'rundum', 'schneeball', 'frost', 'feuerwerk', 'harpune', 'boot', 'flieger', 'moerser', 'taucher', 'eisbaer', 'mecha', 'polar', 'ninja', 'laser', 'hexe', 'sturm', 'markt', 'haeuptling', 'disco', 'koch', 'fabrik'];
   PT.GRUPPEN = ['Primär', 'Militär', 'Magie', 'Unterstützung'];
 
   /* ---------- Helden ----------
@@ -759,11 +867,55 @@
         if (kraft && L >= 5) F(s, { id:'eiszeit', cd:L >= 9 ? 50 : 60, dauer:L >= 9 ? 10 : 7, faktor:1.4, radius:240 });
         return s;
       }
+    },
+    nova: {
+      name:'Sternenkapitänin Nova', preis:800, held:true, taste:'h', farbe:'#8e5bd6',
+      kurz:'Raumfahrerin mit Plasmablaster. Stark gegen Riesen, holt Meteoriten vom Himmel.',
+      kraft:{ id:'supernova', text:'Ab Stufe 5: Supernova trifft jeden Fisch schwer.' },
+      stufen:['Plasmablaster gegen einzelne Fische.', '+2 gegen Riesen.', 'Fähigkeit Meteoritenhagel.', 'Sieht getarnte Fische.', 'Zwei Schüsse auf einmal.',
+        '+1 Schaden, +4 gegen Riesen.', 'Fähigkeit Schwarzes Loch.', 'Schießt 35 % schneller.', 'Mehr Meteoriten.', '+3 Schaden, +15 gegen Riesen.'],
+      basis(L, kraft) {
+        const a = angriff({ intervall:0.75, schaden:2, durchschlag:2, typ:'normal', tempo:680, flug:320, groesse:5, bild:'plasma' });
+        const s = { reichweite:150, camo:false, angriffe:[a] };
+        if (L >= 2) a.riesen += 2;
+        if (L >= 3) F(s, { id:'meteor', cd:45, schaden:300, anzahl:3 });
+        if (L >= 4) s.camo = true;
+        if (L >= 5) { a.anzahl = 2; a.streuung = 0.1; }
+        if (L >= 6) { a.schaden += 1; a.riesen += 4; }
+        if (L >= 7) F(s, { id:'schwarzloch', cd:60, weite:110, dauer:1.5 });
+        if (L >= 8) a.intervall *= 0.65;
+        if (L >= 9) F(s, { id:'meteor', cd:38, schaden:900, anzahl:5 });
+        if (L >= 10) { a.schaden += 3; a.riesen += 15; }
+        if (kraft && L >= 5) F(s, { id:'supernova', cd:L >= 9 ? 45 : 55, schaden:L >= 9 ? 40 : 12, riesen:L >= 9 ? 900 : 250 });
+        return s;
+      }
+    },
+    walter: {
+      name:'Walter Walross', preis:650, held:true, taste:'h', farbe:'#8b5a2b',
+      kurz:'Gemütliches Walross mit Stoßzähnen. Haut kräftig zu, bremst Fische und bringt Geld.',
+      kraft:{ id:'lawine', text:'Ab Stufe 5: Walross-Lawine schiebt alle Fische zurück und friert die kleinen ein.' },
+      stufen:['Stoßzahn-Hiebe in der Nähe.', 'Reichweite +10.', 'Fähigkeit Bauchklatscher.', '+2 Schaden.', '+80 Geld pro Runde.',
+        'Fische in der Nähe schwimmen langsamer.', 'Fähigkeit Walross-Ruf.', 'Haut 40 % schneller zu.', '+250 Geld pro Runde, größerer Bauchklatscher.', '+5 Schaden, +20 gegen Riesen.'],
+      basis(L, kraft) {
+        const a = angriff({ art:'ring', intervall:1.1, schaden:1, durchschlag:12, typ:'normal', bild:'stampfer' });
+        const s = { reichweite:85, camo:false, angriffe:[a] };
+        if (L >= 2) s.reichweite += 10;
+        if (L >= 3) F(s, { id:'bauchklatscher', cd:40, radius:170, dauer:2, schaden:20, riesen:200 });
+        if (L >= 4) a.schaden += 2;
+        if (L >= 5) s.geld = { kisten:0, wert:0, flat:80 };
+        if (L >= 6) s.wind = 0.7;
+        if (L >= 7) F(s, { id:'walrossruf', cd:50, dauer:10, faktor:2, radius:220, betrag:400 });
+        if (L >= 8) a.intervall *= 0.6;
+        if (L >= 9) { s.geld.flat = 250; F(s, { id:'bauchklatscher', cd:32, radius:240, dauer:2.6, schaden:80, riesen:900 }); }
+        if (L >= 10) { a.schaden += 5; a.riesen += 20; a.durchschlag += 20; }
+        if (kraft && L >= 5) F(s, { id:'lawine', cd:L >= 9 ? 45 : 55, weite:L >= 9 ? 200 : 120, dauer:L >= 9 ? 2.5 : 1.5 });
+        return s;
+      }
     }
   };
   for (const id of Object.keys(HELDEN)) HELDEN[id].id = id;
   PT.HELDEN = HELDEN;
-  PT.HELDEN_REIHE = ['kiel', 'aurora', 'frosti'];
+  PT.HELDEN_REIHE = ['kiel', 'aurora', 'frosti', 'nova', 'walter'];
   PT.def = typ => PINGUINE[typ] || HELDEN[typ];
 
   // Werte eines Pinguins mit seinen Upgrades (pfade = [Stufe Pfad 1, 2, 3]) bzw. eines Helden auf Stufe L
