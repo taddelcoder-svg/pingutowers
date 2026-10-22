@@ -62,7 +62,7 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
     if (liste.size >= MAX_RAEUME) return null;
     const raum = {
       code:code(), host:null, phase:'lobby', mitglieder:new Map(), spiel:null, zuletzt:jetzt(),
-      einst:{ karte:'scholle', stufe:'mittel', modus:'standard', geldModus:'geteilt' },
+      einst:{ karte:'scholle', stufe:'mittel', modus:'standard', geldModus:'geteilt', wetter:true },
       takt:0, rest:0, tempo:1, pause:null, auto:false, autoWarte:0, ausstehend:[], summen:new Map(), letzteZeit:jetzt()
     };
     liste.set(raum.code, raum);
@@ -114,7 +114,7 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
     if (!mit.length) return;
     const e = raum.einst;
     raum.spiel = new PT.Spiel({
-      karte:e.karte, stufe:e.stufe, modus:e.modus, seed:seed() & 0xffffff, geldModus:e.geldModus, eigeneKarte:e.eigen,
+      karte:e.karte, stufe:e.stufe, modus:e.modus, seed:seed() & 0xffffff, geldModus:e.geldModus, eigeneKarte:e.eigen, wetter:e.wetter !== false,
       spieler:mit.map(m => ({ id:m.id, name:m.name, held:m.held, kraft:m.kraft }))
     });
     // Wer nur zuschaut (später kommt), spielt ab der nächsten Lobby mit
@@ -190,6 +190,7 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
           if (PT.STUFEN[d.stufe]) e.stufe = d.stufe;
           if (PT.MODI[d.modus]) e.modus = d.modus;
           if (PT.KOOP_GELD[d.geldModus]) e.geldModus = d.geldModus;
+          if (typeof d.wetter === 'boolean') e.wetter = d.wetter;
           return raumSenden(raum);
         }
         case 'start':

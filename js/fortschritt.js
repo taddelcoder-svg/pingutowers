@@ -53,7 +53,14 @@
     { id:'editor', symbol:'✏️', name:'Kartenbauer', text:'Gewinne auf einer selbst gebauten Karte.', muenzen:10, pruefen:k => sieg(k) && k.spiel.karte === 'eigen' },
     { id:'koch', symbol:'🍤', name:'Fischstäbchen-Fabrik', text:'Ein Koch-Pinguin verdient 5.000 Geld in einem Spiel.', muenzen:10, pruefen:k => k.spiel.tuerme.some(t => (t.verdient || 0) >= 5000) },
     { id:'pass25', symbol:'🎖️', name:'Halbe Strecke', text:'Erreiche Pinguin-Pass Stufe 25.', muenzen:20, pruefen:k => k.passStufe >= 25 },
-    { id:'pass50', symbol:'👑', name:'Pass-Legende', text:'Erreiche Pinguin-Pass Stufe 50.', muenzen:50, pruefen:k => k.passStufe >= 50 }
+    { id:'pass50', symbol:'👑', name:'Pass-Legende', text:'Erreiche Pinguin-Pass Stufe 50.', muenzen:50, pruefen:k => k.passStufe >= 50 },
+    { id:'abyssos', symbol:'🏮', name:'Licht aus, Abyssos!', text:'Besiege Abyssos, den Tiefseekönig.', muenzen:30, pruefen:bossWeg('abyssos') },
+    { id:'kapitel1', symbol:'🧊', name:'Kapitel 1', text:'Schaff alle Levels von „Die Eisscholle erwacht“.', muenzen:15, pruefen:k => !!(k.kampagne && PT.kapitelFertig && PT.kapitelFertig(1, k.kampagne)) },
+    { id:'kampagne', symbol:'📖', name:'Held von Pinguinhausen', text:'Schaff das ganze Abenteuer.', muenzen:60, pruefen:k => !!(k.kampagne && PT.kapitelFertig && [1, 2, 3, 4].every(n => PT.kapitelFertig(n, k.kampagne))) },
+    { id:'sterne72', symbol:'⭐', name:'Sternensammler', text:'Hol alle 72 Sterne im Abenteuer.', muenzen:80, pruefen:k => !!(k.kampagne && PT.LEVELS && PT.LEVELS.every(l => PT.sternZahl(k.kampagne[l.id]) === 3)) },
+    { id:'kisten10', symbol:'🎁', name:'Schatzjäger', text:'Öffne 10 Kisten.', muenzen:15, pruefen:k => (k.lebenslang.kisten || 0) >= 10 },
+    { id:'wetter', symbol:'🌦️', name:'Wetterfest', text:'Gewinne ein Spiel mit Wetter-Ereignissen auf Schwer oder Extrem.', muenzen:15, pruefen:k => sieg(k) && k.spiel.wetterAn && (k.spiel.stufe === 'schwer' || k.spiel.stufe === 'extrem') },
+    { id:'sammler', symbol:'👗', name:'Modepinguin', text:'Besitze 30 Looks.', muenzen:25, pruefen:k => (k.lookZahl || 0) >= 30 }
   ];
   // Welche Erfolge sind jetzt neu geschafft? (schon: Objekt der bisherigen)
   PT.erfolgePruefen = function (k, schon) {
@@ -138,6 +145,77 @@
       text:[a.text, b && b.text, `${regeln.runden} Runden auf ${PT.KARTEN[karte].name} (${PT.STUFEN[stufe].name})${held ? `, Held: ${PT.HELDEN[held].name}` : ''}.`].filter(Boolean).join(' '),
       xp:600 + (stufe === 'schwer' ? 300 : stufe === 'mittel' ? 150 : 0), muenzen:stufe === 'schwer' ? 25 : stufe === 'mittel' ? 18 : 12
     };
+  };
+
+  /* ---------- Kisten ----------
+     Holz, Silber und Gold. Inhalt: Fischmünzen, Pass-Erfahrung und mit etwas Glück ein Look oder Sockel aus der Kiste.
+     zufall: eine Funktion wie Math.random (für Tests austauschbar); besitz: { skins, sockel } schon vorhanden. */
+  PT.KISTEN = {
+    holz:   { name:'Holzkiste', symbol:'📦', teile:2, muenzen:[5, 15], xp:[100, 250], kosmetik:0.15 },
+    silber: { name:'Silberkiste', symbol:'🎁', teile:3, muenzen:[15, 35], xp:[250, 500], kosmetik:0.35 },
+    gold:   { name:'Goldkiste', symbol:'👑', teile:4, muenzen:[40, 80], xp:[500, 900], kosmetik:1 }
+  };
+  PT.KISTEN_REIHE = ['holz', 'silber', 'gold'];
+  PT.kistenKosmetik = () => [
+    ...PT.SKIN_REIHE.filter(id => PT.SKINS[id].herkunft === 'kiste').map(id => ({ skin:id })),
+    ...PT.SOCKEL_REIHE.filter(id => PT.SOCKEL[id].herkunft === 'kiste').map(id => ({ sockel:id }))
+  ];
+  PT.kisteOeffnen = function (art, besitz = {}, zufall = Math.random) {
+    const K = PT.KISTEN[art] || PT.KISTEN.holz;
+    const zw = ([a, b]) => Math.round(a + zufall() * (b - a));
+    const inhalt = [{ muenzen:zw(K.muenzen) }, { xp:zw(K.xp) }];
+    const offen = PT.kistenKosmetik().filter(k => !(k.skin ? (besitz.skins || {})[k.skin] : (besitz.sockel || {})[k.sockel]));
+    if (K.teile >= 3) inhalt.push(zufall() < 0.5 ? { muenzen:zw(K.muenzen) } : { xp:zw(K.xp) });
+    if (zufall() < K.kosmetik) {
+      if (offen.length) inhalt.push(offen[Math.floor(zufall() * offen.length)]);
+      else inhalt.push({ muenzen:zw(K.muenzen) * 2 });
+    } else if (K.teile >= 4) inhalt.push({ muenzen:zw(K.muenzen) });
+    return inhalt;
+  };
+
+  /* ---------- Händler ----------
+     Jeden Tag vier Angebote für Fischmünzen: zwei Looks oder Sockel aus den Kisten, eine Kiste und ein Erfahrungs-Booster. */
+  PT.haendlerAngebote = function (datum) {
+    const z = zufallAus('haendler|' + datum);
+    const pool = PT.kistenKosmetik();
+    const a = pool.splice(Math.floor(z() * pool.length), 1)[0], b = pool.splice(Math.floor(z() * pool.length), 1)[0];
+    const kiste = wahl(z, ['holz', 'silber', 'silber', 'gold']);
+    const preisKosmetik = k => (k.skin ? 80 : 45) + Math.floor(z() * 4) * 5;
+    return [
+      { id:'a', ...a, preis:preisKosmetik(a) },
+      { id:'b', ...b, preis:preisKosmetik(b) },
+      { id:'k', kiste, preis:{ holz:15, silber:35, gold:70 }[kiste] },
+      { id:'x', booster:3, preis:25 }
+    ];
+  };
+
+  /* ---------- Wochen-Quests ----------
+     Fünf größere Aufgaben pro Woche (Montag bis Sonntag), Belohnung: Erfahrung und eine Kiste. */
+  PT.wocheId = (d = new Date()) => {
+    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const tag = t.getUTCDay() || 7;
+    t.setUTCDate(t.getUTCDate() + 4 - tag);
+    const jahr = t.getUTCFullYear();
+    const woche = Math.ceil(((t - Date.UTC(jahr, 0, 1)) / 86400000 + 1) / 7);
+    return `${jahr}-W${String(woche).padStart(2, '0')}`;
+  };
+  const WOCHEN_ARTEN = [
+    { art:'platzer', ziel:20000, text:'Erwische 20.000 Fische', xp:1200, kiste:'silber' },
+    { art:'runden', ziel:120, text:'Schaff 120 Runden', xp:1200, kiste:'silber' },
+    { art:'sieg', ziel:3, text:'Gewinne 3 Spiele', xp:1500, kiste:'gold' },
+    { art:'bosse', ziel:2, text:'Besiege 2 Bosse', xp:1200, kiste:'silber' },
+    { art:'sterne', ziel:6, text:'Hol 6 Sterne im Abenteuer', xp:1200, kiste:'silber' },
+    { art:'tag', ziel:3, text:'Schaff 3 Tages-Herausforderungen', xp:1500, kiste:'gold' },
+    { art:'stufe5', ziel:6, text:'Kauf 6 Stufe-5-Upgrades', xp:1000, kiste:'silber' },
+    { art:'faehigkeiten', ziel:60, text:'Setz 60 Fähigkeiten ein', xp:1000, kiste:'silber' },
+    { art:'kisten', ziel:3, text:'Öffne 3 Kisten', xp:800, kiste:'holz' }
+  ];
+  PT.wochenQuests = function (woche) {
+    const z = zufallAus('woche|' + woche);
+    const pool = WOCHEN_ARTEN.slice();
+    const liste = [];
+    for (let i = 0; i < 5; i++) { const q = pool.splice(Math.floor(z() * pool.length), 1)[0]; liste.push({ ...q, id:q.art }); }
+    return liste;
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = PT;
