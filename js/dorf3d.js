@@ -371,6 +371,15 @@
         const i = mesh(G.halbkugel, mat(0xffd54a, 'phong', { shininess:160, specular:0xffffff, emissive:0x2a1a00 }), 10, 12, -215); i.scale.set(34, 30, 34); g.add(i);
         const t = mesh(G.zyl, mat(0xffe9a8), 10, 16, -180); t.scale.set(10, 14, 10); t.rotation.x = Math.PI / 2; g.add(t);
       }
+      if (deko.legendenstatue) {
+        // Statue der Legende: ein goldener Pinguin mit Flügeln auf einem Sternensockel
+        const so = mesh(new T.CylinderGeometry(20, 26, 22, 10), mat(0x2a2050, 'phong', { flatShading:true, emissive:0x1a1040 }), -120, 22, -10); g.add(so);
+        for (let i = 0; i < 5; i++) { const w = i / 5 * Math.PI * 2; const st = mesh(G.okta, mat(0xfff2a8, 'basic'), -120 + Math.cos(w) * 24, 34, -10 + Math.sin(w) * 24); st.scale.setScalar(3); g.add(st); }
+        const fig = PT.M3.pinguinFigur('ewigesherzlicht');
+        fig.traverse(o => { if (o.isMesh) o.material = mat(0xffe08a, 'phong', { shininess:160, specular:0xffffff, emissive:0x4a3000 }); });
+        fig.scale.setScalar(1.1); fig.position.set(-120, 33, -10); fig.rotation.y = -1.2; g.add(fig);
+        const l = new T.PointLight(0xffd27a, 0.9, 260, 1.6); l.position.set(-120, 90, -10); g.add(l);
+      }
       if (deko.nordlichter) for (const [farbe, z] of [[0x3cff9a, -500], [0x9a6bff, -560], [0x3cc8ff, -620]]) {
         const n = new T.Mesh(new T.PlaneGeometry(1400, 160, 24, 1), new T.MeshBasicMaterial({ color:farbe, transparent:true, opacity:0.18, side:T.DoubleSide, depthWrite:false, blending:T.AdditiveBlending }));
         n.position.set(0, 330, z); n.basis = n.geometry.attributes.position.array.slice(); g.add(n); this.nordlicht.push(n);

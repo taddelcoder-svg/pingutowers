@@ -55,6 +55,13 @@
     uralt:    { name:'Auge des Uralten', rumpf:0x5a3a10, bauch:0xffd27a, glanz:true, leuchten:0x4a2a00, extra:'maske', aura:'feuer', herkunft:'kampagne' },
     hueterin: { name:'Nova, Hüterin des Lichts', rumpf:0x14304a, bauch:0xfff2c4, glanz:true, leuchten:0x6a4a00, extra:'heiligenschein', aura:'licht', herkunft:'kampagne' },
     kommandantin:{ name:'Kommandantin Mia', rumpf:0x8a8f99, bauch:0xffe6f0, glanz:true, extra:'stahlhelm', herkunft:'kampagne' },
+    // Prestige: nur auf der Leiste nach einem Prestige (prestige: ab welchem Stern)
+    sternwanderer:{ name:'Sternwanderer', rumpf:0x1a2a5a, bauch:0xdfe6ff, glanz:true, leuchten:0x1a2a6a, extra:'glitzer', aura:'licht', herkunft:'prestige', prestige:1 },
+    polarstern:{ name:'Polarstern', rumpf:0xdff6ff, bauch:0xffffff, glanz:true, leuchten:0x2a5a8a, extra:'heiligenschein', aura:'schnee', herkunft:'prestige', prestige:2 },
+    sonnenpingu:{ name:'Sonnenkönig', rumpf:0xffb020, bauch:0xfff2c4, glanz:true, leuchten:0x6a3a00, extra:'krone', aura:'feuer', herkunft:'prestige', prestige:3 },
+    kristallkaiser:{ name:'Kristallkaiser', rumpf:0xb8a0ff, bauch:0xf4ecff, glanz:true, leuchten:0x3a1a6a, extra:'eisruestung', aura:'frost', herkunft:'prestige', prestige:4, mythisch:true },
+    sternenkaiser:{ name:'Sternenkaiser', rumpf:0x0a0a2a, bauch:0x9a8aff, glanz:true, leuchten:0x2a1a6a, extra:'krone', aura:'regenbogen', herkunft:'prestige', prestige:5, mythisch:true },
+    ewigesherzlicht:{ name:'Ewiges Herzlicht', rumpf:0xfff2c4, bauch:0xffffff, glanz:true, leuchten:0x8a6a10, extra:'fluegel', aura:'licht', herkunft:'prestige', prestige:5, mythisch:true },
     novalicht:{ name:'Novas Licht', rumpf:0x14304a, bauch:0xfff2c4, glanz:true, leuchten:0x4a3a00, extra:'laterne', aura:'licht', herkunft:'dorf' },
     veteran:  { name:'Walters Helm', rumpf:0x3a3a30, bauch:0xe8e0c8, extra:'stahlhelm', herkunft:'dorf' },
     // Pinguin-Pass 2.0 (Stufe 36–100). aura: Teilchen rund um den Pinguin im Spiel
@@ -122,7 +129,12 @@
     krater:   { name:'Lava-Krater', farbe:0x3a2a2a, leuchten:0xaa3a00 },
     schwarzloch:{ name:'Schwarzes Loch', farbe:0x0a0612, leuchten:0x3a0a6a },
     thron:    { name:'Kristall-Thron', farbe:0xffd54a, leuchten:0x5a3a00, bunt:true },
-    legende:  { name:'Legende', farbe:0xfff2c4, leuchten:0x6a4a00, bunt:true }
+    legende:  { name:'Legende', farbe:0xfff2c4, leuchten:0x6a4a00, bunt:true },
+    prestige1:{ name:'Bronze-Stern', farbe:0xd8955a, leuchten:0x3a1a00, herkunft:'prestige', prestige:1 },
+    prestige2:{ name:'Silber-Stern', farbe:0xe6eef4, leuchten:0x2a3a4a, herkunft:'prestige', prestige:2 },
+    prestige3:{ name:'Gold-Stern', farbe:0xffd54a, leuchten:0x5a3a00, herkunft:'prestige', prestige:3 },
+    prestige4:{ name:'Diamant-Stern', farbe:0xbff8ff, leuchten:0x2a7a9a, herkunft:'prestige', prestige:4, bunt:true },
+    prestige5:{ name:'Herzlicht-Stern', farbe:0xfff2c4, leuchten:0x8a5a00, herkunft:'prestige', prestige:5, bunt:true }
   };
   PT.SOCKEL_REIHE = Object.keys(PT.SOCKEL);
 
@@ -130,7 +142,8 @@
   PT.TITEL = {
     neuling:'Neuling', fischjaeger:'Fischjäger', eisbrecher:'Eisbrecher', frostherz:'Frostherz', turmbauer:'Turmbaumeister',
     bossjaeger:'Bossjäger', schattenlaeufer:'Schattenläufer', sturmreiter:'Sturmreiter', nachtwache:'Nachtwache', phoenix:'Aus der Asche',
-    unbesiegbar:'Unbesiegbar', tiefseejaeger:'Tiefseejäger', unaufhaltsam:'Unaufhaltsam', legende:'Legende von Pinguinhausen'
+    unbesiegbar:'Unbesiegbar', tiefseejaeger:'Tiefseejäger', unaufhaltsam:'Unaufhaltsam', legende:'Legende von Pinguinhausen',
+    aufsteiger:'Aufsteiger ⭐', eisveteran:'Eisveteran ⭐⭐', grossmeister:'Großmeister ⭐⭐⭐', unsterblich:'Unsterblich ⭐⭐⭐⭐', ewig:'Ewiges Herzlicht ⭐⭐⭐⭐⭐'
   };
   PT.TITEL_REIHE = Object.keys(PT.TITEL);
   // Effekte, wenn eigene Pinguine einen Fisch erwischen (nur Aussehen): Farben der Funken, dazu ein Zeichen
@@ -141,18 +154,20 @@
     schatten:{ name:'Schattenhauch', farben:[0x3a1a5a, 0x7a4ab8], zeichen:'🌑' }, blitze:{ name:'Blitzschlag', farben:[0xfff27a, 0xc3b0ff], zeichen:'⚡' },
     regenbogen:{ name:'Regenbogen', farben:[0xff3a3a, 0xffa03a, 0xffe03a, 0x3aff7a, 0x3aa0ff, 0xa03aff], zeichen:'🌈' },
     schnee:{ name:'Schneegestöber', farben:[0xffffff, 0xbfeaff], zeichen:'❄️' }, flammen:{ name:'Phönixfeuer', farben:[0xff6a1a, 0xffc040, 0xff2a1a], zeichen:'🔥' },
-    gold:{ name:'Goldregen', farben:[0xffd54a, 0xfff2a8], zeichen:'🪙' }, herzlicht:{ name:'Herzlicht', farben:[0xfff2c4, 0xffd54a, 0xffffff], zeichen:'💛' }
+    gold:{ name:'Goldregen', farben:[0xffd54a, 0xfff2a8], zeichen:'🪙' }, herzlicht:{ name:'Herzlicht', farben:[0xfff2c4, 0xffd54a, 0xffffff], zeichen:'💛' },
+    sternschnuppen:{ name:'Sternschnuppen', farben:[0xdfe6ff, 0x9a8aff, 0xffffff], zeichen:'🌠' }, diamantregen:{ name:'Diamantregen', farben:[0xbff8ff, 0xffffff, 0x7fd6ff], zeichen:'💎' }
   };
   PT.EFFEKT_REIHE = Object.keys(PT.EFFEKTE);
   PT.TAENZE = {
     standard:{ name:'Jubeln' }, huepfen:{ name:'Freudensprünge' }, drehen:{ name:'Pirouette' }, wackeln:{ name:'Watschel-Wackeln' },
-    welle:{ name:'La-Ola-Welle' }, salto:{ name:'Salto' }, disco:{ name:'Disco-Fieber' }, triumph:{ name:'Triumphsprung' }
+    welle:{ name:'La-Ola-Welle' }, salto:{ name:'Salto' }, disco:{ name:'Disco-Fieber' }, triumph:{ name:'Triumphsprung' },
+    sternsprung:{ name:'Sternensprung' }, kronentanz:{ name:'Kronen-Tanz' }, legendentanz:{ name:'Tanz der Legenden' }
   };
   PT.TAENZE_REIHE = Object.keys(PT.TAENZE);
   PT.DEKO = {
     lichterkette:{ name:'Lichterkette', symbol:'💡' }, fahnen:{ name:'Siegesfahnen', symbol:'🚩' }, eisskulptur:{ name:'Eisskulptur', symbol:'🧊' },
     goldstatue:{ name:'Goldene Statue', symbol:'🗽' }, goldiglu:{ name:'Goldenes Iglu', symbol:'🏆' }, nordlichter:{ name:'Nordlichter', symbol:'🌌' },
-    feuerwerk:{ name:'Feuerwerk über dem Dorf', symbol:'🎆' }
+    feuerwerk:{ name:'Feuerwerk über dem Dorf', symbol:'🎆' }, legendenstatue:{ name:'Statue der Legende', symbol:'🌟' }
   };
   PT.DEKO_REIHE = Object.keys(PT.DEKO);
 
@@ -226,6 +241,40 @@
     const ziel = { skin:'skins', sockel:'sockel', titel:'titel', effekt:'effekte', tanz:'taenze', kraft:'kraefte', deko:'deko' };
     for (const x of Object.values(PT.PASS_STUFEN)) for (const b of x.b) for (const [k, v] of Object.entries(b)) if (ziel[k]) r[ziel[k]][v] = true;
     return r;
+  };
+  /* ---------- Leiste nach einem Prestige ----------
+     Was du schon besitzt, wird zu Eiskristallen (nach Seltenheit). Auf 25, 50, 75 und 100 gibt es Dinge,
+     die es nur in diesem Prestige gibt; Prestige 5 endet mit dem „Ewigen Herzlicht“. */
+  const ERSATZ = { g:3, s:5, e:8, l:15, m:30 };
+  PT.PRESTIGE_BELOHNUNG = {
+    1:{ 25:[{ sockel:'prestige1' }], 50:[{ skin:'sternwanderer' }, { kiste:'gold' }], 75:[{ tanz:'sternsprung' }], 100:[{ titel:'aufsteiger' }, { kiste:'gold' }] },
+    2:{ 25:[{ sockel:'prestige2' }], 50:[{ skin:'polarstern' }, { kiste:'gold' }], 75:[{ effekt:'sternschnuppen' }], 100:[{ titel:'eisveteran' }, { kiste:'gold' }] },
+    3:{ 25:[{ sockel:'prestige3' }], 50:[{ skin:'sonnenpingu' }, { kiste:'gold' }], 75:[{ tanz:'kronentanz' }], 100:[{ titel:'grossmeister' }, { kiste:'gold' }] },
+    4:{ 25:[{ sockel:'prestige4' }], 50:[{ skin:'kristallkaiser' }, { kiste:'gold' }], 75:[{ effekt:'diamantregen' }], 100:[{ titel:'unsterblich' }, { kiste:'gold' }] },
+    5:{ 25:[{ sockel:'prestige5' }], 50:[{ skin:'sternenkaiser' }, { kiste:'gold' }], 75:[{ tanz:'legendentanz' }],
+      100:[{ skin:'ewigesherzlicht' }, { titel:'ewig' }, { deko:'legendenstatue' }, { kiste:'gold' }] }
+  };
+  const KOSMETIK = ['skin', 'sockel', 'titel', 'effekt', 'tanz', 'deko', 'kraft'];
+  // Belohnungen einer Stufe im jeweiligen Prestige ({ s, b, prestige: true bei Prestige-Exklusivem })
+  PT.passStufeInfo = function (st, prestige) {
+    const x = PT.PASS_STUFEN[st];
+    if (!x || !prestige) return x;
+    let kristalle = 0;
+    const b = [];
+    for (const r of x.b) {
+      if (KOSMETIK.some(k => r[k])) kristalle += ERSATZ[x.s];
+      else if (r.kristalle) kristalle += r.kristalle;
+      else b.push(r);
+    }
+    const extra = (PT.PRESTIGE_BELOHNUNG[Math.min(PT.PRESTIGE_MAX, prestige)] || {})[st];
+    if (extra) b.unshift(...extra);
+    if (kristalle) b.push({ kristalle });
+    return { s:extra ? (st === 50 || st === 100 ? 'm' : 'l') : x.s, b, prestige:!!extra };
+  };
+  // Prestige-Sachen: auf welcher Prestige-Stufe und Pass-Stufe gibt es sie?
+  PT.prestigeQuelle = function (art, id) {
+    for (const [p, st] of Object.entries(PT.PRESTIGE_BELOHNUNG)) for (const [s, liste] of Object.entries(st)) if (liste.some(b => b[art] === id)) return { prestige:+p, stufe:+s };
+    return null;
   };
   PT.prestigeFaktor = p => 1 + 0.25 * Math.max(0, Math.min(PT.PRESTIGE_MAX, p || 0));
   // Erfahrung: für jede geschaffte Runde (mehr auf schweren Stufen), für Siege und besiegte Bosse

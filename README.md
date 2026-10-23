@@ -86,6 +86,9 @@ Tasten: Buchstaben am Pinguin im Laden (`Q W E R F T S P O V B M Z N L X G U I D
 - Neue Belohnungen: ~25 Looks (viele mit **Aura** im Spiel), Sockel, **Titel**, **Platz-Effekte**, **Siegestänze**,
   **Dorf-Deko**, Eiskristalle, Kisten, Doppel-XP. Titel, Prestige-Sterne und Platz-Effekte sehen auch Mitspieler.
 - **Prestige** (bis 5): nach Stufe 100 neu starten, alles Freigeschaltete bleibt, mehr Münzen aus dem Pass.
+  Jedes Prestige hat eigene Belohnungen auf Stufe 25, 50, 75 und 100 (Stern-Sockel, Prestige-Looks, Tänze,
+  Effekte, Titel); was man schon besitzt, wird auf der Leiste zu Eiskristallen. Prestige 5 endet mit dem Look
+  „Ewiges Herzlicht“, dem Titel dazu und der Statue der Legende im Pingu-Dorf (`PT.passStufeInfo` in `pass.js`).
 - Große Pass-Seite mit allen Stufen als Karten, Aufstiegs-Karte (Mythisch mit Lichtstrahl), tägliche Login-Belohnung.
 - Umstieg: Wer nach der alten Rechnung schon weit war, landet direkt auf der passenden Stufe, Belohnungen werden gutgeschrieben.
 
