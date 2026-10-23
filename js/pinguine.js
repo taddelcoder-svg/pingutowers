@@ -379,7 +379,7 @@
           { name:'Dreizack-Wirbel', preis:450, text:'Sticht drei Fische auf einmal.', fx:s => { const a = A(s); a.anzahl = 3; a.streuung = 0.35; } },
           { name:'Strudel', preis:1400, text:'Ein Strudel zieht Fische in der Nähe zurück und bremst sie.', fx:s => {
             s.angriffe.push(angriff({ id:'strudel', art:'ring', intervall:1.8, schaden:1, durchschlag:20, typ:'normal', bild:'strudel', verlangsam:0.5, verlangsamDauer:1.5, ablenken:0.35, reichweite:s.reichweite * 0.8 })); } },
-          { name:'Poseidon-Pinguin', preis:5500, text:'+5 Schaden, +20 gegen Riesen, größerer Strudel.', fx:s => {
+          { name:'Neptun-Pinguin', preis:5500, text:'+5 Schaden, +20 gegen Riesen, größerer Strudel.', fx:s => {
             const a = A(s); a.schaden += 5; a.riesen += 20; a.durchschlag += 3; a.bild = 'dreizackGold'; const b = A(s, 'strudel'); if (b) { b.schaden += 3; b.reichweite += 30; b.durchschlag += 30; } } },
           { name:'Herrscher der Tiefe', preis:28000, text:'+15 Schaden, +60 gegen Riesen. Fähigkeit Tsunami: spült alle Fische zurück.', fx:s => {
             const a = A(s); a.schaden += 15; a.riesen += 60; a.intervall *= 0.7; F(s, { id:'tsunami', cd:55, schaden:40, riesen:400, weite:160 }); } }
