@@ -54,6 +54,8 @@
     { id:'koch', symbol:'🍤', name:'Fischstäbchen-Fabrik', text:'Ein Koch-Pinguin verdient 5.000 Geld in einem Spiel.', muenzen:10, pruefen:k => k.spiel.tuerme.some(t => (t.verdient || 0) >= 5000) },
     { id:'pass25', symbol:'🎖️', name:'Halbe Strecke', text:'Erreiche Pinguin-Pass Stufe 25.', muenzen:20, pruefen:k => k.passStufe >= 25 },
     { id:'pass50', symbol:'👑', name:'Pass-Legende', text:'Erreiche Pinguin-Pass Stufe 50.', muenzen:50, pruefen:k => k.passStufe >= 50 },
+    { id:'pass100', symbol:'💛', name:'Herzlicht', text:'Erreiche Pinguin-Pass Stufe 100.', muenzen:100, pruefen:k => k.passStufe >= 100 },
+    { id:'prestige', symbol:'⭐', name:'Noch einmal von vorn', text:'Starte das erste Prestige im Pinguin-Pass.', muenzen:50, pruefen:k => (k.prestige || 0) >= 1 },
     { id:'abyssos', symbol:'🏮', name:'Licht aus, Abyssos!', text:'Besiege Abyssos, den Tiefseekönig.', muenzen:30, pruefen:bossWeg('abyssos') },
     { id:'kapitel1', symbol:'🌊', name:'Die Flut', text:'Schaff alle Levels von Kapitel 1 des Abenteuers.', muenzen:15, pruefen:k => !!(k.kampagne && PT.kapitelFertig && PT.kapitelFertig(1, k.kampagne)) },
     { id:'kampagne', symbol:'📖', name:'Schwarzes Eis', text:'Schaff das ganze Abenteuer bis zum bitteren Ende.', muenzen:60, pruefen:k => !!(k.kampagne && PT.abenteuerFertig && PT.abenteuerFertig(k.kampagne)) },

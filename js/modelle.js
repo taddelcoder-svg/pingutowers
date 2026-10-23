@@ -521,6 +521,15 @@
       if (E === 'blatt') { const b = M(G.kugel, 0xe0701a, 0, 41, 0, 5, 0.6, 3); b.rotation.set(0.4, 0.5, 0.3); M(G.zyl, 0x6b4a2a, -3, 40, 0, 0.3, 4, 0.3).rotation.z = 0.8; }
       if (E === 'kuerbis') { const k = M(G.kugel, 0xff8a1a, 1, 31, 0, 9.5, 8.5, 9.5, 'phong', { emissive:0x2a0e00 }); k.castShadow = true; for (const z of [-1, 1]) M(G.kegel4, 0xfff27a, 9.4, 33, z * 3.4, 1.6, 2, 0.6, 'basic').rotation.z = -Math.PI / 2; M(G.box, 0xfff27a, 9.4, 27.5, 0, 0.6, 1.4, 6, 'basic'); M(G.zyl, 0x3a6a1a, 1, 40.5, 0, 1.2, 3, 1.2); }
       if (E === 'laterne') { M(G.zyl, 0x6b4a2a, 7, 26, 11, 0.4, 14, 0.4).rotation.z = -0.3; M(G.kugel, 0xff9a3a, 9.5, 18, 11, 3.6, 4.2, 3.6, 'basic', { transparent:true, opacity:0.9 }); M(G.torus, 0x3a2a5a, 1, 33, 0, 8.3, 8.3, 3).rotation.x = Math.PI / 2; }
+      if (E === 'stirnband') { M(G.torus, 0xd8262b, 1, 33.5, 0, 8.4, 8.4, 4).rotation.x = Math.PI / 2; for (const z of [-1, 1]) { const b = M(G.box, 0xd8262b, -8.5, 32, z * 1.5, 0.6, 1.4, 6); b.rotation.set(z * 0.6, 0, 0.4); } }
+      if (E === 'heiligenschein') { const h = M(G.torus, 0xffe066, 1, 43, 0, 6.2, 6.2, 5, 'basic'); h.rotation.x = Math.PI / 2; h.castShadow = false; }
+      if (E === 'fluegel') for (const z of [-1, 1]) for (let i = 0; i < 3; i++) { const f = M(G.kugel, 0xffffff, -8 - i * 2, 24 + i * 3, z * (6 + i * 2.5), 2.2, 8 - i, 1, 'phong', { emissive:0x2a3a4a }); f.rotation.set(z * (0.9 + i * 0.25), 0, 0.5); }
+      if (E === 'eisruestung') {
+        for (const z of [-1, 1]) { M(G.kugel, 0xbff4ff, 0, 25, z * 10.5, 4.4, 2.4, 4, 'phong', { shininess:160, emissive:0x0a3a5a }); for (let i = 0; i < 3; i++) M(G.kegel4, 0xe6fbff, -2 + i * 2, 28.5, z * (10.5 + i * 0.4), 0.9, 5 + i, 0.9, 'phong', { emissive:0x0a3a5a }).rotation.x = z * 0.35; }
+        M(G.kugel, 0xbff4ff, 5, 18, 0, 3, 9, 6.5, 'phong', { shininess:160, transparent:true, opacity:0.75 });
+        for (let i = 0; i < 5; i++) M(G.kegel4, 0xe6fbff, 1 - i * 1.2, 40 + (i % 2) * 2, (i - 2) * 2.2, 0.9, 5, 0.9, 'phong', { emissive:0x0a4a6a });
+        for (const z of [-1, 1]) M(G.kugelGrob, 0x7ff0ff, 7.9, 32, z * 3.5, 1.3, 1.3, 1.3, 'basic');
+      }
       if (E === 'opa') {
         for (const z of [-1, 1]) { M(G.torus, 0xc9a24a, 7.9, 32, z * 3.4, 2.4, 2.4, 1.6).rotation.y = Math.PI / 2; M(G.kugel, 0xffffff, 6.4, 35.4, z * 3.8, 2.6, 0.9, 1.8); }
         M(G.torus, 0xb3261e, 1, 23.5, 0, 8.8, 8.8, 7).rotation.x = Math.PI / 2; M(G.box, 0xb3261e, 7, 17, 4, 1.4, 8, 2.6).rotation.z = 0.2;

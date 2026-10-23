@@ -131,10 +131,21 @@ for (const held of PT.HELDEN_REIHE) {
 // Pinguin-Pass
 {
   require('../js/pass.js');
-  pruefe(PT.passStufe(0).stufe === 1 && PT.passStufe(200).stufe === 2 && PT.passStufe(1e9).stufe === PT.PASS_MAX, 'Pass-Stufen');
-  pruefe(PT.skinFrei('standard', 1) && !PT.skinFrei('gold', 24) && PT.skinFrei('gold', 25), 'Looks freischalten');
+  pruefe(PT.passStufe(0).stufe === 1 && PT.passStufe(225).stufe === 2 && PT.passStufe(1e9).stufe === PT.PASS_MAX && PT.PASS_MAX === 100, 'Pass-Stufen');
+  pruefe(PT.passStufeAlt(68600) === 50 && PT.passStufe(68600).stufe >= 50, 'Umstieg auf 100 Stufen');
+  for (let st = 1; st <= 100; st++) pruefe(PT.PASS_STUFEN[st] && PT.SELTENHEIT[PT.PASS_STUFEN[st].s] && PT.PASS_STUFEN[st].b.length, 'Pass-Stufe ' + st);
+  pruefe([25, 50, 75, 100].every(st => PT.PASS_STUFEN[st].s === 'm'), 'Mythisch auf 25/50/75/100');
+  pruefe(PT.titelFrei('legende', 100) && !PT.titelFrei('legende', 99) && PT.effektFrei('standard', 1) && PT.tanzFrei('salto', 68), 'Titel, Effekte, Tänze');
+  const allesP = PT.passAllesBesitz();
+  pruefe(PT.skinFrei('legende', 1, allesP) && PT.kraftFrei('nova', 1, allesP) && PT.dekoFrei('feuerwerk', 1, allesP), 'Prestige behält alles');
+  for (const id of [...PT.TITEL_REIHE, ...PT.EFFEKT_REIHE]) pruefe(/^[a-z]{1,16}$/.test(id), 'Name für den Server: ' + id);
+  pruefe(PT.skinFrei('standard', 1) && !PT.skinFrei('gold', 25) && PT.skinFrei('gold', 26), 'Looks freischalten');
   pruefe(PT.kraftFrei('kiel', 3) && !PT.kraftFrei('frosti', 10), 'Meisterkräfte freischalten');
-  for (const [, b] of Object.entries(PT.PASS_BELOHNUNG)) pruefe(b.skin ? PT.SKINS[b.skin] : b.sockel ? PT.SOCKEL[b.sockel] : b.muenzen ? b.muenzen > 0 : PT.HELDEN[b.kraft], 'Belohnung unbekannt');
+  for (const x of Object.values(PT.PASS_STUFEN)) for (const b of x.b) {
+    const [k, v] = Object.entries(b)[0];
+    const liste = { skin:PT.SKINS, sockel:PT.SOCKEL, kraft:PT.HELDEN, titel:PT.TITEL, effekt:PT.EFFEKTE, tanz:PT.TAENZE, deko:PT.DEKO, kiste:{ holz:1, silber:1, gold:1 } }[k];
+    pruefe(liste ? liste[v] : v > 0, 'Belohnung unbekannt ' + k + ' ' + v);
+  }
   pruefe(PT.sockelFrei('gold', 26) && !PT.sockelFrei('gold', 25), 'Sockel freischalten');
 }
 

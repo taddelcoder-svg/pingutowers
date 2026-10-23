@@ -584,7 +584,7 @@
         this.pinguineBetaeuben(f.x, f.y, T.tinte.radius, T.tinte.dauer, 'tinte');
         this.ereignisse.push({ art:'tinte', x:f.x, y:f.y, r:T.tinte.radius });
       }
-      this.ereignisse.push({ art:f.boss ? 'bossBesiegt' : 'platzen', x:f.x, y:f.y, typ:f.typ, boss:f.boss });
+      this.ereignisse.push({ art:f.boss ? 'bossBesiegt' : 'platzen', x:f.x, y:f.y, typ:f.typ, boss:f.boss, von:turm ? turm.besitzer : null, eigen:!!turm });
       // Abenteuer-Finale: Abyssos zerbricht – und steht als Pako wieder auf
       const zweite = f.boss && PT.BOSSE[f.typ].zweite;
       if (zweite && this.regeln && this.regeln.zweitePhase) {

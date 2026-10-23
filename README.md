@@ -79,6 +79,16 @@ Tasten: Buchstaben am Pinguin im Laden (`Q W E R F T S P O V B M Z N L X G U I D
 `Leertaste` Runde/Tempo, `,` `.` `-` Upgrades, `Entf` verkaufen, `Tab` Ziel bzw. Flugbahn wechseln,
 `Esc` abbrechen/Pause. Mit gedrückter Umschalttaste mehrere gleiche Pinguine setzen.
 
+## Pinguin-Pass 2.0
+
+- **100 Stufen** mit Seltenheiten (Gewöhnlich, Selten, Episch, Legendär, Mythisch), auf jeder Stufe eine Belohnung,
+  alle 10 Stufen ein Meilenstein, Mythisch auf 25, 50, 75 und 100 (Frost-Titan, Schattenkaiser, Phönix-Kaiser, Herzlicht-Legende).
+- Neue Belohnungen: ~25 Looks (viele mit **Aura** im Spiel), Sockel, **Titel**, **Platz-Effekte**, **Siegestänze**,
+  **Dorf-Deko**, Eiskristalle, Kisten, Doppel-XP. Titel, Prestige-Sterne und Platz-Effekte sehen auch Mitspieler.
+- **Prestige** (bis 5): nach Stufe 100 neu starten, alles Freigeschaltete bleibt, mehr Münzen aus dem Pass.
+- Große Pass-Seite mit allen Stufen als Karten, Aufstiegs-Karte (Mythisch mit Lichtstrahl), tägliche Login-Belohnung.
+- Umstieg: Wer nach der alten Rechnung schon weit war, landet direkt auf der passenden Stufe, Belohnungen werden gutgeschrieben.
+
 ## Schwarzes Eis: Story, Pingu-Dorf, Versus
 
 - **Abenteuer „Schwarzes Eis“** (ersetzt das alte Abenteuer): Prolog und 5 Kapitel, 30 Levels. Düstere Geschichte
@@ -160,7 +170,7 @@ js/
   logik.js         Spiellogik ohne Grafik (Kanäle, Ziele, Schaden, Fähigkeiten, Bosse, Befehle, Koop-Kassen, Speichern)
   versus.js        Versus „Eiskrieg“: zwei Spiele im Gleichschritt, Fische schicken, Sabotage-Karten
   dorf.js          Pingu-Dorf: Phasen, Gebäude, Kosten, Boni
-  pass.js          Pinguin-Pass: Stufen, Looks, Sockel, Münzen, Meisterkräfte
+  pass.js          Pinguin-Pass: 100 Stufen, Seltenheiten, Looks, Sockel, Titel, Effekte, Tänze, Deko, Prestige
   fortschritt.js   Erfolge, Pinguin-Wissen, Tagesaufträge, Tages-Herausforderung, Kisten, Händler, Wochen-Quests
   kampagne.js      Abenteuer „Schwarzes Eis“: Kapitel, Levels, Szenen, Funk, Abspann, Sterne-Aufgaben
   dorf3d.js        3D-Ansicht des Pingu-Dorfs
