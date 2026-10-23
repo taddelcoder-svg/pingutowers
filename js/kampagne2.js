@@ -175,7 +175,7 @@
           ['erzaehler', 'Am Rand des Strudels treibt ein Schiff. Halb versunken, das Eisen von Muscheln überwachsen.'],
           ['kiko', 'Das ist … die Eiserne Möwe. Frosts altes Schiff.']
         ] }),
-    L(12, 2, 'Die Eiserne Möwe', 'wrack', 'schwer', { runden:39, startRunde:29, geld:14000, thema:'tiefsee', wegeAb:[1, 33, 36], zusatz:{ '29+':'6 licht 0.4 0|2 kristallkrebs 3 4' } }, [['leben', 0.1], ['ohneFk']],
+    L(12, 2, 'Die Eiserne Möwe', 'wrack', 'schwer', { runden:39, startRunde:29, geld:18000, leben:150, thema:'tiefsee', wegeAb:[1, 33, 36], zusatz:{ '29+':'6 licht 0.4 0|2 kristallkrebs 3 4' } }, [['leben', 0.1], ['ohneFk']],
       'Ein Wrack mit drei Kanälen. In Runde 33 und 36 brechen sie von der Seite herein.', {
         gerettet:4,
         vorher:[
@@ -384,7 +384,7 @@
           ['nova', 'Wenn er die Sonne frisst … dann wird es oben für immer Winter. Für immer Nacht.'],
           ['frost', 'Dann sterben alle. Fische, Pinguine, alles.']
         ] }),
-    L(14, 3, 'Orkas Opfer', 'strudel', 'schwer', { runden:52, startRunde:42, geld:30000, thema:'tiefsee', verbuendete:{ alle:6, schaden:6, riesen:70, ladung:26 }, zusatz:{ '42+':'14 licht 0.25 0|6 spiegelfisch 0.7 2' } }, [['leben', 0.1], ['ohneVerkauf']],
+    L(14, 3, 'Orkas Opfer', 'strudel', 'schwer', { runden:52, startRunde:42, geld:39000, thema:'tiefsee', verbuendete:{ alle:6, schaden:6, riesen:70, ladung:26 }, zusatz:{ '42+':'14 licht 0.25 0|6 spiegelfisch 0.7 2' } }, [['leben', 0.1], ['ohneVerkauf']],
       'Kaiser Orka und sein ganzes Rudel stellen sich dem Hunger entgegen. Seine Haie kommen jetzt sehr oft.', {
         gerettet:4,
         vorher:[
@@ -399,8 +399,8 @@
           ['nova', 'Er hat uns vergeben. Und wir haben ihn nicht einmal retten können.'],
           ['frost', 'Er wollte nicht gerettet werden. Er wollte, dass wir ankommen.']
         ] }),
-    L(14, 4, 'Novas Wahl', 'dreizack', 'schwer', { runden:53, startRunde:43, geld:31000, thema:'licht', wegeAb:[1, 46, 49], licht:{ anzahl:3, breite:70, tempo:55 }, zusatz:{ '43+':'14 licht 0.25 0|4 kristallkrebs 1.6 4' } }, [['leben', 0.1], ['ohneFk']],
-      'Drei Wege nach unten. In Runde 46 und 49 öffnen sich die anderen beiden.', {
+    L(14, 4, 'Novas Wahl', 'dreizack', 'schwer', { runden:47, startRunde:37, geld:23000, leben:150, thema:'licht', wegeAb:[1, 41, 44], licht:{ anzahl:3, breite:70, tempo:55 }, zusatz:{ '37+':'14 licht 0.25 0|4 kristallkrebs 1.6 4' } }, [['leben', 0.1], ['ohneFk']],
+      'Drei Wege nach unten. In Runde 41 und 44 öffnen sich die anderen beiden.', {
         gerettet:3,
         vorher:[
           ['frost', 'Drei Gänge. Einer führt zu ihm. Die anderen beiden führen zurück nach oben.'],
@@ -409,7 +409,7 @@
           ['frost', 'Opa ist DAMALS umgekehrt. Bei Pako. Und hat es fünfzig Jahre bereut.'],
           ['nova', 'Eben. Ich kehre nicht um.']
         ],
-        funk:{ weg:[['frost', 'Sie kommen aus allen drei Gängen!']], r51:[['nova', 'Opa, ich komme!']] },
+        funk:{ weg:[['frost', 'Sie kommen aus allen drei Gängen!']], r46:[['nova', 'Opa, ich komme!']] },
         nachher:[
           ['erzaehler', 'Am Ende des mittleren Gangs: ein Thron. Nicht aus Stein. Aus Licht. Und darauf sitzt er.']
         ] }),
@@ -459,7 +459,7 @@
         ] }),
 
     /* ===================== KAPITEL 5: DAS ERWACHTE LICHT ===================== */
-    L(15, 1, 'Der Schlund', 'eingeweide', 'schwer', { runden:56, startRunde:46, geld:38000, thema:'organisch', wegRotation:true, zusatz:{ '46+':'14 licht 0.25 0|4 kristallkrebs 1.8 3' } }, [['leben', 0.1], ['max', 16]],
+    L(15, 1, 'Der Schlund', 'eingeweide', 'schwer', { runden:48, startRunde:38, geld:25000, leben:150, thema:'organisch', wegRotation:true, zusatz:{ '38+':'14 licht 0.25 0|4 kristallkrebs 1.8 3' } }, [['leben', 0.1], ['max', 16]],
       'Im Inneren des Uralten: Drei Adern, aber jede Runde ruht eine davon – die Fische drängen sich in den anderen beiden.', {
         gerettet:2,
         vorher:[
@@ -468,11 +468,11 @@
           ['nova', 'Kiko. Wir sind … in ihm drin.'],
           ['frost', 'Drei Adern. Er pumpt seine Kinder durch zwei davon, eine ruht. Jede Runde eine andere. Achtet darauf, welche gerade still ist.']
         ],
-        funk:{ r47:[['frost', 'Die Ader wechselt! Jede Runde ruht eine andere!']], r53:[['nova', 'Es wird heißer. Wir sind nah am Herz.']] },
+        funk:{ r39:[['frost', 'Die Ader wechselt! Jede Runde ruht eine andere!']], r45:[['nova', 'Es wird heißer. Wir sind nah am Herz.']] },
         nachher:[
           ['erzaehler', 'Es wird hell. Nicht warm-hell wie die Sonne. Weiß. Hungrig.']
         ] }),
-    L(15, 2, 'Im Bauch des Hungers', 'eingeweide', 'schwer', { runden:57, startRunde:47, geld:40000, thema:'organisch', wegRotation:true, finsternis:{ alle:10, dauer:3 }, zusatz:{ '47+':'16 licht 0.22 0|6 spiegelfisch 0.6 3' } }, [['leben', 0.1], ['ohneFk']],
+    L(15, 2, 'Im Bauch des Hungers', 'eingeweide', 'schwer', { runden:49, startRunde:39, geld:26500, leben:150, thema:'organisch', wegRotation:true, finsternis:{ alle:10, dauer:3 }, zusatz:{ '39+':'16 licht 0.22 0|6 spiegelfisch 0.6 3' } }, [['leben', 0.1], ['ohneFk']],
       'Die Adern wechseln, und jedes Mal, wenn der Uralte einatmet, erlischt jedes Licht.', {
         gerettet:3,
         vorher:[
@@ -482,14 +482,14 @@
           ['mia2', 'Versprichst du es?'],
           ['nova', 'Ich verspreche es.']
         ],
-        funk:{ dunkel:[['frost', 'Er atmet! Haltet die Ader!']], r52:[['mia2', '(über Funk) Wir zünden alle Feuer an. Damit ihr wisst, wo oben ist.']] },
+        funk:{ dunkel:[['frost', 'Er atmet! Haltet die Ader!']], r44:[['mia2', '(über Funk) Wir zünden alle Feuer an. Damit ihr wisst, wo oben ist.']] },
         nachher:[
           ['frost', 'Nova. Was du Mia versprochen hast …'],
           ['nova', 'Ich weiß, was ich versprochen habe.'],
           ['frost', 'Ich meine: Du hast nicht versprochen, dass DU zurückkommst.'],
           ['nova', 'Nein. Hab ich nicht.']
         ] }),
-    L(15, 3, 'Herzschlag', 'eingeweide', 'schwer', { runden:58, startRunde:48, geld:42000, thema:'organisch', wegRotation:true, flut:true, flutPause:2, zusatz:{ '48+':'12 licht 0.25 0|3 kristallkrebs 2 4' } }, [['leben', 0.1], ['stufe', 4]],
+    L(15, 3, 'Herzschlag', 'eingeweide', 'schwer', { runden:50, startRunde:40, geld:28000, leben:150, thema:'organisch', wegRotation:true, flut:true, flutPause:2, zusatz:{ '40+':'12 licht 0.25 0|3 kristallkrebs 2 4' } }, [['leben', 0.1], ['stufe', 4]],
       'Der Uralte spürt euch. Sein Herz rast: kaum Pausen zwischen den Runden.', {
         gerettet:3,
         vorher:[
@@ -499,7 +499,7 @@
           ['uralter', 'JETZT … ESSE … ICH.'],
           ['frost', 'Er hat gemerkt, dass wir hier sind. Jetzt wird es schnell.']
         ],
-        funk:{ r50:[['uralter', 'ICH … SCHMECKE … EUCH.']], r55:[['frost', 'Gleich sind wir am Herz!']], knapp:[['nova', 'Weiter! Weiter!']] },
+        funk:{ r42:[['uralter', 'ICH … SCHMECKE … EUCH.']], r47:[['frost', 'Gleich sind wir am Herz!']], knapp:[['nova', 'Weiter! Weiter!']] },
         nachher:[
           ['erzaehler', 'Vor ihnen schlägt es. Ein Herz, groß wie ein Berg. Und in seiner Mitte, ganz klein, ganz golden: das Herzlicht.'],
           ['uralter', 'KOMMT … NÄHER.']

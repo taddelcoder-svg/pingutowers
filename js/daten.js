@@ -279,7 +279,7 @@
     name:'Der Strudel', stufe:'Profi', thema:'tiefsee',
     text:'Eine Spirale ins Zentrum des Meeres. Im Inneren reißt die Strömung die Fische doppelt so schnell mit.',
     wege:[[[-40, 60], [940, 60], [940, 580], [60, 580], [60, 180], [820, 180], [820, 460], [180, 460], [180, 320], [560, 320]]],
-    stroemung:[[0, 0.62, 1, 1.7]],
+    stroemung:[[0, 0.62, 1, 1.45]],
     hindernisse:[[700, 320, 34], [380, 390, 26], [500, 250, 22]],
     wasser:[[500, 520, 22], [500, 120, 26], [300, 250, 22]],
     deko:'nacht'
@@ -308,15 +308,15 @@
     deko:'wrack'
   };
   PT.KARTEN.eingeweide = {
-    name:'Eingeweide des Uralten', stufe:'Profi', thema:'organisch',
-    text:'Im Inneren der Kreatur. Jede Runde pulsiert eine andere Ader – die Fische nehmen immer einen neuen Weg.',
+    name:'Eingeweide des Uralten', stufe:'Profi', thema:'organisch', geld:1.4,
+    text:'Im Inneren der Kreatur. Drei Adern winden sich wie Därme – jede Runde ruht eine davon, die Fische nehmen die anderen.',
     wege:[
-      [[-40, 110], [220, 110], [320, 190], [520, 110], [720, 190], [1040, 110]],
-      [[-40, 320], [200, 320], [330, 250], [500, 330], [680, 260], [1040, 320]],
-      [[-40, 530], [240, 530], [340, 450], [540, 530], [720, 450], [1040, 530]]
+      [[-40, 40], [160, 40], [160, 170], [340, 170], [340, 40], [520, 40], [520, 170], [700, 170], [700, 40], [880, 40], [880, 170], [1040, 170]],
+      [[-40, 380], [100, 380], [100, 250], [280, 250], [280, 380], [460, 380], [460, 250], [640, 250], [640, 380], [820, 380], [820, 250], [1040, 250]],
+      [[-40, 460], [200, 460], [200, 600], [380, 600], [380, 460], [560, 460], [560, 600], [740, 600], [740, 460], [920, 460], [920, 600], [1040, 600]]
     ],
-    hindernisse:[[860, 215, 26], [860, 425, 26], [120, 215, 24], [120, 425, 24]],
-    wasser:[[440, 600, 22], [440, 30, 20], [860, 320, 24]],
+    hindernisse:[[960, 100, 24], [40, 215, 22], [960, 420, 22], [40, 540, 22]],
+    wasser:[[610, 215, 22], [370, 420, 22], [880, 530, 20]],
     deko:'fleisch'
   };
   PT.KARTEN.thron = {
