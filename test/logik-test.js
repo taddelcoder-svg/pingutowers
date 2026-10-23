@@ -135,6 +135,19 @@ for (const held of PT.HELDEN_REIHE) {
   pruefe(PT.passStufeAlt(68600) === 50 && PT.passStufe(68600).stufe >= 50, 'Umstieg auf 100 Stufen');
   for (let st = 1; st <= 100; st++) pruefe(PT.PASS_STUFEN[st] && PT.SELTENHEIT[PT.PASS_STUFEN[st].s] && PT.PASS_STUFEN[st].b.length, 'Pass-Stufe ' + st);
   pruefe([25, 50, 75, 100].every(st => PT.PASS_STUFEN[st].s === 'm'), 'Mythisch auf 25/50/75/100');
+  // Prestige: eigene Belohnungen, Besessenes wird zu Kristallen
+  {
+    const ziel = { skin:'SKINS', sockel:'SOCKEL', titel:'TITEL', effekt:'EFFEKTE', tanz:'TAENZE', deko:'DEKO' };
+    for (let p = 1; p <= PT.PRESTIGE_MAX; p++) for (let st = 1; st <= 100; st++) {
+      const x = PT.passStufeInfo(st, p);
+      pruefe(x.b.length && PT.SELTENHEIT[x.s], `Prestige ${p} Stufe ${st}`);
+      for (const b of x.b) for (const [k, v] of Object.entries(b)) if (ziel[k]) pruefe(PT[ziel[k]][v] && PT.prestigeQuelle(k, v), `Prestige-Belohnung ${k} ${v}`);
+    }
+    const s2 = PT.passStufeInfo(2, 1);
+    pruefe(!s2.b.some(b => b.skin) && s2.b.some(b => b.kristalle === 5), 'Prestige: Look wird zu Kristallen');
+    pruefe(PT.passStufeInfo(25, 3).b.some(b => b.sockel === 'prestige3') && PT.passStufeInfo(100, 5).b.some(b => b.skin === 'ewigesherzlicht'), 'Prestige-Exklusives');
+    pruefe(PT.passStufeInfo(7, 0) === PT.PASS_STUFEN[7], 'Ohne Prestige unverändert');
+  }
   pruefe(PT.titelFrei('legende', 100) && !PT.titelFrei('legende', 99) && PT.effektFrei('standard', 1) && PT.tanzFrei('salto', 68), 'Titel, Effekte, Tänze');
   const allesP = PT.passAllesBesitz();
   pruefe(PT.skinFrei('legende', 1, allesP) && PT.kraftFrei('nova', 1, allesP) && PT.dekoFrei('feuerwerk', 1, allesP), 'Prestige behält alles');

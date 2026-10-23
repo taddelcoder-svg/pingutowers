@@ -1432,6 +1432,9 @@
         case 'welle': i.position.y = Math.max(0, Math.sin(z * 5 - t.x * 0.012)) * 14; break;
         case 'salto': { const k = (ph * 0.6) % (Math.PI * 2); i.position.y = Math.sin(Math.min(Math.PI, k)) * 16; i.rotation.z = k < Math.PI ? k * 2 : 0; break; }
         case 'disco': i.rotation.y += 0.18; i.position.y = Math.abs(Math.sin(ph * 1.3)) * 6; if (Math.random() < 0.05) this.funken(t.x, t.y, 30, [0xff5ec8, 0x5ec8ff, 0xffd54a][t.id % 3], 2, { tempo:40, hoch:60, groesse:6, dauer:0.5 }); break;
+        case 'sternsprung': { const k = (z * 1.2 + t.id * 0.2) % 2; i.position.y = k < 1 ? Math.sin(k * Math.PI) * 22 : 0; i.rotation.y += 0.12; if (k < 0.05) this.funken(t.x, t.y, 34, 0xdfe6ff, 6, { tempo:60, hoch:80, groesse:7, dauer:0.6 }); break; }
+        case 'kronentanz': i.rotation.y += 0.08; i.position.y = 4 + Math.sin(ph * 0.8) * 4; i.rotation.z = Math.sin(ph * 0.4) * 0.12; if (Math.random() < 0.03) this.funken(t.x, t.y, 40, 0xffd54a, 3, { tempo:30, hoch:50, groesse:6, dauer:0.6 }); break;
+        case 'legendentanz': { i.position.y = 10 + Math.sin(z * 2 + t.id) * 6; i.rotation.y += 0.15; if (Math.random() < 0.06) this.funken(t.x, t.y, 20, [0xfff2c4, 0xffd54a, 0xffffff][t.id % 3], 3, { tempo:40, hoch:120, groesse:8, dauer:0.9, grav:-60 }); break; }
         case 'triumph': { const k = (z * 1.6 + t.id * 0.3) % 2; i.position.y = k < 1 ? Math.sin(k * Math.PI) * 26 : 0; i.rotation.y += k < 1 ? 0.3 : 0; break; }
         default: i.position.y = Math.abs(Math.sin(ph)) * 4;
       }

@@ -138,6 +138,16 @@
   const passStufe = () => PT.passStufe(pass.xp).stufe;
   // Umstieg auf den Pass mit 100 Stufen: was nach der alten Rechnung schon erreicht war, gilt als abgeholt
   if (pass.abgeholt == null) pass.abgeholt = Math.min(passStufe(), PT.passStufeAlt(pass.xp));
+  // Prestige-Belohnungen gab es früher nicht: was nach dem Stand schon erreicht ist, gehört dir jetzt
+  if (pass.prestige && !pass.prestigeNachgeholt) {
+    const ziel = { skin:'skins', sockel:'sockel', titel:'titel', effekt:'effekte', tanz:'taenze', deko:'deko' };
+    for (let p = 1; p <= pass.prestige; p++) for (const [st, liste] of Object.entries(PT.PRESTIGE_BELOHNUNG[p] || {})) {
+      if (p === pass.prestige && +st > Math.min(passStufe(), pass.abgeholt || 1)) continue;
+      for (const b of liste) for (const [k, v] of Object.entries(b)) if (ziel[k]) (fort.besitz[ziel[k]] || (fort.besitz[ziel[k]] = {}))[v] = true;
+    }
+    pass.prestigeNachgeholt = 1;
+    fortMerken(); speicher.schreiben('pt-pass', pass);
+  }
   if (!PT.TITEL[pass.titel]) pass.titel = 'neuling';
   if (!PT.EFFEKTE[pass.effekt]) pass.effekt = 'standard';
   if (!PT.TAENZE[pass.tanz]) pass.tanz = 'standard';
@@ -164,12 +174,15 @@
     if (b.sockel && sockelBilder[b.sockel]) return `<img src="${sockelBilder[b.sockel]}" alt="">`;
     return `<i>${b.kraft ? '✨' : b.titel ? '🏷️' : b.effekt ? PT.EFFEKTE[b.effekt].zeichen : b.tanz ? '💃' : b.deko ? PT.DEKO[b.deko].symbol : b.muenzen ? '🪙' : b.kristalle ? '❄️' : b.kiste ? PT.KISTEN[b.kiste].symbol : b.booster ? '⚡' : '🎖️'}</i>`;
   }
-  const stufeText = st => (PT.PASS_STUFEN[st] ? PT.PASS_STUFEN[st].b.map(belohnungText).join(' · ') : '');
+  const stufeVon = st => PT.passStufeInfo(st, pass.prestige || 0);
+  const stufeText = st => (stufeVon(st) ? stufeVon(st).b.map(belohnungText).join(' · ') : '');
   // Münzen, Kristalle, Kisten und Booster einer Stufe gutschreiben (Looks & Co. ergeben sich aus der Stufe)
   function stufeAbholen(st) {
-    const x = PT.PASS_STUFEN[st];
+    const x = stufeVon(st);
     if (!x) return;
+    const ziel = { skin:'skins', sockel:'sockel', titel:'titel', effekt:'effekte', tanz:'taenze', deko:'deko', kraft:'kraefte' };
     for (const b of x.b) {
+      for (const [k, v] of Object.entries(b)) if (ziel[k] && pass.prestige) fort.besitz[ziel[k]][v] = true;   // Prestige-Sachen gehören dir dann für immer
       if (b.muenzen) { fort.muenzen += Math.round(b.muenzen * PT.prestigeFaktor(pass.prestige)); }
       if (b.kristalle) fort.dorf.kristalle += b.kristalle;
       if (b.kiste) fort.kisten[b.kiste] = (fort.kisten[b.kiste] || 0) + 1;
@@ -181,7 +194,7 @@
   let aufSchlange = [], aufUhr = null;
   function aufstiegZeigen(st) {
     // mitten im Spiel nur ein Banner, außer bei Legendär und Mythisch
-    const x = PT.PASS_STUFEN[st];
+    const x = stufeVon(st);
     if (!$('#spiel').hidden && x && x.s !== 'l' && x.s !== 'm') { banner(`🎖️ Pass-Stufe ${st}!`, stufeText(st), 3); PT.Ton.upgrade(); return; }
     aufSchlange.push(st);
     if (!aufUhr) aufNaechste();
@@ -189,7 +202,7 @@
   function aufNaechste() {
     const st = aufSchlange.shift();
     if (st == null) { $('#aufstieg').hidden = true; aufUhr = null; return; }
-    const x = PT.PASS_STUFEN[st], R = PT.SELTENHEIT[x ? x.s : 'g'];
+    const x = stufeVon(st), R = PT.SELTENHEIT[x ? x.s : 'g'];
     const k = $('#aufKarte');
     k.style.setProperty('--rf', R.farbe);
     k.classList.toggle('mythisch', !!x && x.s === 'm');
@@ -300,7 +313,7 @@
     $('#passXp').textContent = info.bedarf ? `${zahl(info.rest)} / ${zahl(info.bedarf)} Erfahrung` : `${zahl(pass.xp)} Erfahrung`;
     $('#passBalken').style.width = (info.bedarf ? Math.round(info.rest / info.bedarf * 100) : 100) + '%';
     const naechste = info.stufe < PT.PASS_MAX ? info.stufe + 1 : null;
-    const mythisch = Object.keys(PT.PASS_STUFEN).map(Number).find(st => st > info.stufe && PT.PASS_STUFEN[st].s === 'm');
+    const mythisch = Object.keys(PT.PASS_STUFEN).map(Number).find(st => st > info.stufe && stufeVon(st).s === 'm');
     $('#passNaechst').textContent = naechste ? `Nächste Stufe ${naechste}: ${stufeText(naechste)}.${mythisch ? ` Mythisch auf Stufe ${mythisch}: ${stufeText(mythisch)}.` : ''}`
       : pass.prestige < PT.PRESTIGE_MAX ? 'Stufe 100! Öffne den Pass für Prestige.' : 'Alles geschafft – du bist eine Legende.';
     $('#passTitel').textContent = `${'⭐'.repeat(pass.prestige || 0)} ${PT.TITEL[pass.titel] || ''}`.trim();
@@ -309,7 +322,7 @@
     const von = Math.max(1, Math.min(info.stufe - 2, PT.PASS_MAX - 9));
     let leiste = '';
     for (let st = von; st <= Math.min(PT.PASS_MAX, von + 11); st++) {
-      const x = PT.PASS_STUFEN[st], b = x.b[0];
+      const x = stufeVon(st), b = x.b[0];
       leiste += `<div class="stufe-chip r-${x.s} ${st <= info.stufe ? 'da' : ''} ${st === info.stufe ? 'jetzt' : ''}" title="${esc(PT.SELTENHEIT[x.s].name + ': ' + stufeText(st))}"><b>${st}</b>${belohnungBild(b)}<span>${esc(belohnungText(b))}</span></div>`;
     }
     $('#passLeiste').innerHTML = leiste;
@@ -330,7 +343,7 @@
       return `<div class="stufe-chip ${i + 1 <= sst ? 'da' : ''}"><b>${i + 1}</b>${bild}<span>${esc(name)}</span></div>`;
     }).join('');
     $('#booster').textContent = fort.booster > 0 ? `⚡ Doppel-Erfahrung noch für ${fort.booster} ${fort.booster === 1 ? 'Spiel' : 'Spiele'}` : '';
-    const herkunft = (o, art, id) => o.herkunft === 'kiste' ? '🎁 Kiste oder Händler' : o.herkunft === 'kampagne' ? '📖 Abenteuer' : o.herkunft === 'dorf' ? '🏘️ Pingu-Dorf' : o.herkunft === 'versus' ? '⚔️ 10 Versus-Siege' : o.herkunft === 'saison' ? `🍂 Saison im ${['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'][o.monat - 1]}` : `🔒 Stufe ${PT.belohnungStufe(art, id) || '?'}`;
+    const herkunft = (o, art, id) => o.herkunft === 'kiste' ? '🎁 Kiste oder Händler' : o.herkunft === 'kampagne' ? '📖 Abenteuer' : o.herkunft === 'dorf' ? '🏘️ Pingu-Dorf' : o.herkunft === 'versus' ? '⚔️ 10 Versus-Siege' : o.herkunft === 'prestige' ? `⭐ Prestige ${o.prestige}, Stufe ${(PT.prestigeQuelle(art, id) || {}).stufe || '?'}` : o.herkunft === 'saison' ? `🍂 Saison im ${['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'][o.monat - 1]}` : `🔒 Stufe ${PT.belohnungStufe(art, id) || '?'}`;
     const sockelEl = $('#sockel');
     sockelEl.innerHTML = PT.SOCKEL_REIHE.map(id => {
       const frei = PT.sockelFrei(id, info.stufe, fort.besitz);
@@ -368,19 +381,20 @@
     $('#psBalken').style.width = (info.bedarf ? Math.round(info.rest / info.bedarf * 100) : 100) + '%';
     let html = '';
     for (let st = 1; st <= PT.PASS_MAX; st++) {
-      const x = PT.PASS_STUFEN[st], R = PT.SELTENHEIT[x.s];
-      html += `<div class="ps-karte r-${x.s} ${st > info.stufe ? 'zu' : ''} ${st === info.stufe ? 'jetzt' : ''} ${st % 10 === 0 ? 'meilenstein' : ''}" style="--rf:${R.farbe}" data-st="${st}">
+      const x = stufeVon(st), R = PT.SELTENHEIT[x.s];
+      html += `<div class="ps-karte r-${x.s} ${x.prestige ? 'prestige-exklusiv' : ''} ${st > info.stufe ? 'zu' : ''} ${st === info.stufe ? 'jetzt' : ''} ${st % 10 === 0 ? 'meilenstein' : ''}" style="--rf:${R.farbe}" data-st="${st}">
         <span class="rar">${esc(R.name)}</span><b>${st}</b>${x.b.slice(0, 2).map(belohnungBild).join('')}<span>${esc(stufeText(st))}</span></div>`;
     }
     $('#psLeiste').innerHTML = html;
     const pr = $('#psPrestige');
     if (info.stufe >= PT.PASS_MAX && pass.prestige < PT.PRESTIGE_MAX) {
-      pr.innerHTML = `<span>🏆 Stufe 100 geschafft! Mit <b>Prestige ${pass.prestige + 1}</b> startest du die Leiste neu: Alles, was du freigeschaltet hast, bleibt für immer. Du bekommst einen Prestige-Stern, und Münzen aus dem Pass gibt es dann ${Math.round((PT.prestigeFaktor(pass.prestige + 1) - 1) * 100)} % mehr.</span><button class="knopf" id="prestigeLos">⭐ Prestige ${pass.prestige + 1} starten</button>`;
+      pr.innerHTML = `<span>🏆 Stufe 100 geschafft! Mit <b>Prestige ${pass.prestige + 1}</b> startest du die Leiste neu: Alles, was du freigeschaltet hast, bleibt für immer. Neu auf der Leiste: ${esc(prestigeVorschau(pass.prestige + 1))}. Was du schon hast, wird zu Eiskristallen, und Münzen aus dem Pass gibt es ${Math.round((PT.prestigeFaktor(pass.prestige + 1) - 1) * 100)} % mehr.</span><button class="knopf" id="prestigeLos">⭐ Prestige ${pass.prestige + 1} starten</button>`;
       $('#prestigeLos').onclick = prestigeStarten;
-    } else pr.innerHTML = pass.prestige ? `<span>${'⭐'.repeat(pass.prestige)} Prestige ${pass.prestige} von ${PT.PRESTIGE_MAX}</span>` : '';
+    } else pr.innerHTML = pass.prestige ? `<span>${'⭐'.repeat(pass.prestige)} Prestige ${pass.prestige} von ${PT.PRESTIGE_MAX} · nur in diesem Prestige: ${esc(prestigeVorschau(pass.prestige))}</span>` : '';
     const jetzt = $('#psLeiste').querySelector('.jetzt');
     if (jetzt) $('#psLeiste').scrollLeft = jetzt.offsetLeft - $('#psLeiste').clientWidth / 2 + 54;
   }
+  const prestigeVorschau = p => Object.values(PT.PRESTIGE_BELOHNUNG[p] || {}).flat().filter(b => !b.kiste).map(belohnungText).join(', ');
   function prestigeStarten() {
     if (passStufe() < PT.PASS_MAX || pass.prestige >= PT.PRESTIGE_MAX || !confirm('Prestige starten? Deine Leiste beginnt wieder bei Stufe 1 – alles Freigeschaltete bleibt.')) return;
     const alles = PT.passAllesBesitz();
