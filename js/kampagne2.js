@@ -92,7 +92,7 @@
           ['nova', '„Pako hat es zuerst gesehen. Unter dem Herzlicht. Etwas, das schläft.“'],
           ['nova', 'Opa hat davon gewusst. Schon damals.']
         ] }),
-    L(11, 3, 'Kristallkrebse', 'kristallwald', 'schwer', { runden:34, startRunde:24, geld:9000, thema:'licht', licht:{ anzahl:2, breite:70, tempo:45 }, zusatz:{ '26+':'3 kristallkrebs 2.5 3' } }, [['leben', 0.1], ['ohneFk']],
+    L(11, 3, 'Kristallkrebse', 'kristallwald', 'schwer', { runden:34, startRunde:24, geld:10500, thema:'licht', licht:{ anzahl:2, breite:70, tempo:45 }, zusatz:{ '26+':'3 kristallkrebs 2.5 3' } }, [['leben', 0.1], ['ohneFk']],
       'Neu: Kristallkrebse. Langsam, dick gepanzert gegen Spitzes – und alle paar Sekunden schützen sie alle Fische um sich herum.', {
         gerettet:3, neuFisch:'kristallkrebs',
         vorher:[
@@ -140,7 +140,7 @@
           ['erzaehler', 'Unter dem Leuchtturm, im glühenden Wasser, öffnet sich ein Riss. Daraus steigt ein Gesang. Hoch, klar, unerträglich schön.'],
           ['kristall', 'Kleine warme Dinger. Ihr habt Licht in euch. Gebt es mir.']
         ] }),
-    L(11, 6, 'Mutter der Kristalle', 'kristallwald', 'schwer', { runden:38, startRunde:28, geld:13000, thema:'licht', licht:{ anzahl:2, breite:80, tempo:42 }, bosse:{ 38:['kristallmutter', 1] } }, [['leben', 0.1], ['ohneVerkauf']],
+    L(11, 6, 'Mutter der Kristalle', 'kristallwald', 'schwer', { runden:38, startRunde:28, geld:15500, thema:'licht', licht:{ anzahl:2, breite:80, tempo:42 }, bosse:{ 38:['kristallmutter', 1] } }, [['leben', 0.1], ['ohneVerkauf']],
       'Boss: Die Mutter der Kristalle. Sie ruft Lichtgeborene und hüllt alles um sich in einen Schutzschild aus Kristall.', {
         gerettet:5, boss:'kristallmutter',
         vorher:[
@@ -209,7 +209,7 @@
           ['orka', 'Ihr kämpft gut. Für so kleine Dinger.'],
           ['nova', 'Wir hatten viel Übung.']
         ] }),
-    L(12, 4, 'Tiefer', 'tunnel', 'schwer', { runden:41, startRunde:31, geld:16000, thema:'tiefsee', finsternis:{ alle:10, dauer:3.5 }, licht:{ anzahl:1, breite:110, tempo:30 }, zusatz:{ '31+':'8 licht 0.35 0|4 spiegelfisch 1 3' } }, [['leben', 0.1], ['stufe', 4]],
+    L(12, 4, 'Tiefer', 'tunnel', 'schwer', { runden:41, startRunde:31, geld:21500, thema:'tiefsee', finsternis:{ alle:10, dauer:3.5 }, licht:{ anzahl:1, breite:110, tempo:30 }, zusatz:{ '31+':'8 licht 0.35 0|4 spiegelfisch 1 3' } }, [['leben', 0.1], ['stufe', 4]],
       'Unter dem Strudel: Es ist stockdunkel – bis auf einen einzigen, wandernden Lichtstrahl. Neu: Spiegelfische werfen Geschosse zurück.', {
         gerettet:2, neuFisch:'spiegelfisch',
         vorher:[
@@ -236,7 +236,7 @@
           ['orka', 'Das werde ich euch nicht vergessen. Kein Fisch im Meer wird das vergessen.'],
           ['orka', 'Aber hört mich an: Ganz unten wartet einer, der leuchtet wie eine Sonne. Er trägt das Licht des Hungers. Und er spricht mit eurer Stimme.']
         ] }),
-    L(12, 6, 'Der Leviathan im Licht', 'strudel', 'schwer', { runden:44, startRunde:33, geld:19000, thema:'licht', verbuendete:{ alle:10, schaden:5, riesen:60, ladung:20 }, bosse:{ 44:['leviathan', 2] } }, [['leben', 0.1], ['ohneFk']],
+    L(12, 6, 'Der Leviathan im Licht', 'strudel', 'schwer', { runden:44, startRunde:33, geld:23000, thema:'licht', verbuendete:{ alle:10, schaden:5, riesen:60, ladung:20 }, bosse:{ 44:['leviathan', 2] } }, [['leben', 0.1], ['ohneFk']],
       'Boss: Der Eis-Leviathan, wiedererweckt vom Licht. Sein Eisatem friert Pinguine ein – Orkas Haie helfen dir.', {
         gerettet:5, boss:'leviathan',
         vorher:[
@@ -252,7 +252,7 @@
         ] }),
 
     /* ===================== KAPITEL 3: SPIEGEL ===================== */
-    L(13, 1, 'Der Spiegelsee', 'spiegelsee', 'schwer', { runden:44, startRunde:34, geld:20000, thema:'licht', spiegel:0.25, zusatz:{ '34+':'6 spiegelfisch 0.8 0' } }, [['leben', 0.1], ['max', 15]],
+    L(13, 1, 'Der Spiegelsee', 'spiegelsee', 'schwer', { runden:44, startRunde:34, geld:27000, thema:'licht', spiegel:0.25, zusatz:{ '34+':'6 spiegelfisch 0.8 0' } }, [['leben', 0.1], ['max', 15]],
       'Zwei Kanäle, die sich spiegeln: Was auf der einen Seite platzt, taucht manchmal auf der anderen wieder auf.', {
         gerettet:2,
         vorher:[
@@ -268,7 +268,7 @@
           ['frost', 'Und du?'],
           ['nova', 'Mich. Allein. Ganz unten.']
         ] }),
-    L(13, 2, 'Zwei Ufer', 'doppel', 'schwer', { runden:45, startRunde:35, geld:21000, thema:'licht', spiegel:0.35, licht:{ anzahl:2, breite:70, tempo:50 }, zusatz:{ '35+':'8 spiegelfisch 0.6 0|2 kristallkrebs 3 6' } }, [['leben', 0.1], ['ohneFk']],
+    L(13, 2, 'Zwei Ufer', 'doppel', 'schwer', { runden:45, startRunde:35, geld:28500, thema:'licht', spiegel:0.35, licht:{ anzahl:2, breite:70, tempo:50 }, zusatz:{ '35+':'8 spiegelfisch 0.6 0|2 kristallkrebs 3 6' } }, [['leben', 0.1], ['ohneFk']],
       'Spiegel und Licht zugleich. Verteil deine Pinguine gut auf beide Kanäle.', {
         gerettet:3,
         vorher:[
@@ -283,7 +283,7 @@
           ['nova', 'Sie hat recht. Das hat Opa auch gesagt.'],
           ['frost', 'Und er hat es gemeint. Genau wie du.']
         ] }),
-    L(13, 3, 'Mias Nacht', 'neuhausen', 'schwer', { runden:46, startRunde:36, geld:20000, leben:60, thema:'nacht', held:'nova', heldFaellt:38, zusatz:{ '36+':'12 licht 0.3 0|10 funke 0.15 3' } }, [['leben', 0.2], ['max', 15]],
+    L(13, 3, 'Mias Nacht', 'neuhausen', 'schwer', { runden:46, startRunde:36, geld:27000, leben:60, thema:'nacht', held:'nova', heldFaellt:38, zusatz:{ '36+':'12 licht 0.3 0|10 funke 0.15 3' } }, [['leben', 0.2], ['max', 15]],
       'Oben in Neu-Pinguinhausen: Mia hält die Stadt. Nova kommt zu Hilfe – aber nicht lange. Nur 60 Leben.', {
         gerettet:6,
         vorher:[
@@ -317,7 +317,7 @@
           ['erzaehler', 'Am Ende des Labyrinths steht eine Gestalt in einem Mantel aus Licht. Sie dreht sich langsam um.'],
           ['erzaehler', 'Sie hat Opa Pingos Gesicht. Aber ihre Augen sind weiß. Ganz weiß.']
         ] }),
-    L(13, 5, 'Der Fremde im Licht', 'kristallwald', 'schwer', { runden:48, startRunde:38, geld:24000, thema:'licht', licht:{ anzahl:4, breite:70, tempo:60 }, zusatz:{ '38+':'12 licht 0.28 0|3 kristallkrebs 2.2 4' } }, [['leben', 0.1], ['ohneVerkauf']],
+    L(13, 5, 'Der Fremde im Licht', 'kristallwald', 'schwer', { runden:48, startRunde:38, geld:31000, thema:'licht', licht:{ anzahl:4, breite:70, tempo:60 }, zusatz:{ '38+':'12 licht 0.28 0|3 kristallkrebs 2.2 4' } }, [['leben', 0.1], ['ohneVerkauf']],
       'Vier Lichtstrahlen jagen über die Karte. Der Lichtträger beobachtet dich.', {
         gerettet:3,
         vorher:[
@@ -333,7 +333,7 @@
           ['traeger', 'Es tut mir leid. Es tut mir so leid.'],
           ['erzaehler', 'Er hebt die Flosse. Das Licht folgt ihr wie ein Hund seinem Herrn.']
         ] }),
-    L(13, 6, 'Lichtträger', 'spiegelsee', 'schwer', { runden:50, startRunde:40, geld:26000, thema:'licht', spiegel:0.25, bosse:{ 50:['lichttraeger', 1] } }, [['leben', 0.1], ['ohneFk']],
+    L(13, 6, 'Lichtträger', 'spiegelsee', 'schwer', { runden:50, startRunde:40, geld:36500, thema:'licht', spiegel:0.25, bosse:{ 50:['lichttraeger', 1] } }, [['leben', 0.1], ['ohneFk']],
       'Boss: Der Lichtträger. Er blendet deine Pinguine – geblendet greift niemand an.', {
         gerettet:4, boss:'lichttraeger',
         vorher:[
@@ -369,7 +369,7 @@
           ['nova', 'Und Opa hat es zurückgebracht.'],
           ['frost', 'Und ihn damit gefüttert.']
         ] }),
-    L(14, 2, 'Hunger', 'tunnel', 'schwer', { runden:51, startRunde:41, geld:28000, thema:'tiefsee', licht:{ anzahl:2, breite:90, tempo:35 }, finsternis:{ alle:9, dauer:3.5 }, zusatz:{ '41+':'14 licht 0.25 0|3 kristallkrebs 2 5' } }, [['leben', 0.1], ['stufe', 4]],
+    L(14, 2, 'Hunger', 'tunnel', 'schwer', { runden:51, startRunde:41, geld:38000, thema:'tiefsee', licht:{ anzahl:2, breite:90, tempo:35 }, finsternis:{ alle:9, dauer:3.5 }, zusatz:{ '41+':'14 licht 0.25 0|3 kristallkrebs 2 5' } }, [['leben', 0.1], ['stufe', 4]],
       'Licht und Finsternis im Wechsel – der Uralte atmet. Jeder Atemzug löscht das Licht.', {
         gerettet:3,
         vorher:[
@@ -413,7 +413,7 @@
         nachher:[
           ['erzaehler', 'Am Ende des mittleren Gangs: ein Thron. Nicht aus Stein. Aus Licht. Und darauf sitzt er.']
         ] }),
-    L(14, 5, 'Lichtsturm', 'kristallwald', 'schwer', { runden:54, startRunde:44, geld:33000, thema:'licht', licht:{ anzahl:5, breite:60, tempo:75 }, zusatz:{ '44+':'16 licht 0.22 0|20 funke 0.1 3|4 kristallkrebs 1.6 6' } }, [['leben', 0.1], ['stufe', 4]],
+    L(14, 5, 'Lichtsturm', 'kristallwald', 'schwer', { runden:54, startRunde:44, geld:43000, thema:'licht', licht:{ anzahl:5, breite:60, tempo:75 }, zusatz:{ '44+':'16 licht 0.22 0|20 funke 0.1 3|4 kristallkrebs 1.6 6' } }, [['leben', 0.1], ['stufe', 4]],
       'Ein Sturm aus Licht: fünf rasende Strahlen. Wo du stehst, entscheidet alles.', {
         gerettet:3,
         vorher:[
@@ -428,7 +428,7 @@
           ['nova', 'Frost. Wenn ich ihn nicht zurückholen kann …'],
           ['frost', 'Dann holst du ihn zurück. Basta.']
         ] }),
-    L(14, 6, 'Opa', 'thron', 'schwer', { runden:56, startRunde:45, geld:36000, thema:'licht', licht:{ anzahl:3, breite:80, tempo:45 }, bosse:{ 56:['lichttraeger', 2] }, zusatz:{ '45+':'10 licht 0.3 0' } }, [['leben', 0.1], ['ohneVerkauf']],
+    L(14, 6, 'Opa', 'thron', 'schwer', { runden:56, startRunde:45, geld:48500, thema:'licht', licht:{ anzahl:3, breite:80, tempo:45 }, bosse:{ 56:['lichttraeger', 2] }, zusatz:{ '45+':'10 licht 0.3 0' } }, [['leben', 0.1], ['ohneVerkauf']],
       'Boss: Der Lichtträger, mit aller Macht des Uralten. Er blendet öfter und stärker. Bring Opa nach Hause.', {
         gerettet:5, boss:'lichttraeger',
         vorher:[
@@ -504,7 +504,7 @@
           ['erzaehler', 'Vor ihnen schlägt es. Ein Herz, groß wie ein Berg. Und in seiner Mitte, ganz klein, ganz golden: das Herzlicht.'],
           ['uralter', 'KOMMT … NÄHER.']
         ] }),
-    L(15, 4, 'Der Uralte', 'thron', 'schwer', { runden:60, startRunde:49, geld:48000, thema:'organisch', licht:{ anzahl:2, breite:90, tempo:40 }, bosse:{ 60:['uralter', 2] }, zweitePhase:true, zusatz:{ '49+':'10 licht 0.3 0' } }, [['leben', 0.1], ['ohneVerkauf']],
+    L(15, 4, 'Der Uralte', 'thron', 'schwer', { runden:60, startRunde:49, geld:57500, thema:'organisch', licht:{ anzahl:2, breite:90, tempo:40 }, bosse:{ 60:['uralter', 2] }, zweitePhase:true, zusatz:{ '49+':'10 licht 0.3 0' } }, [['leben', 0.1], ['ohneVerkauf']],
       'Der Endkampf. Der Uralte kommt in Runde 60 – und wenn er fällt, schlägt sein Herz weiter.', {
         gerettet:6, boss:'uralter', zweiteText:['💛 Das Herz des Uralten', 'Sein Herz reißt sich los – und schlägt weiter!'],
         vorher:[
