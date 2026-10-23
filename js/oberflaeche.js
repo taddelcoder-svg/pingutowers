@@ -45,6 +45,8 @@
   fort.dorf.stufen = Object.assign({}, fort.dorf.stufen);
   fort.besitz = Object.assign({ skins:{}, sockel:{}, titel:{}, effekte:{}, taenze:{}, kraefte:{}, deko:{} }, fort.besitz);
   fort.kisten = Object.assign({ holz:0, silber:0, gold:0 }, fort.kisten);
+  fort.tagebuch = Object.assign({}, fort.tagebuch);   // gesammelte Seiten aus Opas Tagebuch (Teil 2)
+  fort.albtraum = Object.assign({}, fort.albtraum);   // im Albtraum geschaffte Levels
   const fortMerken = () => speicher.schreiben('pt-fortschritt', fort);
   let tagesAktiv = null;          // Datum der Tages-Herausforderung, die gerade gespielt wird
   let spielLohn = { xp:0, muenzen:0, erfolge:[] };   // was dieses Spiel gebracht hat (fürs Ergebnisbild)
@@ -259,7 +261,7 @@
   function erfolgeCheck(ende, gewonnen) {
     if (!spiel || olymp) return;
     const neu = PT.erfolgePruefen({ spiel, gewonnen, ende, geld:meinGeld(), lebenslang:fort.lebenslang, passStufe:passStufe(), prestige:pass.prestige, medaillen,
-      kampagne:fort.kampagne, dorf:fort.dorf, lookZahl:PT.SKIN_REIHE.filter(id => PT.skinFrei(id, passStufe(), fort.besitz)).length }, fort.erfolge);
+      kampagne:fort.kampagne, dorf:fort.dorf, tagebuch:fort.tagebuch, albtraum:fort.albtraum, lookZahl:PT.SKIN_REIHE.filter(id => PT.skinFrei(id, passStufe(), fort.besitz)).length }, fort.erfolge);
     for (const e of neu) {
       fort.erfolge[e.id] = PT.heute();
       spielLohn.erfolge.push(e);
@@ -590,7 +592,7 @@
     canvas.width = 500; canvas.height = 320;
     const x = canvas.getContext('2d');
     x.scale(0.5, 0.5);
-    const hintergrund = { tag:['#f4fbff', '#d6eaf5'], daemmerung:['#fbeef0', '#dcd6ee'], nacht:['#2a3d63', '#15233f'], vulkan:['#6b6470', '#3d3842'] }[k.thema];
+    const hintergrund = { tag:['#f4fbff', '#d6eaf5'], daemmerung:['#fbeef0', '#dcd6ee'], nacht:['#2a3d63', '#15233f'], vulkan:['#6b6470', '#3d3842'], licht:['#fff6e2', '#e6daf2'], organisch:['#7a3a2a', '#3a120c'], tiefsee:['#26304a', '#101628'] }[k.thema] || ['#f4fbff', '#d6eaf5'];
     const g = x.createLinearGradient(0, 0, 0, 640);
     g.addColorStop(0, hintergrund[0]); g.addColorStop(1, hintergrund[1]);
     x.fillStyle = g; x.fillRect(0, 0, 1000, 640);
@@ -897,27 +899,47 @@
   }
 
   /* ---------- Abenteuer „Schwarzes Eis“ ---------- */
-  let abenteuerReiter = false;
-  const kapitelTitel = k => (k.nr === 0 ? k.name : `Kapitel ${k.nr}: ${k.name}`);
-  const levelNummer = l => (l.kapitel === 0 ? 'Prolog' : `${l.kapitel}-${l.nr}`);
+  let abenteuerReiter = false, abenteuerTeil = null;
+  const kapAnz = k => (k.anzeige != null ? k.anzeige : k.nr);
+  const kapitelTitel = k => (kapAnz(k) === 0 ? k.name : `Kapitel ${kapAnz(k)}: ${k.name}`);
+  const levelNummer = l => { const a = kapAnz(PT.KAPITEL_VON(l.kapitel)); return a === 0 ? 'Prolog' : `${a}-${l.nr}`; };
+  const heldFrei = id => !PT.heldFrei || PT.heldFrei(id, fort.kampagne);
   function abenteuerBauen() {
     const el = $('#abenteuer');
     const sterne = fort.kampagne;
-    const gesamt = PT.LEVELS.reduce((n, l) => n + PT.sternZahl(sterne[l.id]), 0);
-    $('#abenteuerSterne').textContent = `⭐ ${gesamt} / ${PT.LEVELS.length * 3}`;
+    // Teil-Reiter: standardmäßig der neueste freie Teil
+    const freiBis = PT.TEILE.filter(t => PT.teilFrei(t.nr, sterne)).length;
+    if (!abenteuerTeil || !PT.teilFrei(abenteuerTeil, sterne)) abenteuerTeil = freiBis;
+    const teil = PT.TEILE[abenteuerTeil - 1];
+    const levelsTeil = t => PT.LEVELS.filter(l => t.kapitel.includes(l.kapitel));
+    $('#teilReiter').innerHTML = PT.TEILE.map(t => {
+      const frei = PT.teilFrei(t.nr, sterne), ls = levelsTeil(t), n = ls.reduce((a, l) => a + PT.sternZahl(sterne[l.id]), 0);
+      return `<button class="teil${t.nr}" data-teil="${t.nr}" aria-pressed="${t.nr === abenteuerTeil}" ${frei ? '' : 'disabled'}>${frei ? t.symbol : '🔒'} Teil ${t.nr}: ${esc(t.name)}
+        <small>${frei ? `⭐ ${n} / ${ls.length * 3}` : `Schaff erst Teil ${t.nr - 1}`}</small></button>`;
+    }).join('');
+    for (const b of $('#teilReiter').querySelectorAll('[data-teil]')) b.onclick = () => { PT.Ton.klick(); abenteuerTeil = +b.dataset.teil; abenteuerBauen(); };
+    const lsTeil = levelsTeil(teil);
+    const gesamt = lsTeil.reduce((n, l) => n + PT.sternZahl(sterne[l.id]), 0);
+    $('#abenteuerTitel').textContent = `${teil.nr === 1 ? '📖' : '✨'} ${teil.name}`;
+    $('#abenteuerSterne').textContent = `⭐ ${gesamt} / ${lsTeil.length * 3}`;
+    $('#abenteuerText1').hidden = teil.nr !== 1;
+    $('#abenteuerText2').hidden = teil.nr !== 2;
+    const seiten = Object.keys(PT.TAGEBUCH).filter(id => fort.tagebuch[id]).length;
+    $('#tagebuchKnopf').hidden = teil.nr !== 2;
+    $('#tagebuchKnopf').textContent = `📜 Opas Tagebuch (${seiten} / ${Object.keys(PT.TAGEBUCH).length} Seiten)`;
     const alt = fort.kampagneAlt;
-    $('#abenteuerAlt').hidden = !alt;
+    $('#abenteuerAlt').hidden = !alt || teil.nr !== 1;
     if (alt) $('#abenteuerAlt').textContent = `✨ Das Abenteuer wurde komplett neu geschrieben. Für deine ${alt.sterne} Sterne aus dem alten Abenteuer hast du eine Goldkiste und ${10 + alt.sterne} Eiskristalle bekommen. Deine Looks bleiben dir.`;
-    el.innerHTML = PT.KAPITEL.map(k => {
+    el.innerHTML = PT.KAPITEL.filter(k => teil.kapitel.includes(k.nr)).map(k => {
       const levels = PT.LEVELS.filter(l => l.kapitel === k.nr);
       const offen = PT.levelFrei(levels[0].id, sterne);
       const fertig = PT.kapitelFertig(k.nr, sterne);
       return `<section class="kapitel ${offen ? '' : 'zu'}"><h3>${k.symbol} ${esc(kapitelTitel(k))}${fertig ? ' <span class="chip">✓ geschafft</span>' : ''}</h3>
-        ${offen && k.zitat ? `<p class="kapitel-zitat">${esc(k.zitat[0])}${k.zitat[1] && k.nr ? ` – ${esc(k.zitat[1])}` : ''}</p>` : ''}
+        ${offen && k.zitat ? `<p class="kapitel-zitat">${esc(k.zitat[0])}${k.zitat[1] && kapAnz(k) ? ` – ${esc(k.zitat[1])}` : ''}</p>` : ''}
         <div class="level-pfad">${levels.map(l => {
           const n = PT.sternZahl(sterne[l.id]), frei = PT.levelFrei(l.id, sterne);
-          return `<button class="level ${n ? 'gespielt' : ''} ${l.boss ? 'bosslevel' : ''}" data-level="${l.id}" ${frei ? '' : 'disabled'}>
-            <i>${frei ? (l.boss ? PT.BOSSE[l.boss].symbol : l.finale ? '💔' : l.nr) : '🔒'}</i><b>${esc(l.name)}</b><span class="sterne">${[0, 1, 2].map(i => (sterne[l.id] || [])[i] ? '⭐' : '☆').join('')}</span></button>`;
+          return `<button class="level ${n ? 'gespielt' : ''} ${l.boss ? 'bosslevel' : ''} ${fort.albtraum[l.id] ? 'albtraum-ok' : ''}" data-level="${l.id}" ${frei ? '' : 'disabled'}>
+            <i>${frei ? (l.boss ? PT.BOSSE[l.boss].symbol : l.finale ? teil.finaleSymbol : l.nr) : '🔒'}</i><b>${esc(l.name)}</b><span class="sterne">${[0, 1, 2].map(i => (sterne[l.id] || [])[i] ? '⭐' : '☆').join('')}</span></button>`;
         }).join('')}</div>
         ${k.look ? `<p class="kapitel-lohn">Belohnung fürs ganze Kapitel: Look „${esc(PT.SKINS[k.look].name)}“ ${fort.besitz.skins[k.look] ? '✓' : ''}</p>` : ''}</section>`;
     }).join('');
@@ -928,7 +950,8 @@
     PT.Ton.klick();
     const k = PT.KAPITEL_VON(l.kapitel), st = fort.kampagne[id] || [];
     const gespielt = PT.sternZahl(st) > 0;
-    $('#levelTitel').textContent = `${k.symbol} ${levelNummer(l)}: ${l.name}`;
+    const teil = PT.teilVon(l);
+    $('#levelTitel').textContent = `${k.symbol} ${teil.nr > 1 ? `Teil ${teil.nr} · ` : ''}${levelNummer(l)}: ${l.name}`;
     // Neue Spieler sehen den Anfang der Szene als Vorgeschmack
     const erste = (l.vorher || []).find(z => z[0] !== 'erzaehler') || (l.vorher || [])[0];
     $('#levelStory').textContent = erste ? `${PT.SPRECHER[erste[0]].name ? PT.SPRECHER[erste[0]].name + ': ' : ''}${erste[1]}` : '';
@@ -945,6 +968,13 @@
     if (r.zerstoeren) infos.push('💥 Sabotage');
     if (r.einsturz) infos.push('🧊 Das Eis bricht');
     if (r.erlaubt) infos.push('🐧 nur bestimmte Pinguine');
+    if (r.licht) infos.push('🔆 Lichtstrahlen');
+    if (PT.KARTEN[l.karte].stroemung) infos.push('🌀 Strömung');
+    if (r.spiegel) infos.push('🪞 Spiegel');
+    if (r.verbuendete) infos.push('🦈 Verbündete');
+    if (r.wegRotation) infos.push('🫀 Adern ruhen abwechselnd');
+    if (r.heldFaellt) infos.push('🕯️ Abschied');
+    if (PT.TAGEBUCH[l.id]) infos.push(fort.tagebuch[l.id] ? '📜 Seite gefunden' : '📜 Eine Seite treibt vorbei');
     if (l.neu && PT.PINGUINE[l.neu]) infos.push(`✨ Neu: ${PT.PINGUINE[l.neu].name}`);
     if (l.neuFisch) infos.push(`🐟 Neu: ${PT.FISCHE[l.neuFisch].name}`);
     $('#levelInfos').innerHTML = infos.map(t => `<span>${esc(t)}</span>`).join('');
@@ -952,24 +982,32 @@
     const held = l.held || (wahl.held && PT.HELDEN[wahl.held] && !r.ohneHeld ? wahl.held : null);
     $('#levelHeld').textContent = l.held ? `In diesem Level ist ${PT.HELDEN[l.held].name} dein Held.` : held ? `Dein Held: ${PT.HELDEN[held].name} (unten im Menü änderbar)` : 'Ohne Held';
     $('#levelLos').textContent = gespielt ? "Los geht's!" : '▶ Szene und Level starten';
-    $('#levelLos').onclick = () => { $('#levelDialog').hidden = true; levelStarten(id, !gespielt); };
+    $('#levelAlbtraumBox').hidden = !gespielt;
+    $('#levelAlbtraum').checked = false;
+    $('#levelAlbtraumText').textContent = `Ein Viertel weniger Geld, halb so viele Leben, schnellere Fische, anderthalbmal so starke Bosse.${fort.albtraum[id] ? ' ✓ Schon überlebt.' : ' Belohnung: 12 Eiskristalle und 150 Erfahrung.'}`;
+    $('#levelLos').onclick = () => { $('#levelDialog').hidden = true; levelStarten(id, !gespielt, gespielt && $('#levelAlbtraum').checked); };
     $('#levelSzene').hidden = !gespielt;
     $('#levelSzene').onclick = () => {
       $('#levelDialog').hidden = true;
-      szeneSpielen([...(l.vorher || []), ...(l.nachher || []), ...(l.finale ? PT.ENDE_SZENE : [])], { karte:kapitelKarte(l), stimmung:k.stimmung }).then(() => levelOeffnen(id));
+      szeneSpielen([...(l.vorher || []), ...(l.nachher || []), ...(l.finale ? teil.ende : [])], { karte:kapitelKarte(l), stimmung:k.stimmung }).then(() => levelOeffnen(id));
     };
     $('#levelDialog').hidden = false;
     $('#levelLos').focus();
   }
-  const kapitelKarte = l => { const k = PT.KAPITEL_VON(l.kapitel); return l.nr === 1 ? { kapitel:l.kapitel ? `Kapitel ${l.kapitel}` : 'Prolog', titel:l.kapitel ? k.name : 'Die Nacht, in der das Wasser schrie', zitat:k.zitat } : null; };
-  function levelStarten(id, mitSzene) {
+  const kapitelKarte = l => {
+    const k = PT.KAPITEL_VON(l.kapitel), t = PT.teilVon(l), a = kapAnz(k);
+    return l.nr === 1 ? { kapitel:`${t.nr > 1 ? `Teil ${t.nr} · ` : ''}${a ? `Kapitel ${a}` : 'Prolog'}`, titel:a ? k.name : k.name.replace(/^Prolog: /, ''), zitat:k.zitat } : null;
+  };
+  let tagebuchSeite = null;       // treibende Tagebuch-Seite im laufenden Level { id, x, y, bis }
+  function levelStarten(id, mitSzene, albtraum) {
     const l = PT.LEVEL(id); if (!l) return;
     PT.Ton.start();
     speicher.weg('pt-stand');
     tagesAktiv = null; kampagneAktiv = id;
     const held = l.held || wahl.held;
-    spielStarten(new PT.Spiel({ karte:l.karte, stufe:l.stufe, modus:'standard', held, kraft:kraftAktiv(held), regeln:l.regeln, boni:boniAktiv(), seed:Date.now() & 0xffffff }));
+    spielStarten(new PT.Spiel({ karte:l.karte, stufe:l.stufe, modus:'standard', held, kraft:kraftAktiv(held), regeln:albtraum ? { ...l.regeln, albtraum:true } : l.regeln, boni:boniAktiv(), seed:Date.now() & 0xffffff }));
     const k = PT.KAPITEL_VON(l.kapitel);
+    if (albtraum) setTimeout(() => banner('😱 Albtraum', 'Weniger Geld, halbe Leben, schnellere Fische, stärkere Bosse. Viel Glück.', 3), mitSzene ? 0 : 400);
     PT.Ton.musik(k.stimmung);
     if (mitSzene && (l.vorher || []).length) szeneSpielen(l.vorher, { karte:kapitelKarte(l), imSpiel:true, stimmung:k.stimmung })
       .then(() => { if (spiel && kampagneAktiv === id) { banner(`📖 ${l.name}`, l.text.length < 70 ? l.text : `${spiel.kartenDaten.name} · bis Runde ${spiel.zielRunden}`, 3.5); tipp('Setz deine Pinguine neben den Kanal und starte die Runde.'); tippZeit = 5; } });
@@ -993,7 +1031,23 @@
       banner(`📖 ${kapitelTitel(k)} geschafft!`, `Neuer Look: ${PT.SKINS[k.look].name}`, 3.5);
     }
     if (l.id === 's1-3' && !fort.besitz.skins.kueken) { fort.besitz.skins.kueken = true; fortMerken(); }
-    if (l.finale) { fort.besitz.skins.held = true; fort.besitz.skins.opa = true; fortMerken(); }
+    if (l.finale) {
+      for (const s of PT.teilVon(l).looks) fort.besitz.skins[s] = true;
+      fortMerken();
+      const naechster = PT.TEILE[PT.teilVon(l).nr];
+      if (naechster && erstesMal) setTimeout(() => banner(`${naechster.symbol} Teil ${naechster.nr} ist frei!`, `„${naechster.name}“ wartet im Abenteuer.`, 4), 4000);
+    }
+    if (spiel.albtraum && !fort.albtraum[l.id]) {
+      fort.albtraum[l.id] = true; fortMerken();
+      kristalleDazu(12); xpDazu(150);
+      setTimeout(() => banner('😱 Albtraum überlebt!', '+12 💎 Eiskristalle · +150 Erfahrung', 3), 2500);
+    }
+    for (const [held, kap] of Object.entries(PT.HELD_KAPITEL || {})) {
+      if (PT.kapitelFertig(kap, fort.kampagne) && !fort.besitz.kraefte[held]) {
+        fort.besitz.kraefte[held] = true; fortMerken();
+        setTimeout(() => banner(`🎖️ Neuer Held: ${PT.HELDEN[held].name}`, 'Mit Meisterkraft – such ihn dir unten im Menü aus.', 4), 3000);
+      }
+    }
     // Das Dorf entsteht (nach Kapitel 2) und wächst mit jedem weiteren Kapitel
     const phase = PT.dorfPhase(fort.kampagne);
     if (phase > phaseVorher) {
@@ -1022,9 +1076,11 @@
       const b = document.createElement('button');
       b.className = 'heldwahl';
       b.setAttribute('aria-pressed', !ohne && meiner === id);
-      b.disabled = ohne && !!id;
+      const gesperrt = !!id && !heldFrei(id);
+      b.disabled = (ohne && !!id) || gesperrt;
+      if (gesperrt) b.title = `Noch gesperrt: ${d.freischalten}`;
       const kraft = d && PT.kraftFrei(id, st, fort.besitz) && !olymp ? ' <span class="chip kraft" title="Meisterkraft freigeschaltet">✨</span>' : '';
-      b.innerHTML = d ? `<img src="${bilder[id] || ''}" alt=""><span><b>${esc(d.name)}${kraft}</b><small>${esc(d.kurz)} · ${PT.preis(d.preis, E.stufe)} 💰</small></span>`
+      b.innerHTML = d ? `<img src="${bilder[id] || ''}" alt=""><span><b>${esc(d.name)}${kraft}</b><small>${gesperrt ? `🔒 ${esc(d.freischalten)}` : `${esc(d.kurz)} · ${PT.preis(d.preis, E.stufe)} 💰`}</small></span>`
         : '<span style="font-size:2.4rem;width:72px;text-align:center">🚫</span><span><b>Ohne Held</b><small>Nur Pinguine.</small></span>';
       b.onclick = () => {
         PT.Ton.klick();
@@ -1113,7 +1169,15 @@
       schatten:'Aus der sterbenden Tiefsee: getarnt, taucht aber alle paar Sekunden kurz auf. Dann 1 Anglerfisch.',
       splitter:'Flinker Splitter eines Verderbten. Wird zum Lachs.', verderbt:'Von der Dunkelheit zerfressen: Kälte macht ihm nichts. Zerfällt in 3 Splitterlinge.',
       kapitaen:'Kapitän Frost (Abenteuer): friert eure wertvollsten Pinguine ein und hüllt Fische in Eispanzer, an denen alles abprallt.',
-      zerbrochen:'Pako, der Zerbrochene: die zweite Gestalt von Abyssos im Abenteuer. Ruft Schattenfische und löscht das Licht.'
+      zerbrochen:'Pako, der Zerbrochene: die zweite Gestalt von Abyssos im Abenteuer. Ruft Schattenfische und löscht das Licht.',
+      funke:'Ein winziger Lichtsplitter. Rasend schnell, kommt in Schwärmen. Wird zum Goldfisch.',
+      licht:'Ein Kind des Uralten, wunderschön und hungrig. Zerfällt in 2 Lichtfunken.',
+      spiegelfisch:'Schuppen wie Spiegel: Fast jedes dritte Geschoss prallt zurück. Strahlen, Blitze und Explosionen helfen. Dann 1 Regenbogenforelle.',
+      kristallkrebs:'Langsam und hart, Spitzes prallt ab. Alle paar Sekunden schützt er alle Fische in der Nähe kurz mit Kristall. Dann 1 Kofferfisch.',
+      kristallmutter:'Mutter der Kristalle (Abenteuer Teil 2): ruft Lichtgeborene und hüllt alle Fische um sich immer wieder in Kristall.',
+      lichttraeger:'Der Lichtträger (Abenteuer Teil 2): Er blendet alle Pinguine in seiner Nähe – geblendet greift niemand an.',
+      uralter:'Der Uralte (Abenteuer Teil 2): der Hunger, der alles Licht frisst. Blendet, ruft seine Kinder – und wenn er fällt, schlägt sein Herz weiter.',
+      uralterkern:'Das Herz des Uralten: die zweite Gestalt. Löscht das Licht und schützt seine Kinder mit Kristall.'
     });
     $('#lexikon').innerHTML = [...PT.FISCH_REIHE, ...PT.BOSS_REIHE].map(id => {
       const f = PT.FISCHE[id];
@@ -1197,12 +1261,12 @@
     });
   }
   // Abspann: die Namen rollen über den Bildschirm
-  function abspannSpielen() {
+  function abspannSpielen(rolleDaten = PT.ABSPANN) {
     return new Promise(fertig => {
       const el = $('#szene'), a = $('#abspann');
       el.classList.add('dunkel'); el.hidden = false; a.hidden = false;
       $('#szeneBox').hidden = true; $('#szeneKarte').hidden = true;
-      $('#abspannRolle').innerHTML = PT.ABSPANN.map(([k, t], i) => `<div class="${i === 0 ? 'gross' : ''}">${k ? `<small>${esc(k)}</small>` : ''}<b>${esc(t)}</b></div>`).join('');
+      $('#abspannRolle').innerHTML = rolleDaten.map(([k, t], i) => `<div class="${i === 0 ? 'gross' : ''}">${k ? `<small>${esc(k)}</small>` : ''}<b>${esc(t)}</b></div>`).join('');
       const rolle = $('#abspannRolle');
       rolle.style.animation = 'none'; void rolle.offsetHeight; rolle.style.animation = '';
       PT.Ton.musik('herz');
@@ -1214,6 +1278,36 @@
       rolle.onanimationend = schluss;
       setTimeout(schluss, 36000);
     });
+  }
+
+  /* ---------- Opas Tagebuch (Teil 2): eine Seite treibt in der Mitte jedes Levels durch den Kanal ---------- */
+  function tagebuchPruefen(runde) {
+    const l = PT.LEVEL(kampagneAktiv);
+    if (!l || !PT.TAGEBUCH[l.id] || fort.tagebuch[l.id] || tagebuchSeite || runde !== PT.tagebuchRunde(l)) return;
+    const w = spiel.wege[0], [x, y] = w.punkt(w.vonDist + (w.bisDist - w.vonDist) * 0.45);
+    tagebuchSeite = { id:l.id, x, y, bis:spiel.zeit + 18 };
+    if (welt) welt.tagebuchZeigen(x, y);
+    kurzTipp('📜 Eine leuchtende Seite treibt im Kanal – klick sie an, bevor sie versinkt!');
+  }
+  function tagebuchSammeln() {
+    const { id } = tagebuchSeite, [titel, text] = PT.TAGEBUCH[id];
+    tagebuchSeite = null;
+    if (welt) welt.tagebuchWeg(true);
+    fort.tagebuch[id] = true; fortMerken();
+    PT.Ton.klick();
+    kristalleDazu(2);
+    banner(`📜 ${titel}`, 'Eine Seite aus Opas Tagebuch (+2 💎)', 2.6);
+    funkSchlange.push(['tagebuch', text]);
+  }
+  function tagebuchOeffnen() {
+    const ids = Object.keys(PT.TAGEBUCH), n = ids.filter(id => fort.tagebuch[id]).length;
+    $('#tagebuchZahl').textContent = n === ids.length ? 'Alle Seiten gefunden.' : `${n} von ${ids.length} Seiten gefunden. Jede Seite treibt einmal in ihrem Level vorbei – etwa in der Mitte.`;
+    $('#tagebuchSeiten').innerHTML = ids.map(id => {
+      const l = PT.LEVEL(id), [titel, text] = PT.TAGEBUCH[id];
+      return fort.tagebuch[id] ? `<article><h4>${esc(levelNummer(l))} · ${esc(titel)}</h4><p>${esc(text)}</p></article>`
+        : `<article class="fehlt"><h4>${esc(levelNummer(l))} · ???</h4><p>Noch nicht gefunden – treibt in „${esc(l.name)}“ vorbei.</p></article>`;
+    }).join('');
+    $('#tagebuchDialog').hidden = false;
   }
 
   /* ---------- Funk im Kampf (Abenteuer) ---------- */
@@ -1423,6 +1517,7 @@
     endeArt = null;
     endeSzene = false; kampagneErgebnis = null;
     funkLeeren();
+    tagebuchSeite = null;
     if (!neu.koop) vs = null;
     $('#pauseTitel').textContent = 'Pause';
     $('#menue').hidden = true;
@@ -1974,6 +2069,7 @@
     zeiger = zeigerAus(e);
     if (!zeiger) return;
     const [x, y] = zeiger;
+    if (tagebuchSeite && Math.hypot(x - tagebuchSeite.x, y - tagebuchSeite.y) < 50) { tagebuchSammeln(); return; }
     if (zielModus) {
       tun({ t:'zielpunkt', id:zielModus.id, x:Math.round(x), y:Math.round(y) });
       zielModus = null; welt.zielModus = false;
@@ -2003,6 +2099,7 @@
       return;
     }
     if (e.key === 'Escape' && !$('#einstellungen').hidden) { e.preventDefault(); $('#einstZu').click(); return; }
+    if (e.key === 'Escape' && !$('#tagebuchDialog').hidden) { e.preventDefault(); $('#tagebuchDialog').hidden = true; return; }
     if (e.key === 'Escape' && !$('#levelDialog').hidden) { e.preventDefault(); $('#levelZu').click(); return; }
     if (e.key === 'Escape' && !$('#kisteDialog').hidden) { e.preventDefault(); $('#kisteZu').click(); return; }
     if (!spiel || $('#spiel').hidden) return;
@@ -2068,11 +2165,23 @@
       }
       if (e.art === 'rundeStart') { funk('r' + e.runde); if (e.boss) { funk('boss'); if (kampagneAktiv) PT.Ton.musik('boss'); } }
       if (e.art === 'bossPhase') funk('phase' + e.phase);
-      if (e.art === 'zweitePhase') { banner('💔 Pako, der Zerbrochene', 'Abyssos steht wieder auf – stärker als zuvor!', 3.5); funk('zweite'); }
+      if (e.art === 'zweitePhase') {
+        const zt = (kampagneAktiv && PT.LEVEL(kampagneAktiv).zweiteText) || ['💔 Pako, der Zerbrochene', 'Abyssos steht wieder auf – stärker als zuvor!'];
+        banner(zt[0], zt[1], 3.5); funk('zweite');
+      }
       if (e.art === 'bossBesiegt' && kampagneAktiv && !spiel.fische.some(f => f.boss && !f.tot)) PT.Ton.musik(PT.KAPITEL_VON(PT.LEVEL(kampagneAktiv).kapitel).stimmung);
       if (e.art === 'wegOffen') { banner('⚠️ Überfall!', 'Ein neuer Kanal ist offen – sie kommen von der Seite!', 3); funk('weg', true); }
       if (e.art === 'sabotiert' && e.anzahl) { banner('💥 Sabotage!', `${e.anzahl} deiner teuersten Pinguine sind zerstört. Die Hälfte des Geldes gibt es zurück.`, 3.5); funk('sabotiert'); }
-      if (e.art === 'heldGefallen') { banner(`🗿 ${e.typ ? PT.HELDEN[e.typ].name : 'Dein Held'} ist gefallen`, 'Aus Wut greifen deine Pinguine eine Weile schneller an!', 4); funk('gefallen'); }
+      if (e.art === 'heldGefallen') {
+        const ht = kampagneAktiv && PT.LEVEL(kampagneAktiv).heldText;
+        if (ht) banner(ht[0], ht[1], 4.5);
+        else banner(`🗿 ${e.typ ? PT.HELDEN[e.typ].name : 'Dein Held'} ist gefallen`, 'Aus Wut greifen deine Pinguine eine Weile schneller an!', 4);
+        funk('gefallen');
+      }
+      if (e.art === 'wegWechsel') { if (!funkGespielt.has('ader!')) { funkGespielt.add('ader!'); kurzTipp('🫀 Eine Ader ruht diese Runde – nur die anderen pumpen Fische. Jede Runde eine andere!'); } funk('ader'); }
+      if (e.art === 'verbuendet' && !funkGespielt.has('verbuendet')) { funkGespielt.add('verbuendet'); kurzTipp('🦈 Verbündete! Orkas Haie schwimmen gegen den Strom und rammen die Fische.'); }
+      if (e.art === 'blenden' && spiel.tuerme.some(t => t.betaeubtArt === 'licht' && t.betaeubt > 0 && (!spiel.koop || t.besitzer === ich()))) { kurzTipp('🔆 Geblendet! Pinguine in der Nähe sehen kurz nichts.'); funk('blenden'); }
+      if (e.art === 'rundeStart' && kampagneAktiv && !spiel.koop) tagebuchPruefen(e.runde);
       if (e.art === 'einsturzWarnung') { kurzTipp('🧊 Achtung: Nach dieser Runde bricht die rot blinkende Eisfläche weg! Was dort steht, ist verloren (ein Viertel gibt es zurück).'); funk('einsturz'); }
       if (e.art === 'eingestuerzt') letzteAnzeige = '';
       if (e.art === 'frostbefehl' && spiel.tuerme.some(t => t.betaeubtArt === 'eis' && t.betaeubt > 0 && (!spiel.koop || t.besitzer === ich()))) kurzTipp('❄️ Frostbefehl! Deine wertvollsten Pinguine sind eingefroren.');
@@ -2148,10 +2257,11 @@
       (async () => {
         if (l && (l.nachher || []).length) await szeneSpielen(l.nachher, { imSpiel:true });
         if (l && l.finale) {
-          await szeneSpielen(PT.ENDE_SZENE, { stimmung:'herz' });
-          await abspannSpielen();
-          await szeneSpielen(PT.NACH_ABSPANN, { auge:2, stimmung:'tiefe' });
-          await szeneSpielen([], { karte:{ kapitel:'Pinguin Türmchen', titel:'Fortsetzung folgt …', zitat:['Neu-Pinguinhausen wartet auf dich.', ''] } });
+          const t = PT.teilVon(l);
+          await szeneSpielen(t.ende, { stimmung:t.endeStimmung });
+          await abspannSpielen(t.abspann);
+          await szeneSpielen(t.nachAbspann, { auge:2, stimmung:t.nachStimmung });
+          await szeneSpielen([], { karte:t.schluss });
         }
         endeZeigen(true);
       })();
@@ -2181,8 +2291,8 @@
         if (l && erg) {
           const i = PT.LEVELS.indexOf(l), naechstes = PT.LEVELS[i + 1];
           $('#endeEmoji').textContent = erg.neu.map(x => (x ? '⭐' : '☆')).join('');
-          $('#endeTitel').textContent = l.finale ? 'Das Ende von Pinguinhausen' : 'Level geschafft!';
-          $('#endeText').textContent = l.finale ? 'Pinguinhausen ist versunken. Aber ihr lebt – und ihr baut neu. Dein Pingu-Dorf „Neu-Pinguinhausen“ wartet auf dich.' : [`${l.name}: ${erg.neu.filter(Boolean).length} von 3 Sternen.`,
+          $('#endeTitel').textContent = l.finale ? PT.teilVon(l).endeTitel : 'Level geschafft!';
+          $('#endeText').textContent = l.finale ? PT.teilVon(l).endeText : [`${l.name}: ${erg.neu.filter(Boolean).length} von 3 Sternen.`,
             ...l.sterne.map((a, n) => `${erg.neu[n + 1] ? '✅' : '❌'} ${PT.sternAufgabe(a)}`)].join(' ');
           k.innerHTML = (naechstes ? '<button class="knopf haupt" id="eWeiterLevel">Nächstes Level ▶</button>' : '') + (l.finale ? '<button class="knopf haupt" id="eDorf">🏘️ Zum Pingu-Dorf</button>' : '')
             + '<button class="knopf" id="eNeu">Nochmal</button><button class="knopf" id="eMenue">Zum Abenteuer</button>';
@@ -2336,6 +2446,7 @@
     }
     if (vs) { for (const m of vs.meldungen.splice(0)) vsMeldung(m); vsZeigen(dt); }
     funkZeigen();
+    if (tagebuchSeite && spiel && spiel.zeit > tagebuchSeite.bis) { if (welt) welt.tagebuchWeg(false); tagebuchSeite = null; }
     const ev = spiel.ereignisse.splice(0);
     if (ev.length) { welt.ereignisse(ev); PT.Ton.ereignisse(ev); ereignisse(ev); }
     if (auswahl && !spiel.tuerme.includes(auswahl)) turmWaehlen(null);
@@ -2415,6 +2526,9 @@
     $('#tagLos').onclick = () => { PT.Ton.start(); tagesStarten(); };
     $('#reiterAbenteuer').onclick = () => { PT.Ton.klick(); abenteuerReiter = true; koopReiter = false; dorfReiter = false; menueBauen(); };
     $('#levelZu').onclick = () => { PT.Ton.klick(); $('#levelDialog').hidden = true; };
+    $('#tagebuchKnopf').onclick = () => { PT.Ton.klick(); tagebuchOeffnen(); };
+    $('#tagebuchZu').onclick = () => { PT.Ton.klick(); $('#tagebuchDialog').hidden = true; };
+    $('#tagebuchDialog').addEventListener('click', e => { if (e.target.id === 'tagebuchDialog') $('#tagebuchDialog').hidden = true; });
     $('#kisteZu').onclick = () => { PT.Ton.klick(); $('#kisteDialog').hidden = true; };
     $('#wetterAn').onchange = () => {
       const an = $('#wetterAn').checked;

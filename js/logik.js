@@ -8,7 +8,7 @@
 
   const SCHRITT = 2;          // Abstand der Wegpunkte in Pixeln
   const ZELLE = 64;           // Rastergröße für die Kollisionssuche
-  const TURM_R = { markt:26, haeuptling:19, boot:20, flieger:20, fabrik:21, moerser:19, eisbaer:24, koch:21, mecha:23 };
+  const TURM_R = { markt:26, haeuptling:19, boot:20, orca:22, flieger:20, fabrik:21, moerser:19, eisbaer:24, koch:21, mecha:23 };
   PT.turmRadius = typ => TURM_R[typ] || 17;
   const MAX_HAUFEN = 40;      // so viele Stachelhaufen darf eine Fabrik gleichzeitig liegen haben
 
@@ -178,6 +178,11 @@
       // Versus: Einkommen pro Runde, geschickte Fische (zeit, typ) und Sabotage des Gegners
       this.einkommen = 0;
       this.extra = [];
+      // Teil 2: verbündete Haie, die gegen den Strom schwimmen; Albtraum-Schwierigkeit
+      this.verbuendete = [];
+      this.verbT = 0;
+      this.albtraum = !!rg.albtraum;
+      if (this.albtraum && !this.unendlich) { this.geld = Math.round(this.geld * 0.75); this.leben = Math.max(1, Math.round(this.leben * 0.5)); }
       this.vs = { nebelBis:0, sturmBis:0 };
       if (rg.startRunde > 1) this.runde = Math.min(rg.startRunde - 1, this.zielRunden - 1);
     }
@@ -406,7 +411,12 @@
       this.warteschlange = [];
       let ende = 0;
       // Kanäle, die schon offen sind (Abenteuer: manche öffnen sich erst später – Überfall von der Seite!)
-      const offen = this.wege.map((w, i) => i).filter(i => !rg.wegeAb || (rg.wegeAb[i] || 1) <= n);
+      let offen = this.wege.map((w, i) => i).filter(i => !rg.wegeAb || (rg.wegeAb[i] || 1) <= n);
+      if (rg.wegRotation && this.wege.length > 1) {
+        const i = (n - 1) % this.wege.length, [x, y] = this.wege[i].punkt(this.wege[i].vonDist + 30);
+        offen = offen.filter(k => k !== i);   // diese Ader ruht, die anderen pumpen
+        this.ereignisse.push({ art:'wegWechsel', weg:i, x, y });
+      }
       if (rg.wegeAb) rg.wegeAb.forEach((ab, i) => { if (ab === n && n > 1 && this.wege[i]) this.ereignisse.push({ art:'wegOffen', weg:i, x:this.wege[i].punkt(this.wege[i].vonDist + 30)[0], y:this.wege[i].punkt(this.wege[i].vonDist + 30)[1] }); });
       const wn = offen.length || 1;
       r.gruppen.forEach((g, gi) => {
@@ -482,13 +492,14 @@
       const T = FISCHE[typ];
       const fest = !!mods.fest && PT.kannGepanzert(typ) && !this.entpanzern;
       let hp = T.hp * (fest ? (typ === 'panzer' ? 4 : 2) : 1) * (T.riese && !T.boss ? this.zaeh || 1 : 1);
-      if (T.boss) hp = PT.BOSSE[typ].hp[mods.boss || 1];
+      if (T.boss) hp = PT.BOSSE[typ].hp[mods.boss || 1] * (this.albtraum ? 1.5 : 1);
       if (T.riese && !T.boss && this.sabotage && this.sabotage.riesen && this.zeit < this.sabotage.bis) hp *= this.sabotage.riesen;
       const f = {
         id:this.naechsteId++, typ, p, hp, dist, camo:!!mods.camo || T.immer === 'camo', fest, boss:T.boss ? mods.boss || 1 : 0, phase:0,
         nach:!!mods.nach && !T.riese, ursprung:mods.ursprung || typ, nachT:0,
         frost:0, betaeubt:0, langsam:1, langsamT:0, wind:1, x:-100, y:-100, w:0, tot:false, geboren:this.zeit,
-        luft:0, sprungT:T.springen ? (this.naechsteId % 9) * 0.29 : 0, gross:0, blasPause:0, tunnel:false, bossT:0, kt:{}, schild:0, geschickt:!!mods.geschickt
+        luft:0, sprungT:T.springen ? (this.naechsteId % 9) * 0.29 : 0, gross:0, blasPause:0, tunnel:false, bossT:0, kt:{}, schild:0, geschickt:!!mods.geschickt,
+        gespiegelt:!!mods.gespiegelt
       };
       f.hpMax = f.hp;
       if (vorbild) {
@@ -592,10 +603,17 @@
         this.ereignisse.push({ art:'zweitePhase', typ:zweite, x:neu.x, y:neu.y, fisch:neu });
       }
       const kinder = FISCHE[f.typ].kinder;
+      // Spiegel: nur Fische aus der Welle selbst (nicht ihre Kinder) werfen ein Spiegelbild in den anderen Kanal
+      const rs = this.regeln && this.regeln.spiegel;
+      if (rs && !f.boss && !f.gespiegelt && f.ursprung === f.typ && kinder.length && this.wege.length > 1 && this.zufall() < rs) {
+        const q = (f.p + 1) % this.wege.length, anteil = f.dist / this.wege[f.p].laenge;
+        const c = this.neuerFisch(kinder[0], anteil * this.wege[q].laenge, { gespiegelt:true }, null, q);
+        this.ereignisse.push({ art:'gespiegelt', x:c.x, y:c.y });
+      }
       const neue = [];
       kinder.forEach((k, i) => {
         const c = this.neuerFisch(k, Math.max(0, f.dist - i * (FISCHE[f.typ].riese ? 14 : 7)),
-          { camo:f.camo && FISCHE[f.typ].immer !== 'camo', nach:f.nach, ursprung:f.ursprung, fest:f.fest && PT.kannGepanzert(k), geschickt:f.geschickt }, f, f.p);
+          { camo:f.camo && FISCHE[f.typ].immer !== 'camo', nach:f.nach, ursprung:f.ursprung, fest:f.fest && PT.kannGepanzert(k), geschickt:f.geschickt, gespiegelt:f.gespiegelt }, f, f.p);
         if (getroffen) getroffen.add(c.id);
         neue.push(c);
       });
@@ -648,9 +666,33 @@
     tempo(f) {
       if (f.frost > 0 || f.betaeubt > 0) return 0;
       const sab = this.sabotage && this.zeit < this.sabotage.bis ? this.sabotage.faktor : 1;
-      if (f.boss) return FISCHE[f.typ].tempo * (1 + sab) / 2;
+      if (f.boss) return FISCHE[f.typ].tempo * (1 + sab) / 2 * this.stroemung(f);
       const W = this.W;
-      return FISCHE[f.typ].tempo * f.langsam * f.wind * sab * (f.luft > 0 ? 1.5 : 1) * (W && W.fischTempo ? W.fischTempo : 1) * (this.zeit < this.vs.sturmBis ? 1.35 : 1);
+      return FISCHE[f.typ].tempo * f.langsam * f.wind * sab * (f.luft > 0 ? 1.5 : 1) * (W && W.fischTempo ? W.fischTempo : 1) * (this.zeit < this.vs.sturmBis ? 1.35 : 1)
+        * this.stroemung(f) * (this.imLicht(f.x) ? 1.2 : 1) * (this.albtraum ? 1.12 : 1);
+    }
+
+    // Strömung (Karte): auf manchen Abschnitten schwimmen Fische schneller
+    stroemung(f) {
+      const st = this.kartenDaten.stroemung;
+      if (!st) return 1;
+      const a = f.dist / this.wege[f.p].laenge;
+      for (const [k, von, bis, faktor] of st) if (k === f.p && a >= von && a <= bis) return faktor;
+      return 1;
+    }
+    // Lichtstrahlen (Abenteuer): senkrechte Bänder, die von links nach rechts über die Karte wandern (Mitte jedes Bands)
+    lichtStrahlen() {
+      const L = this.regeln && this.regeln.licht;
+      if (!L) return [];
+      const B = L.breite || 70, weg = PT.BREITE + B, r = [];
+      for (let i = 0; i < L.anzahl; i++) r.push(((this.zeit * L.tempo + i * weg / L.anzahl) % weg) - B / 2);
+      return r;
+    }
+    imLicht(x) {
+      const L = this.regeln && this.regeln.licht;
+      if (!L) return false;
+      const h = (L.breite || 70) / 2;
+      return this.lichtStrahlen().some(m => Math.abs(m - x) <= h);
     }
 
     /* ---------- Angriffe ---------- */
@@ -874,7 +916,7 @@
           for (const x of sichtbar()) if (!x.boss) x.betaeubt = Math.max(x.betaeubt, FISCHE[x.typ].riese ? f.dauer / 2 : f.dauer);
           this.ereignisse.push({ art:'ring', x:t.x, y:t.y, r:400, bild:'schallGross', turm:t });
           break;
-        case 'sternschnuppe':
+        case 'sternschnuppe': case 'prisma':
           for (const x of sichtbar()) { x.camo = false; x.enttarnt = true; }
           alleTreffen(f.schaden, f.riesen);
           break;
@@ -965,7 +1007,7 @@
           }
           this.ereignisse.push({ art:'ring', x:t.x, y:t.y, r:520, bild:'stampfer', turm:t });
           break;
-        case 'tsunami':
+        case 'tsunami': case 'orcaflut':
           for (const x of sichtbar()) if (!x.boss) x.dist = Math.max(0, x.dist - (FISCHE[x.typ].riese ? f.weite / 2 : f.weite));
           alleTreffen(f.schaden, f.riesen);
           this.ereignisse.push({ art:'ring', x:t.x, y:t.y, r:500, bild:'strudel', turm:t });
@@ -977,6 +1019,15 @@
             this.treffer(x, PT.angriff({ schaden:f.schaden, riesen:f.riesen, typ:'normal' }), t, null);
           }
           this.ereignisse.push({ art:'ring', x:t.x, y:t.y, r:f.radius, bild:'bruell', turm:t });
+          break;
+        case 'eisgefaengnis': case 'eisherrschaft':
+          for (const x of sichtbar()) {
+            if (x.boss) continue;
+            if (FISCHE[x.typ].riese) x.betaeubt = Math.max(x.betaeubt, f.dauer * 0.6);
+            else x.frost = Math.max(x.frost, f.dauer);
+          }
+          if (f.schaden) alleTreffen(f.schaden, f.riesen);
+          this.ereignisse.push({ art:'ring', x:t.x, y:t.y, r:600, bild:'frostStark', turm:t });
           break;
         case 'netz':
           for (const x of sichtbar()) {
@@ -1048,6 +1099,26 @@
           this.ereignisse.push({ art:'finsternis', x:PT.BREITE / 2, y:PT.HOEHE / 2, dauer:fi.dauer, tiefe:true });
         }
       }
+      // Teil 2: verbündete Haie schwimmen vom Ende des Kanals gegen den Strom und rammen Fische
+      const vb = this.regeln && this.regeln.verbuendete;
+      if (vb && this.laeuft && (this.verbT += dt) >= vb.alle) {
+        this.verbT = 0;
+        const p = Math.floor(this.zufall() * this.wege.length), w = this.wege[p];
+        this.verbuendete.push({ id:this.naechsteId++, p, dist:w.bisDist, ladung:vb.ladung || 25, getroffen:new Set() });
+        this.ereignisse.push({ art:'verbuendet', x:w.punkt(w.bisDist)[0], y:w.punkt(w.bisDist)[1] });
+      }
+      for (const v of this.verbuendete) {
+        const w = this.wege[v.p];
+        v.dist -= 120 * dt;
+        [v.x, v.y, v.w] = w.punkt(v.dist);
+        for (const f of this.fische) {
+          if (f.tot || f.p !== v.p || v.getroffen.has(f.id) || Math.abs(f.dist - v.dist) > 26 + FISCHE[f.typ].r * 0.5) continue;
+          v.getroffen.add(f.id);
+          this.treffer(f, PT.angriff({ schaden:vb ? vb.schaden || 3 : 3, riesen:vb ? vb.riesen || 30 : 30, typ:'normal' }), null, null);
+          if (--v.ladung <= 0) break;
+        }
+      }
+      if (this.verbuendete.length) this.verbuendete = this.verbuendete.filter(v => v.ladung > 0 && v.dist > this.wege[v.p].vonDist - 20 && this.laeuft);
       // Versus: vom Gegner geschickte Fische (zählen nicht zur Runde)
       while (this.extra.length && this.extra[this.extra.length - 1][0] <= this.zeit) {
         const [, typ, p] = this.extra.pop();
@@ -1092,6 +1163,14 @@
           else if ((f.sprungT += dt) >= T.springen.alle) { f.sprungT = 0; f.luft = T.springen.dauer; this.ereignisse.push({ art:'sprung', x:f.x, y:f.y }); }
         }
         if (f.boss) this.bossKraft(f, dt);
+        if (T.schutz) {
+          f.kt.schutz = (f.kt.schutz || 0) + dt;
+          if (f.kt.schutz >= T.schutz.alle) {
+            f.kt.schutz = 0;
+            for (const g of this.fische) if (!g.tot && !g.boss && Math.hypot(g.x - f.x, g.y - f.y) <= T.schutz.radius) g.schild = Math.max(g.schild || 0, T.schutz.dauer);
+            this.ereignisse.push({ art:'kristallschutz', x:f.x, y:f.y, r:T.schutz.radius });
+          }
+        }
         if (f.giftT > 0) {
           f.giftT -= dt;
           f.giftRest = (f.giftRest || 0) + f.gift * dt;
@@ -1146,7 +1225,7 @@
       for (const t of this.tuerme) {
         if (t.eff.flieger) this.fliegerBewegen(t, dt);
         if (t.betaeubt > 0) { t.betaeubt -= dt; if (t.betaeubt <= 0) t.betaeubtArt = null; continue; }   // Flutwelle, Eisatem oder Tinte
-        const tempo = (t.temp && this.zeit < t.temp.bis ? t.temp.faktor : 1) * (this.W && this.W.angriff ? this.W.angriff : 1);
+        const tempo = (t.temp && this.zeit < t.temp.bis ? t.temp.faktor : 1) * (this.W && this.W.angriff ? this.W.angriff : 1) * (this.imLicht(t.x) ? 1.3 : 1);
         const angriffe = t.eff.angriffe;
         for (let i = 0; i < angriffe.length; i++) {
           const a = angriffe[i];
@@ -1216,6 +1295,11 @@
           if (f.tot || g.getroffen.has(f.id) || !this.erreichbar(f, g.turm)) continue;
           const r = FISCHE[f.typ].r + g.groesse;
           if ((f.x - g.x) ** 2 + (f.y - g.y) ** 2 > r * r) continue;
+          if (FISCHE[f.typ].spiegel && this.zufall() < FISCHE[f.typ].spiegel) {
+            g.vx = -g.vx; g.vy = -g.vy; g.getroffen.add(f.id);
+            if (this.ereignisse.length < 400) this.ereignisse.push({ art:'gespiegelt', x:f.x, y:f.y, klein:true });
+            break;
+          }
           if (g.a.splash) {
             this.treffer(f, g.a, g.turm, null);
             this.explosion(g.x, g.y, g.a, g.turm, f.id);
@@ -1295,6 +1379,14 @@
         const ziele = this.tuerme.filter(t => !t.eff.unbeirrbar && !PT.HELDEN[t.typ]).sort((a, b) => b.investiert - a.investiert || a.id - b.id).slice(0, n);
         for (const t of ziele) if (dauer >= (t.betaeubt || 0)) { t.betaeubt = dauer; t.betaeubtArt = 'eis'; }
         this.ereignisse.push({ art:'frostbefehl', x:f.x, y:f.y, ziele:ziele.map(t => [t.x, t.y]) });
+      }
+      if (B.blenden && faellig('blenden', B.blenden.alle)) {
+        this.pinguineBetaeuben(f.x, f.y, B.blenden.radius, B.blenden.dauer[f.boss] || B.blenden.dauer[1], 'licht');
+        this.ereignisse.push({ art:'blenden', x:f.x, y:f.y, r:B.blenden.radius });
+      }
+      if (B.schutzAura && faellig('schutzAura', B.schutzAura.alle)) {
+        for (const g of this.fische) if (!g.tot && !g.boss && Math.hypot(g.x - f.x, g.y - f.y) <= B.schutzAura.radius) g.schild = B.schutzAura.dauer;
+        this.ereignisse.push({ art:'kristallschutz', x:f.x, y:f.y, r:B.schutzAura.radius });
       }
       if (B.eispanzer && faellig('eispanzer', B.eispanzer.alle)) {
         for (const g of this.fische) if (!g.tot && !g.boss && Math.hypot(g.x - f.x, g.y - f.y) <= B.eispanzer.radius) g.schild = B.eispanzer.dauer;

@@ -44,7 +44,16 @@
     splitter: { name:'Splitterling',      hp:2,    tempo:165, r:10, farbe:'#9b3fb0', kinder:['rosa'] },
     verderbt: { name:'Verderbter Fisch',  hp:12,   tempo:92,  r:15, farbe:'#4a1f5c', kinder:['splitter', 'splitter', 'splitter'], immun:['kaelte'] },
     kapitaen: { name:'Kapitän Frost',     hp:5000, tempo:14, r:58, farbe:'#9fd8ff', kinder:[], riese:true, boss:true },
-    zerbrochen:{ name:'Pako, der Zerbrochene', hp:26000, tempo:15, r:76, farbe:'#3a1050', kinder:[], riese:true, boss:true }
+    zerbrochen:{ name:'Pako, der Zerbrochene', hp:26000, tempo:15, r:76, farbe:'#3a1050', kinder:[], riese:true, boss:true },
+    // Teil 2 „Das erwachte Licht“: Kristallwesen aus dem Herzlicht
+    funke:    { name:'Lichtfunke',        hp:1,    tempo:210, r:9,  farbe:'#ffd54a', kinder:['gelb'] },
+    licht:    { name:'Lichtgeborener',    hp:3,    tempo:140, r:12, farbe:'#fff2a8', kinder:['funke', 'funke'] },
+    spiegelfisch:{ name:'Spiegelfisch',   hp:8,    tempo:115, r:13, farbe:'#dfe8f0', kinder:['regen'], spiegel:0.3 },
+    kristallkrebs:{ name:'Kristallkrebs', hp:24,   tempo:55,  r:16, farbe:'#b8a0ff', kinder:['koffer'], immun:['spitz'], schutz:{ alle:5, radius:90, dauer:1.5 } },
+    kristallmutter:{ name:'Mutter der Kristalle', hp:9000, tempo:12, r:70, farbe:'#d8b0ff', kinder:[], riese:true, boss:true },
+    lichttraeger:{ name:'Der Lichtträger', hp:13000, tempo:15, r:52, farbe:'#fff2c4', kinder:[], riese:true, boss:true },
+    uralter:  { name:'Der Uralte',        hp:32000, tempo:9,  r:96, farbe:'#ffe9a8', kinder:[], riese:true, boss:true },
+    uralterkern:{ name:'Herz des Uralten', hp:18000, tempo:16, r:60, farbe:'#ff9a4a', kinder:[], riese:true, boss:true }
   };
   for (const id of Object.keys(FISCHE)) FISCHE[id].id = id;
   // Wie viele "Schichten" ein Fisch insgesamt hat (so viele Leben kostet er, wenn er durchkommt)
@@ -55,8 +64,8 @@
   }
   Object.keys(FISCHE).forEach(rbe);
   PT.FISCHE = FISCHE;
-  PT.BOSS_REIHE = ['krakus', 'orka', 'leviathan', 'haikoenig', 'abyssos', 'kapitaen', 'zerbrochen'];
-  PT.FISCH_REIHE = ['rot', 'blau', 'gruen', 'gelb', 'rosa', 'flug', 'schwarz', 'weiss', 'tinte', 'panzer', 'zebra', 'regen', 'kugel', 'koffer', 'schatten', 'splitter', 'verderbt', 'wal', 'rochen', 'mega', 'krake'];
+  PT.BOSS_REIHE = ['krakus', 'orka', 'leviathan', 'haikoenig', 'abyssos', 'kapitaen', 'zerbrochen', 'kristallmutter', 'lichttraeger', 'uralter', 'uralterkern'];
+  PT.FISCH_REIHE = ['rot', 'blau', 'gruen', 'gelb', 'rosa', 'flug', 'schwarz', 'weiss', 'tinte', 'panzer', 'zebra', 'regen', 'kugel', 'koffer', 'schatten', 'splitter', 'verderbt', 'funke', 'licht', 'spiegelfisch', 'kristallkrebs', 'wal', 'rochen', 'mega', 'krake'];
   // Gepanzert gibt es nur für zähe Fische (wie im Vorbild)
   PT.kannGepanzert = typ => typ === 'panzer' || FISCHE[typ].hp > 1;
 
@@ -248,10 +257,80 @@
     wasser:[[960, 590, 26], [960, 50, 24], [300, 440, 26], [700, 200, 26]],
     deko:'eisbergring'
   };
-  PT.KARTEN_REIHE = ['scholle', 'bucht', 'leuchtturm', 'kreuz', 'spalte', 'tunnel', 'schmelze', 'labyrinth', 'erebus', 'nacht', 'doppel', 'inseln', 'eisbergring', 'dreizack'];
+  /* ---------- Karten aus Teil 2 ----------
+     stroemung: [[kanal, von, bis, faktor]] – auf diesem Abschnitt (Anteil des Kanals) schwimmen Fische schneller */
+  PT.KARTEN.neuhausen = {
+    name:'Neu-Pinguinhausen', stufe:'Mittel', thema:'daemmerung',
+    text:'Dein eigenes Dorf auf der Scholle. Zwischen den Iglus windet sich der Kanal – verteidige dein Zuhause.',
+    wege:[[[-40, 320], [180, 320], [180, 110], [480, 110], [480, 530], [780, 530], [780, 200], [1040, 200]]],
+    hindernisse:[[330, 300, 42], [630, 330, 42], [330, 520, 30], [640, 100, 30], [900, 420, 34], [80, 520, 30], [900, 60, 22]],
+    wasser:[[900, 590, 26], [70, 110, 28]],
+    deko:'iglu'
+  };
+  PT.KARTEN.kristallwald = {
+    name:'Kristallwald', stufe:'Mittel', thema:'licht',
+    text:'Unter Wasser wachsen Kristalle so hoch wie Bäume. Lichtstrahlen wandern über die Karte.',
+    wege:[[[-40, 100], [860, 100], [860, 310], [140, 310], [140, 530], [1040, 530]]],
+    hindernisse:[[500, 200, 32], [300, 420, 34], [700, 420, 34], [960, 300, 26], [40, 410, 24]],
+    wasser:[[960, 80, 26], [500, 610, 22]],
+    deko:'kristall'
+  };
+  PT.KARTEN.strudel = {
+    name:'Der Strudel', stufe:'Profi', thema:'tiefsee',
+    text:'Eine Spirale ins Zentrum des Meeres. Im Inneren reißt die Strömung die Fische doppelt so schnell mit.',
+    wege:[[[-40, 60], [940, 60], [940, 580], [60, 580], [60, 180], [820, 180], [820, 460], [180, 460], [180, 320], [560, 320]]],
+    stroemung:[[0, 0.62, 1, 1.7]],
+    hindernisse:[[700, 320, 34], [380, 390, 26], [500, 250, 22]],
+    wasser:[[500, 520, 22], [500, 120, 26], [300, 250, 22]],
+    deko:'nacht'
+  };
+  PT.KARTEN.spiegelsee = {
+    name:'Spiegelsee', stufe:'Profi', thema:'licht', geld:1.3,
+    text:'Zwei Kanäle, einer das Spiegelbild des anderen. Was oben platzt, taucht manchmal unten wieder auf.',
+    wege:[
+      [[-40, 140], [300, 140], [300, 260], [700, 260], [700, 140], [1040, 140]],
+      [[-40, 500], [300, 500], [300, 380], [700, 380], [700, 500], [1040, 500]]
+    ],
+    hindernisse:[[500, 320, 40], [150, 320, 30], [850, 320, 30]],
+    wasser:[[500, 60, 30], [500, 590, 30]],
+    deko:'kristall'
+  };
+  PT.KARTEN.wrack = {
+    name:'Wrack der Eiswache', stufe:'Profi', thema:'nacht', geld:1.3,
+    text:'Frosts versunkene Flotte. Zwischen den Wracks brechen mitten im Kampf neue Wege auf.',
+    wege:[
+      [[-40, 200], [320, 200], [320, 440], [680, 440], [680, 200], [1040, 200]],
+      [[500, -40], [500, 110], [860, 110], [860, 560], [1040, 560]],
+      [[500, 680], [500, 560], [140, 560], [140, 340], [-40, 340]]
+    ],
+    hindernisse:[[190, 90, 34], [500, 300, 40], [780, 330, 30], [960, 380, 24], [60, 450, 22]],
+    wasser:[[960, 60, 26], [320, 600, 22], [620, 505, 22]],
+    deko:'wrack'
+  };
+  PT.KARTEN.eingeweide = {
+    name:'Eingeweide des Uralten', stufe:'Profi', thema:'organisch',
+    text:'Im Inneren der Kreatur. Jede Runde pulsiert eine andere Ader – die Fische nehmen immer einen neuen Weg.',
+    wege:[
+      [[-40, 110], [220, 110], [320, 190], [520, 110], [720, 190], [1040, 110]],
+      [[-40, 320], [200, 320], [330, 250], [500, 330], [680, 260], [1040, 320]],
+      [[-40, 530], [240, 530], [340, 450], [540, 530], [720, 450], [1040, 530]]
+    ],
+    hindernisse:[[860, 215, 26], [860, 425, 26], [120, 215, 24], [120, 425, 24]],
+    wasser:[[440, 600, 22], [440, 30, 20], [860, 320, 24]],
+    deko:'fleisch'
+  };
+  PT.KARTEN.thron = {
+    name:'Thron des Lichts', stufe:'Profi', thema:'licht',
+    text:'Blendend hell, still und kalt. Der Kanal windet sich bis zum Herzen des Uralten.',
+    wege:[[[-40, 600], [900, 600], [900, 60], [100, 60], [100, 480], [760, 480], [760, 200], [260, 200], [260, 340], [540, 340]]],
+    hindernisse:[[640, 340, 36], [180, 270, 22], [500, 130, 24], [960, 330, 24]],
+    wasser:[[420, 540, 22], [400, 410, 26], [560, 270, 22]],
+    deko:'kristall'
+  };
+  PT.KARTEN_REIHE = ['scholle', 'bucht', 'leuchtturm', 'kreuz', 'spalte', 'tunnel', 'schmelze', 'labyrinth', 'erebus', 'nacht', 'doppel', 'inseln', 'eisbergring', 'dreizack', 'neuhausen', 'kristallwald', 'strudel', 'spiegelsee', 'wrack', 'eingeweide', 'thron'];
   PT.THEMEN_REIHE = ['tag', 'daemmerung', 'nacht', 'vulkan'];
   // Stimmungen nur fürs Abenteuer (überschreiben das Thema der Karte): Tiefsee, Blutnacht, Asche
-  PT.STIMMUNGEN = [...PT.THEMEN_REIHE, 'tiefsee', 'blut', 'asche'];
+  PT.STIMMUNGEN = [...PT.THEMEN_REIHE, 'tiefsee', 'blut', 'asche', 'licht', 'organisch'];
 
   /* ---------- Eigene Karten (Karten-Editor) ----------
      Prüft eine Karte von außen (Editor, Teilen-Link, Koop) und gibt eine bereinigte Kopie zurück oder null. */
@@ -398,7 +477,18 @@
     // Pako, der Zerbrochene: die zweite Gestalt von Abyssos (nur im Abenteuer, regeln.zweitePhase)
     zerbrochen:{ modus:null, runden:{}, hp:[0, 6000, 26000], belohnung:4000, symbol:'💔',
       welle:[[['schatten', 8], ['verderbt', 2]], [['verderbt', 6], ['rochen', 2]]], finsternis:{ alle:7, dauer:3 },
-      ruf:{ alle:6, welle:[[['schatten', 4]], [['schatten', 6], ['verderbt', 2]]] } }
+      ruf:{ alle:6, welle:[[['schatten', 4]], [['schatten', 6], ['verderbt', 2]]] } },
+    // Teil 2: blenden (Pinguine im Umkreis geblendet), schutzAura (Fische im Umkreis kurz unverwundbar)
+    kristallmutter:{ modus:null, runden:{}, hp:[0, 3500, 9000], belohnung:2500, symbol:'💎',
+      welle:[[['licht', 6], ['kristallkrebs', 1]], [['kristallkrebs', 3], ['licht', 8]]], ruf:{ alle:7, welle:[[['licht', 3]], [['licht', 4], ['spiegelfisch', 2]]] },
+      schutzAura:{ alle:8, radius:200, dauer:2 } },
+    lichttraeger:{ modus:null, runden:{}, hp:[0, 3000, 8000], belohnung:3000, symbol:'🌟',
+      welle:[[['licht', 8]], [['licht', 10], ['kristallkrebs', 2]]], blenden:{ alle:9, radius:220, dauer:[0, 2, 2.6] } },
+    uralter:{ modus:null, runden:{}, hp:[0, 9000, 26000], belohnung:5000, symbol:'👁️', zweite:'uralterkern',
+      welle:[[['licht', 10], ['spiegelfisch', 3]], [['kristallkrebs', 4], ['mega', 1]]], blenden:{ alle:11, radius:260, dauer:[0, 2, 2.6] },
+      ruf:{ alle:8, welle:[[['licht', 4], ['funke', 8]], [['licht', 6], ['spiegelfisch', 3]]] } },
+    uralterkern:{ modus:null, runden:{}, hp:[0, 5000, 14000], belohnung:6000, symbol:'💛',
+      welle:[[['licht', 8], ['funke', 10]], [['kristallkrebs', 3], ['licht', 12]]], finsternis:{ alle:8, dauer:3 }, schutzAura:{ alle:10, radius:180, dauer:1.5 } }
   };
   PT.BOSS_HP = PT.BOSSE.krakus.hp;
   PT.bossFuer = modus => PT.BOSS_REIHE.find(id => PT.BOSSE[id].modus === modus) || null;

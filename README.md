@@ -89,6 +89,25 @@ Tasten: Buchstaben am Pinguin im Laden (`Q W E R F T S P O V B M Z N L X G U I D
 - Große Pass-Seite mit allen Stufen als Karten, Aufstiegs-Karte (Mythisch mit Lichtstrahl), tägliche Login-Belohnung.
 - Umstieg: Wer nach der alten Rechnung schon weit war, landet direkt auf der passenden Stufe, Belohnungen werden gutgeschrieben.
 
+## Teil 2: Das erwachte Licht
+
+- **Abenteuer Teil 2** (`kampagne2.js`): Prolog und 5 Kapitel, 30 weitere Levels, frei nach Teil 1. Drei Winter nach
+  dem Untergang steigen die Lichtgeborenen aus dem Meer: der Uralte, geweckt vom zurückgebrachten Herzlicht. Frosts
+  Rückkehr, das Bündnis mit Kaiser Orka, Opa Pingo als Lichtträger, der Kampf im Inneren des Uralten und Novas Abschied.
+  Teil-Reiter im Abenteuer, eigene Enden, Abspann und Nachspann pro Teil.
+- **Neue Mechaniken:** wandernde Lichtstrahlen (Pinguine und Fische darin schneller), Strömung auf Karten,
+  Spiegel (Platzer tauchen im anderen Kanal auf), ruhende Adern (jede Runde ruht ein anderer Kanal), verbündete
+  Haie, die gegen den Strom schwimmen, Helden, die gehen (Abschied statt Tod).
+- **Opas Tagebuch:** In jedem Teil-2-Level treibt einmal eine leuchtende Seite durch den Kanal – anklicken zum Sammeln.
+  30 Seiten mit der Geschichte der Sieben, nachzulesen im Abenteuer.
+- **Albtraum-Modus:** jedes geschaffte Level noch einmal mit weniger Geld, halben Leben, schnelleren Fischen und
+  stärkeren Bossen. Eiskristalle und Erfahrung als Belohnung, eigene Erfolge.
+- **Neu:** Kristall-Pinguin (Kettenblitz, Prisma), Orca-Reiter (Wasser, Wellen, Torpedos), Held Kapitän Frost
+  (frei nach Teil 2, Kapitel 3). Fische Lichtfunke, Lichtgeborener, Spiegelfisch (wirft Geschosse zurück),
+  Kristallkrebs (schützt andere). Bosse Mutter der Kristalle, Der Lichtträger (blendet), Der Uralte und sein Herz.
+  7 Karten (Neu-Pinguinhausen, Kristallwald, Strudel, Spiegelsee, Wrack, Eingeweide, Thron des Lichts), 7 Looks,
+  5 Musik-Stimmungen. Die Endstufe des Taucher-Pinguins heißt jetzt Neptun-Pinguin.
+
 ## Schwarzes Eis: Story, Pingu-Dorf, Versus
 
 - **Abenteuer „Schwarzes Eis“** (ersetzt das alte Abenteuer): Prolog und 5 Kapitel, 30 Levels. Düstere Geschichte
@@ -173,6 +192,7 @@ js/
   pass.js          Pinguin-Pass: 100 Stufen, Seltenheiten, Looks, Sockel, Titel, Effekte, Tänze, Deko, Prestige
   fortschritt.js   Erfolge, Pinguin-Wissen, Tagesaufträge, Tages-Herausforderung, Kisten, Händler, Wochen-Quests
   kampagne.js      Abenteuer „Schwarzes Eis“: Kapitel, Levels, Szenen, Funk, Abspann, Sterne-Aufgaben
+  kampagne2.js     Abenteuer Teil 2 „Das erwachte Licht“: Levels, Szenen, Opas Tagebuch, Teile
   dorf3d.js        3D-Ansicht des Pingu-Dorfs
   editor.js        Karten-Editor
   modelle.js       3D-Modelle: Fische, Pinguine, Helden, Albatros, Geschosse

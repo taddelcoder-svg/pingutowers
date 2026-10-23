@@ -832,6 +832,24 @@
   @media (prefers-reduced-motion: reduce) { .kiste:not(:disabled), .kiste-auf, .kiste-inhalt li { animation: none !important; } }
   /* ================= Schwarzes Eis: Szenen, Funk, Dorf, Versus ================= */
   .abenteuer-alt { background: linear-gradient(135deg, rgba(179,107,255,.18), var(--eis)); border-radius: 12px; padding: 8px 12px; font-weight: 700; color: var(--tinte) !important; }
+  .teil-reiter { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .teil-reiter button { flex: 1 1 200px; padding: 10px 12px; border-radius: 14px; border: 2px solid var(--linie); background: var(--eis); font-weight: 800; text-align: left; color: var(--tinte); }
+  .teil-reiter button small { display: block; font-weight: 600; color: var(--tinte-weich); }
+  .teil-reiter button[aria-pressed="true"] { border-color: var(--gold); background: linear-gradient(135deg, rgba(246,195,67,.28), var(--eis)); }
+  .teil-reiter button:disabled { opacity: .55; }
+  .teil-reiter button.teil2[aria-pressed="true"] { border-color: #ffe08a; background: linear-gradient(135deg, rgba(255,240,180,.55), rgba(180,160,255,.25)); }
+  .tagebuch-knopf { margin: 4px 0 2px; }
+  .albtraum-wahl { display: flex; gap: 10px; align-items: flex-start; background: linear-gradient(135deg, rgba(120,20,40,.18), var(--eis)); border: 1px solid rgba(180,40,60,.4); border-radius: 12px; padding: 8px 10px; margin: 8px 0; cursor: pointer; }
+  .albtraum-wahl input { margin-top: 4px; width: 18px; height: 18px; }
+  .albtraum-wahl small { display: block; color: var(--tinte-weich); font-weight: 600; }
+  .level.albtraum-ok::after { content: '😱'; position: absolute; top: 4px; right: 6px; font-size: .8rem; }
+  .level { position: relative; }
+  .tagebuch-dialog { max-width: 560px; text-align: left; }
+  .tagebuch-seiten { display: grid; gap: 8px; max-height: 60vh; overflow-y: auto; padding-right: 4px; }
+  .tagebuch-seiten article { background: #f6ecd2; color: #3a2a14; border-radius: 6px 14px 14px 6px; padding: 10px 14px; border-left: 6px solid #c8a868; font-family: Georgia, 'Times New Roman', serif; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+  .tagebuch-seiten article h4 { margin: 0 0 4px; font-size: 1rem; }
+  .tagebuch-seiten article p { margin: 0; line-height: 1.45; font-style: italic; }
+  .tagebuch-seiten article.fehlt { background: var(--eis); color: var(--tinte-weich); border-left-color: var(--linie); font-family: inherit; }
   .kapitel-zitat { margin: -4px 0 8px; font-size: .85rem; font-style: italic; color: var(--tinte-weich); }
   .szene { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; cursor: pointer;
     background: radial-gradient(900px 600px at 50% 40%, rgba(20,10,40,.25), rgba(0,0,0,.55)); color: #fff; user-select: none; -webkit-user-select: none; }
@@ -1035,8 +1053,11 @@
       <button id="reiterKoop" aria-pressed="false">👥 Koop &amp; ⚔️ Versus</button>
     </div>
     <div class="abenteuer-box" id="abenteuerBox" hidden>
-      <div class="abenteuer-kopf"><b>📖 Schwarzes Eis</b><span id="abenteuerSterne"></span></div>
-      <p>Seit fünfzig Jahren hat das Eis nicht gebebt. Dann wird das Wasser schwarz, und die Fische fliehen aus der Tiefe. Wovor? Ein Prolog, fünf Kapitel, 30 Levels – mit Szenen, Funksprüchen, Verrat und einem Ende, das du nicht vergisst. Jedes Level hat drei Sterne. Für alle drei gibt es eine Kiste, für jedes Kapitel einen Look, und die Geretteten ziehen in dein Pingu-Dorf.</p>
+      <div class="teil-reiter" id="teilReiter"></div>
+      <div class="abenteuer-kopf"><b id="abenteuerTitel">📖 Schwarzes Eis</b><span id="abenteuerSterne"></span></div>
+      <p id="abenteuerText1">Seit fünfzig Jahren hat das Eis nicht gebebt. Dann wird das Wasser schwarz, und die Fische fliehen aus der Tiefe. Wovor? Ein Prolog, fünf Kapitel, 30 Levels – mit Szenen, Funksprüchen, Verrat und einem Ende, das du nicht vergisst. Jedes Level hat drei Sterne. Für alle drei gibt es eine Kiste, für jedes Kapitel einen Look, und die Geretteten ziehen in dein Pingu-Dorf.</p>
+      <p id="abenteuerText2" hidden>Drei Winter nach dem Untergang steigt ein Licht aus dem Meer. Wunderschön. Hungrig. Und auf den Wellen treiben Seiten aus Opas Tagebuch. Ein Prolog, fünf Kapitel, 30 Levels – mit Lichtstrahlen, Strömung, Spiegeln, verbündeten Haien und einem Ende, das alles verändert. Wer ein Level geschafft hat, kann es im 😱 Albtraum noch einmal versuchen.</p>
+      <button class="knopf tagebuch-knopf" id="tagebuchKnopf" hidden>📜 Opas Tagebuch</button>
       <p class="abenteuer-alt" id="abenteuerAlt" hidden></p>
       <div id="abenteuer"></div>
     </div>
@@ -1258,12 +1279,22 @@
     <div class="level-infos" id="levelInfos"></div>
     <ul class="level-sterne" id="levelSterne"></ul>
     <p class="level-held" id="levelHeld"></p>
+    <label class="albtraum-wahl" id="levelAlbtraumBox" hidden><input type="checkbox" id="levelAlbtraum"> <span><b>😱 Albtraum</b><small id="levelAlbtraumText">Viel weniger Geld und Leben, schnellere Fische, stärkere Bosse. Belohnung: 12 Eiskristalle und 150 Erfahrung.</small></span></label>
     <button class="knopf haupt" id="levelLos">Los geht's!</button>
     <button class="knopf" id="levelSzene" hidden>🎬 Szenen nochmal ansehen</button>
     <button class="knopf" id="levelZu">Zurück</button>
   </div>
 </div>
 
+
+<div class="overlay" id="tagebuchDialog" hidden>
+  <div class="dialog tagebuch-dialog" role="dialog" aria-modal="true" aria-labelledby="tagebuchTitel">
+    <h2 id="tagebuchTitel">📜 Opas Tagebuch</h2>
+    <p id="tagebuchZahl"></p>
+    <div class="tagebuch-seiten" id="tagebuchSeiten"></div>
+    <button class="knopf haupt" id="tagebuchZu">Schließen</button>
+  </div>
+</div>
 
 <div class="overlay pass-seite" id="passSeite" hidden>
   <div class="pass-dialog" role="dialog" aria-modal="true" aria-labelledby="psTitel">
@@ -1336,6 +1367,7 @@
 <script src="js/pass.js"></script>
 <script src="js/fortschritt.js"></script>
 <script src="js/kampagne.js"></script>
+<script src="js/kampagne2.js"></script>
 <script src="js/dorf.js"></script>
 <script src="js/modelle.js"></script>
 <script src="js/welt3d.js"></script>

@@ -48,6 +48,13 @@
     kapitaen: { name:'Kapitän Frost', rumpf:0x163450, bauch:0xdff4ff, glanz:true, extra:'kapitaen', leuchten:0x061826, herkunft:'kampagne' },
     pako:     { name:'Pako, der Zerbrochene', rumpf:0x1a0f2a, bauch:0x6a3a9a, leuchten:0x2a0a4a, extra:'maske', herkunft:'kampagne' },
     opa:      { name:'Opa Pingo', rumpf:0x4a4f5a, bauch:0xf0ece0, extra:'opa', herkunft:'kampagne' },
+    lichtkind:{ name:'Lichtgeborener', rumpf:0xfff2c4, bauch:0xffffff, glanz:true, leuchten:0x6a5a20, extra:'glitzer', aura:'licht', herkunft:'kampagne' },
+    orcareiter:{ name:'Orca-Reiter', rumpf:0x111318, bauch:0xf4f6fa, glanz:true, extra:'taucherhelm', aura:'blasen', herkunft:'kampagne' },
+    spiegelpingu:{ name:'Spiegelbild', rumpf:0xc8d4e0, bauch:0xffffff, glanz:true, extra:'glitzer', leuchten:0x2a3a4a, herkunft:'kampagne' },
+    lichttraeger:{ name:'Der Lichtträger', rumpf:0xfff8e0, bauch:0xffffff, glanz:true, leuchten:0x8a7a3a, extra:'opa', aura:'licht', herkunft:'kampagne' },
+    uralt:    { name:'Auge des Uralten', rumpf:0x5a3a10, bauch:0xffd27a, glanz:true, leuchten:0x4a2a00, extra:'maske', aura:'feuer', herkunft:'kampagne' },
+    hueterin: { name:'Nova, Hüterin des Lichts', rumpf:0x14304a, bauch:0xfff2c4, glanz:true, leuchten:0x6a4a00, extra:'heiligenschein', aura:'licht', herkunft:'kampagne' },
+    kommandantin:{ name:'Kommandantin Mia', rumpf:0x8a8f99, bauch:0xffe6f0, glanz:true, extra:'stahlhelm', herkunft:'kampagne' },
     veteran:  { name:'Walters Helm', rumpf:0x3a3a30, bauch:0xe8e0c8, extra:'stahlhelm', herkunft:'dorf' },
     // Pinguin-Pass 2.0 (Stufe 36–100). aura: Teilchen rund um den Pinguin im Spiel
     ninja:    { name:'Ninja', rumpf:0x15151a, bauch:0x2a2a32, extra:'stirnband' },

@@ -298,6 +298,7 @@ for (const held of PT.HELDEN_REIHE) {
 // Großes Update 3: Gift, Zurückwehen, Verwandeln, Wetter, Finsternis, Kampagne, Kisten, Wochen-Quests
 {
   require('../js/kampagne.js');
+  require('../js/kampagne2.js');
   const s = new PT.Spiel({ karte:'scholle', modus:'sandkasten' });
   s.sandFische('koffer', 1);
   for (let i = 0; i < 40; i++) s.schritt(1 / 60);
@@ -338,7 +339,7 @@ for (const held of PT.HELDEN_REIHE) {
   const l1 = PT.LEVELS[0], sp = new PT.Spiel({ karte:l1.karte, stufe:l1.stufe, regeln:l1.regeln });
   pruefe(PT.levelSterne(l1, sp).length === 3 && PT.levelFrei('s0-1', {}) && !PT.levelFrei('s1-1', {}) && PT.levelFrei('s1-1', { 's0-1':[true] }), 'Sterne und Freischalten');
   // Schwarzes Eis: Szenen, Sprecher, Funk, Kapitel
-  pruefe(PT.LEVELS.length === 30 && PT.KAPITEL.length === 6, 'Anzahl Levels und Kapitel');
+  pruefe(PT.LEVELS.length === 60 && PT.KAPITEL.length === 12 && PT.TEILE.length === 2, 'Anzahl Levels und Kapitel');
   for (const l of PT.LEVELS) {
     for (const z of [...(l.vorher || []), ...(l.nachher || []), ...Object.values(l.funk || {}).flat()]) pruefe(Array.isArray(z) && PT.SPRECHER[z[0]] && typeof z[1] === 'string' && z[1].length, 'Szene ' + l.id + ' ' + z);
     if (l.held) pruefe(PT.HELDEN[l.held], 'Held ' + l.id);
@@ -348,6 +349,49 @@ for (const held of PT.HELDEN_REIHE) {
   }
   for (const z of [...PT.ENDE_SZENE, ...PT.NACH_ABSPANN]) pruefe(PT.SPRECHER[z[0]], 'Ende ' + z[0]);
   pruefe(PT.alteSterne({ 'k1-1':[true, true], 'k4-6':[true], 's0-1':[true] }) === 3, 'Alte Sterne zählen');
+  // Teil 2: Teile, Tagebuch, Held Frost
+  {
+    const alle1 = {}; for (const l of PT.LEVELS.filter(l => l.kapitel < 10)) alle1[l.id] = [true];
+    pruefe(!PT.teilFrei(2, {}) && PT.teilFrei(2, alle1) && PT.abenteuerFertig(alle1) && !PT.abenteuerFertig(alle1, 2), 'Teil 2 frei nach Teil 1');
+    pruefe(PT.levelFrei('s10-1', alle1) && !PT.levelFrei('s11-1', alle1), 'Teil 2 beginnt mit dem Prolog');
+    pruefe(PT.LEVELS.filter(l => l.kapitel >= 10).every(l => PT.TAGEBUCH[l.id] && PT.tagebuchRunde(l) > (l.regeln.startRunde || 1) && PT.tagebuchRunde(l) < l.regeln.runden), 'Tagebuch-Seiten');
+    const bis13 = { ...alle1 }; for (const l of PT.LEVELS.filter(l => l.kapitel >= 10 && l.kapitel <= 13)) bis13[l.id] = [true];
+    pruefe(!PT.heldFrei('eiskapitaen', alle1) && PT.heldFrei('eiskapitaen', bis13) && PT.heldFrei('nova', {}), 'Frost als Held');
+    for (const t of PT.TEILE) for (const z of [...t.ende, ...t.nachAbspann]) pruefe(PT.SPRECHER[z[0]], 'Ende Teil ' + t.nr + ' ' + z[0]);
+    for (const l of PT.LEVELS) if (l.regeln.spiegel || l.regeln.wegRotation) pruefe(PT.KARTEN[l.karte].wege.length > 1, 'Mehrere Kanäle ' + l.id);
+  }
+  // Teil 2: Albtraum, Lichtstrahlen, Strömung, Adern, Verbündete, Spiegel, Kristallschutz
+  {
+    const n = new PT.Spiel({ karte:'scholle', stufe:'schwer', regeln:{ runden:40, startRunde:20, geld:10000 } });
+    const a = new PT.Spiel({ karte:'scholle', stufe:'schwer', regeln:{ runden:40, startRunde:20, geld:10000, albtraum:true } });
+    pruefe(a.geld === 7500 && a.leben === Math.round(n.leben / 2) && a.albtraum, 'Albtraum: Geld und Leben');
+    const sl = new PT.Spiel({ karte:'scholle', stufe:'leicht', regeln:{ runden:5, licht:{ anzahl:1, breite:100, tempo:100 } } });
+    sl.zeit = 1.7;
+    pruefe(sl.imLicht(120) && !sl.imLicht(400), 'Lichtstrahl');
+    const ts = new PT.Spiel({ karte:'strudel', modus:'sandkasten' });
+    ts.sandFische('rot', 1); for (let i = 0; i < 30; i++) ts.schritt(1 / 60);
+    const fr = ts.fische[0], [, von, bis, faktor] = PT.KARTEN.strudel.stroemung[0];
+    fr.dist = ts.wege[0].laenge * (von + bis) / 2;
+    pruefe(ts.stroemung(fr) === faktor, 'Strömung');
+    const sr = new PT.Spiel({ karte:'eingeweide', stufe:'leicht', regeln:{ runden:9, wegRotation:true } });
+    sr.rundeStarten();
+    pruefe(sr.warteschlange.every(q => q.p !== 0) && sr.warteschlange.some(q => q.p === 1) && sr.ereignisse.some(e => e.art === 'wegWechsel'), 'Ader 1 ruht');
+    sr.laeuft = false; sr.runde = 1; sr.rundeStarten();
+    pruefe(sr.warteschlange.every(q => q.p !== 1) && sr.warteschlange.some(q => q.p === 0), 'Ader 2 ruht');
+    const sv = new PT.Spiel({ karte:'scholle', stufe:'leicht', regeln:{ runden:5, verbuendete:{ alle:1, schaden:5, riesen:5, ladung:50 } } });
+    sv.rundeStarten(); let platzer = 0;
+    for (let i = 0; i < 60 * 20 && sv.laeuft; i++) { sv.schritt(1 / 60); platzer = sv.statistik.platzer || platzer; }
+    pruefe(sv.ereignisse !== null && (sv.statistik.platzer || 0) > 0 && sv.leben === sv.startLeben, 'Verbündete Haie räumen auf');
+    const ss = new PT.Spiel({ karte:'spiegelsee', modus:'sandkasten', regeln:{ spiegel:1 } });
+    ss.sandFische('blau', 1); for (let i = 0; i < 60; i++) ss.schritt(1 / 60);
+    ss.treffer(ss.fische[0], PT.angriff({ schaden:1, typ:'normal' }), null, null);
+    pruefe(ss.fische.some(f => !f.tot && f.gespiegelt && f.p === 1), 'Spiegel: anderer Kanal');
+    const sk = new PT.Spiel({ karte:'scholle', modus:'sandkasten' });
+    sk.sandFische('kristallkrebs', 1); sk.sandFische('rot', 3);
+    let schutz = false;
+    for (let i = 0; i < 60 * 6; i++) { sk.schritt(1 / 60); if (sk.ereignisse.some(e => e.art === 'kristallschutz')) schutz = true; }
+    pruefe(schutz, 'Kristallschutz');
+  }
   // Story-Mechaniken: Überfall, Sabotage, Held fällt, Einsturz, zweite Phase
   {
     const s1 = new PT.Spiel({ karte:'doppel', stufe:'leicht', regeln:{ runden:10, wegeAb:[1, 3] } });

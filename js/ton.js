@@ -56,6 +56,11 @@
     feuer:  { grund:49, akkorde:[[196, 233.1, 293.7], [174.6, 220, 261.6], [185, 233.1, 277.2]], schlag:2, tropfen:0, tempo:92 },
     tiefe:  { grund:41.2, akkorde:[[164.8, 196, 246.9], [146.8, 185, 220]], schlag:0, tropfen:0.2, wal:true, tempo:48 },
     herz:   { grund:55, akkorde:[[220, 261.6, 329.6], [174.6, 220, 261.6], [261.6, 329.6, 392], [196, 246.9, 293.7]], schlag:1, tropfen:0, melodie:true, tempo:58 },
+    licht:  { grund:65.4, akkorde:[[261.6, 329.6, 392, 493.9], [220, 277.2, 329.6, 415.3], [246.9, 311.1, 370, 466.2]], schlag:0, tropfen:0.5, melodie:true, tempo:64 },
+    strom:  { grund:55, akkorde:[[220, 277.2, 329.6], [196, 246.9, 311.1], [207.7, 261.6, 311.1]], schlag:1, tropfen:0.3, wal:true, tempo:76 },
+    spiegel:{ grund:58.3, akkorde:[[233.1, 277.2, 349.2], [233.1, 293.7, 349.2], [207.7, 261.6, 311.1]], schlag:0, tropfen:0.6, tempo:54 },
+    abschied:{ grund:49, akkorde:[[196, 246.9, 293.7], [164.8, 196, 246.9], [174.6, 220, 261.6], [196, 233.1, 293.7]], schlag:1, tropfen:0, melodie:true, tempo:56 },
+    organisch:{ grund:36.7, akkorde:[[146.8, 174.6, 220], [138.6, 164.8, 207.7]], schlag:2, tropfen:0.2, wal:true, tempo:72 },
     boss:   { grund:46.2, akkorde:[[185, 220, 277.2], [174.6, 207.7, 261.6]], schlag:3, tropfen:0, tempo:120 }
   };
   let musik = null, musikLaut = 0.5;
