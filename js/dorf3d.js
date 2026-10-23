@@ -9,9 +9,13 @@
   // Plätze rund um den Dorfplatz (x, z)
   const PLATZ = {
     raeucherei:[-165, 70], lazarett:[-80, -140], hafen:[215, 95], schmiede:[95, -150],
-    wachturm:[-205, -70], denkmal:[60, 95], akademie:[175, -55], leuchtfeuer:[-30, 205]
+    wachturm:[-205, -70], denkmal:[60, 95], akademie:[175, -55], leuchtfeuer:[-30, 205],
+    kristallgarten:[-175, 155], orkabucht:[235, -130], werft:[-30, -230], novafeuer:[110, 185]
   };
-  const HIMMEL = [0x050a18, 0x0b1630, 0x101c3a, 0x14224a, 0x2a2f5a];
+  // Nachthimmel je Phase; tagsüber wird er heller (Tag-Nacht-Wechsel in bild)
+  const HIMMEL = [0x050a18, 0x0b1630, 0x101c3a, 0x14224a, 0x2a2f5a, 0x241f4e, 0x2e2240];
+  const TAG = [0x6a8ab0, 0x7fa6cc, 0x8fb6dc, 0x9fc4e6, 0xa8cdee, 0xc8d4f0, 0xf0d8b0];
+  const TAGESLAENGE = 180;   // Sekunden für einen ganzen Tag im Dorf
 
   class DorfWelt {
     constructor(canvas) {
@@ -22,7 +26,7 @@
       this.kamera = new T.PerspectiveCamera(40, 2, 10, 4000);
       this.winkel = 0.6; this.abstand = 620; this.hoehe = 0.62;
       this.zeit = 0; this.laeuft = false; this.letzte = 0;
-      this.gebaeude = {}; this.bewohner = []; this.funken = []; this.rauch = [];
+      this.gebaeude = {}; this.bewohner = []; this.funken = []; this.rauch = []; this.schwimmer = []; this.figuren = [];
       this.ray = new T.Raycaster();
       this.basisBauen();
       this.eingabe();
@@ -200,6 +204,61 @@
           oben = h + 34;
         }
       }
+      else if (id === 'kristallgarten') {
+        if (!stufe) oben = this.haus(g, 0, phase, 0);
+        else {
+          const n = 4 + stufe * 2;
+          for (let i = 0; i < n; i++) {
+            const w = i / n * Math.PI * 2 + i, d = 10 + (i % 3) * 12, h = 16 + stufe * 4 + (i % 4) * 7;
+            const k = mesh(G.okta, mat(i % 3 ? 0xd8b0ff : 0xfff2c4, 'phong', { flatShading:true, shininess:150, emissive:i % 3 ? 0x3a1a6a : 0x5a4a10, transparent:true, opacity:0.92 }), Math.cos(w) * d, h * 0.5, Math.sin(w) * d);
+            k.scale.set(5, h * 0.55, 5); k.rotation.set(Math.cos(w) * 0.3, w, Math.sin(w) * 0.3); g.add(k);
+          }
+          const beet = mesh(new T.CylinderGeometry(40, 42, 4, 16), mat(0x8a7aa8, 'lambert'), 0, 1, 0); g.add(beet);
+          const l = new T.PointLight(0xd8b0ff, 0.5 + stufe * 0.12, 220, 1.8); l.position.y = 40; g.add(l);
+          oben = 40 + stufe * 6;
+        }
+      } else if (id === 'orkabucht') {
+        if (!stufe) oben = this.haus(g, 0, phase, 0);
+        else {
+          const steg = mesh(G.box, mat(0x8b5a2b), 40, 2, 0); steg.scale.set(80, 4, 14); g.add(steg);
+          for (let i = 0; i < 4; i++) { const p = mesh(G.zyl, mat(0x6b4a2a), 10 + i * 20, -8, 9); p.scale.set(2, 26, 2); g.add(p); }
+          const schild = mesh(G.box, mat(0x2a3140), 0, 22, 0); schild.scale.set(2, 16, 26); g.add(schild);
+          const fisch = mesh(G.kugel, mat(0xf4f6fa), 0, 22, 1.5); fisch.scale.set(1, 6, 10); g.add(fisch);
+          oben = 40;
+          // Kaiser Orka zieht draußen seine Kreise, ab Stufe 2 mit Haien
+          const orka = new T.Mesh(PT.M3.fischGeo('orka'), new T.MeshPhongMaterial({ vertexColors:true, shininess:60 }));
+          orka.scale.setScalar(0.55); this.scene.add(orka);
+          this.schwimmer.push({ m:orka, r:360, w:0.6, tempo:0.12, h:-10 });
+          for (let i = 1; i < stufe; i++) for (let k = 0; k < 2; k++) {
+            const flosse = mesh(G.kegel, mat(0x3a5878), 0, 0, 0); flosse.scale.set(6, 16, 2); this.scene.add(flosse);
+            this.schwimmer.push({ m:flosse, r:330 + k * 50, w:i * 2 + k * 3, tempo:0.2 + k * 0.05, h:-6, flosse:true });
+          }
+        }
+      } else if (id === 'werft') {
+        if (!stufe) oben = this.haus(g, 0, phase, 0);
+        else {
+          for (const s of [-1, 1]) for (let i = 0; i < 3; i++) { const b = mesh(G.zyl, mat(0x6b4a2a), -30 + i * 30, 10, s * 22); b.scale.set(1.6, 24, 1.6); g.add(b); }
+          const rumpf = mesh(G.kugel, mat(stufe >= 4 ? 0x3a4a5a : 0x5a3a2a, 'lambert', { flatShading:stufe < 4 }), 0, 18, 0); rumpf.scale.set(52, 14, 18); g.add(rumpf);
+          const deck = mesh(G.box, mat(0x8a6a4a), 0, 26, 0); deck.scale.set(86, 3, 26); g.add(deck);
+          for (let i = 0; i < Math.min(3, 1 + Math.floor(stufe / 2)); i++) {
+            const mast = mesh(G.zyl, mat(0x4a3020), -24 + i * 24, 56, 0); mast.scale.set(1.8, 60, 1.8); g.add(mast);
+            if (stufe >= 3) { const segel = mesh(G.box, mat(0xeef4f8), -24 + i * 24 + 2, 60, 0); segel.scale.set(1, 34, 22); g.add(segel); }
+          }
+          if (stufe >= 5) { const fahne = mesh(G.box, mat(0x9fe8ff, 'basic'), -24, 92, 6); fahne.scale.set(1, 8, 14); fahne.userData.flattern = 1; g.add(fahne); }
+          oben = 100;
+        }
+      } else if (id === 'novafeuer') {
+        if (!stufe) oben = this.haus(g, 0, phase, 0);
+        else {
+          const sockel = mesh(new T.CylinderGeometry(20, 24, 14, 8), mat(0x2a3140, 'phong', { flatShading:true }), 0, 7, 0); g.add(sockel);
+          const nova = PT.M3.pinguinFigur('hueterin');
+          nova.traverse(o => { if (o.isMesh) o.material = mat(0xfff2c4, 'phong', { emissive:0x6a4a10, shininess:140, transparent:true, opacity:0.92 }); });
+          nova.scale.setScalar(0.9); nova.position.y = 14; nova.rotation.y = Math.PI; g.add(nova);
+          const flamme = mesh(G.kegel, mat(0xffd27a, 'basic', { transparent:true, opacity:0.9 }), 0, 68, 0); flamme.scale.set(6, 14, 6); flamme.userData.flamme = true; g.add(flamme);
+          const l = new T.PointLight(0xffd27a, 1.1, 320, 1.6); l.position.y = 70; g.add(l);
+          oben = 90;
+        }
+      }
       g.userData.oben = oben;
       this.gebaeude[id] = g;
       this.scene.add(g);
@@ -221,6 +280,48 @@
         }
       }
       this.scene.add(this.mauer);
+    }
+    // Stadt des Lichts: Laternen um den Platz, schwebende Kristalle; Novas Stadt: goldenes Leuchten unter der Scholle
+    lichtBauen(phase) {
+      if (this.lichtGruppe) this.scene.remove(this.lichtGruppe);
+      const g = this.lichtGruppe = new T.Group();
+      this.laternen = []; this.schwebend = []; this.tiefenLicht = null;
+      if (phase >= 5) {
+        for (let i = 0; i < 12; i++) {
+          const w = i / 12 * Math.PI * 2 + 0.13;
+          const p = mesh(G.zyl, mat(0x3a3f48), Math.cos(w) * 104, 26, Math.sin(w) * 104); p.scale.set(1.4, 30, 1.4); g.add(p);
+          const l = mesh(G.kugelGrob, mat(0xffd27a, 'basic', { transparent:true, opacity:0.9 }), Math.cos(w) * 104, 43, Math.sin(w) * 104); l.scale.set(4, 5, 4); g.add(l);
+          this.laternen.push(l);
+        }
+        for (let i = 0; i < 8; i++) {
+          const w = i / 8 * Math.PI * 2, k = mesh(G.okta, mat(i % 2 ? 0xd8b0ff : 0xfff2c4, 'basic', { transparent:true, opacity:0.8 }), Math.cos(w) * 190, 90, Math.sin(w) * 190);
+          k.scale.set(4, 9, 4); g.add(k); this.schwebend.push({ m:k, w, y:90 + (i % 3) * 20 });
+        }
+      }
+      if (phase >= 6) {
+        // weiches goldenes Leuchten im Wasser rund um die Scholle (Verlauf nach außen)
+        const c = document.createElement('canvas'); c.width = c.height = 128;
+        const x = c.getContext('2d'), v = x.createRadialGradient(64, 64, 20, 64, 64, 64);
+        v.addColorStop(0, 'rgba(255,210,110,1)'); v.addColorStop(0.55, 'rgba(255,190,80,0.55)'); v.addColorStop(1, 'rgba(255,170,60,0)');
+        x.fillStyle = v; x.fillRect(0, 0, 128, 128);
+        const glut = new T.Mesh(new T.PlaneGeometry(900, 900), new T.MeshBasicMaterial({ map:new T.CanvasTexture(c), transparent:true, opacity:0.5, depthWrite:false, blending:T.AdditiveBlending }));
+        glut.rotation.x = -Math.PI / 2; glut.position.y = -13; g.add(glut);
+        this.tiefenLicht = glut;
+        const l = new T.PointLight(0xffc84a, 0.9, 900, 1.2); l.position.set(0, -60, 0); g.add(l);
+      }
+      this.scene.add(g);
+    }
+    // Bekannte Gesichter: Mia am Feuer, Kiko am Wachturm, Frost an der Werft
+    figurenBauen(phase, dorf) {
+      if (this.figuren) for (const f of this.figuren) this.scene.remove(f);
+      this.figuren = [];
+      const setze = (skin, x, z, blick) => {
+        const f = PT.M3.pinguinFigur(skin); f.scale.setScalar(0.62); f.position.set(x, 12, z); f.rotation.y = blick;
+        f.userData.basisY = 12; this.scene.add(f); this.figuren.push(f);
+      };
+      if (phase >= 1) setze(phase >= 5 ? 'kommandantin' : 'kueken', 34, 18, Math.PI * 0.8);
+      if (phase >= 1) setze('bergsteiger', -170, -40, 0.4);
+      if (PT.dorfStufe(dorf, 'werft')) setze('kapitaen', -30, -180, Math.PI / 2);
     }
     bewohnerBauen(anzahl) {
       for (const b of this.bewohner) this.scene.remove(b.g);
@@ -284,13 +385,18 @@
         this.sig = sig;
         this.rauch = [];
         if (this.auge) { this.scene.remove(this.auge); this.auge = null; }
+        for (const s of this.schwimmer || []) this.scene.remove(s.m);
+        this.schwimmer = [];
+        this.lichtBauen(phase);
+        this.phase = phase;
         for (const id of PT.DORF_REIHE) this.gebaeudeBauen(id, PT.dorfStufe(dorf, id), phase);
         this.mauerBauen(phase);
-        const himmel = new T.Color(HIMMEL[phase]);
-        this.scene.background = himmel; this.scene.fog.color = himmel;
+
         this.feuer.visible = phase > 0;
       }
-      const n = phase ? Math.min(28, 3 + Math.floor(dorf.bewohner / 3)) : 0;
+      const fsig = JSON.stringify([phase, PT.dorfStufe(dorf, 'werft') > 0]);
+      if (fsig !== this.fsig) { this.fsig = fsig; this.figurenBauen(phase, dorf); }
+      const n = phase ? Math.min(50, 3 + Math.floor(dorf.bewohner / 3)) : 0;
       if (n !== this.bewohner.length) this.bewohnerBauen(n);
       const g = auswahl && this.gebaeude[auswahl];
       this.auswahlRing.visible = !!g;
@@ -323,15 +429,33 @@
       const k = this.kamera;
       k.position.set(Math.sin(this.winkel) * this.abstand * Math.cos(this.hoehe), Math.sin(this.hoehe) * this.abstand, Math.cos(this.winkel) * this.abstand * Math.cos(this.hoehe));
       k.lookAt(0, 20, 0);
+      // Tag und Nacht: nachts leuchten Feuer und Laternen, tagsüber ist der Himmel hell
+      const ph = this.phase || 0, tag = 0.5 + 0.5 * Math.sin(this.zeit / TAGESLAENGE * Math.PI * 2 - 0.6), nacht = 1 - tag;
+      const himmel = new T.Color(HIMMEL[ph]).lerp(new T.Color(TAG[ph]), tag * 0.85);
+      this.scene.background = himmel; this.scene.fog.color.copy(himmel);
+      this.halb.intensity = 0.45 + tag * 0.6; this.mond.intensity = 0.35 + tag * 0.7;
+      this.meer.material.color.set(0x0a2142).lerp(new T.Color(ph >= 6 ? 0x3a7ab0 : 0x2a6aa0), tag * 0.8);
+      this.mond.color.set(tag > 0.5 ? 0xfff2dc : 0xc9d8ff);
+      for (const [i, l] of (this.laternen || []).entries()) { l.material.opacity = 0.25 + nacht * 0.75; l.scale.setScalar(3.5 + nacht * 1.5 + Math.sin(this.zeit * 4 + i) * 0.3 * nacht); }
+      for (const s of this.schwebend || []) { s.m.position.y = s.y + Math.sin(this.zeit * 0.8 + s.w * 3) * 8; s.m.rotation.y += dt * 0.6; }
+      if (this.tiefenLicht) this.tiefenLicht.material.opacity = 0.3 + nacht * 0.4 + Math.sin(this.zeit * 0.9) * 0.08;
+      for (const s of this.schwimmer || []) {
+        const w = s.w + this.zeit * s.tempo;
+        s.m.position.set(Math.cos(w) * s.r, s.h + Math.sin(this.zeit * 1.2 + s.w) * 2, Math.sin(w) * s.r);
+        s.m.rotation.y = -w - Math.PI / 2 + (s.flosse ? 0 : Math.PI);
+      }
+      for (const [i, f] of (this.figuren || []).entries()) { f.position.y = f.userData.basisY + Math.abs(Math.sin(this.zeit * 1.5 + i)) * 1.2; f.rotation.z = Math.sin(this.zeit * 1.5 + i) * 0.05; }
       // Feuer flackert
       const f = 1 + Math.sin(this.zeit * 13) * 0.08 + Math.sin(this.zeit * 7.3) * 0.06;
       this.flamme.scale.set(9 * f, 22 * (2 - f), 9 * f);
-      this.feuerLicht.intensity = 1.4 + Math.sin(this.zeit * 11) * 0.25;
+      this.feuerLicht.intensity = (0.7 + nacht * 0.9) + Math.sin(this.zeit * 11) * 0.25;
       this.auswahlRing.rotation.z += dt;
       // Boote schaukeln, Leuchtfeuer dreht
       for (const g of Object.values(this.gebaeude)) if (g) for (const c of g.children) {
         if (c.userData.schaukeln != null) c.rotation.x = Math.sin(this.zeit * 1.3 + c.userData.schaukeln) * 0.08;
         if (c.userData.dreh) c.rotation.y += dt * c.userData.dreh;
+        if (c.userData.flamme) c.scale.set(6 + Math.sin(this.zeit * 9) * 0.6, 14 + Math.sin(this.zeit * 7) * 1.5, 6);
+        if (c.userData.flattern) c.rotation.y = Math.sin(this.zeit * 3) * 0.3;
       }
       for (const [i, l] of (this.lampen || []).entries()) l.visible = Math.sin(this.zeit * 3 + i * 1.3) > -0.6;
       if (this.dekoGruppe) for (const c of this.dekoGruppe.children) if (c.userData.flattern != null) c.rotation.y = Math.sin(this.zeit * 3 + c.userData.flattern) * 0.3;

@@ -299,6 +299,7 @@ for (const held of PT.HELDEN_REIHE) {
 {
   require('../js/kampagne.js');
   require('../js/kampagne2.js');
+  require('../js/freischalten.js');
   const s = new PT.Spiel({ karte:'scholle', modus:'sandkasten' });
   s.sandFische('koffer', 1);
   for (let i = 0; i < 40; i++) s.schritt(1 / 60);
@@ -356,7 +357,14 @@ for (const held of PT.HELDEN_REIHE) {
     pruefe(PT.levelFrei('s10-1', alle1) && !PT.levelFrei('s11-1', alle1), 'Teil 2 beginnt mit dem Prolog');
     pruefe(PT.LEVELS.filter(l => l.kapitel >= 10).every(l => PT.TAGEBUCH[l.id] && PT.tagebuchRunde(l) > (l.regeln.startRunde || 1) && PT.tagebuchRunde(l) < l.regeln.runden), 'Tagebuch-Seiten');
     const bis13 = { ...alle1 }; for (const l of PT.LEVELS.filter(l => l.kapitel >= 10 && l.kapitel <= 13)) bis13[l.id] = [true];
-    pruefe(!PT.heldFrei('eiskapitaen', alle1) && PT.heldFrei('eiskapitaen', bis13) && PT.heldFrei('nova', {}), 'Frost als Held');
+    pruefe(!PT.heldFrei('eiskapitaen', alle1) && PT.heldFrei('eiskapitaen', bis13) && PT.heldFrei('kiel', {}), 'Frost als Held');
+    // Freischaltung durch das Abenteuer
+    pruefe(PT.istFrei('zapfen', {}) && !PT.istFrei('laser', {}) && PT.istFrei('laser', alle1) && !PT.istFrei('nova', {}) && PT.istFrei('nova', {}, true), 'Freischaltung');
+    pruefe(!PT.istFrei('eiskapitaen', {}, true) && PT.freiDurch('s0-1').includes('ninja'), 'Freischaltung: Story-Helden und Liste');
+    for (const [typ, lv] of Object.entries(PT.FREI)) pruefe((PT.PINGUINE[typ] || PT.HELDEN[typ]) && (lv === null || PT.LEVEL(lv)), 'Freischalt-Eintrag ' + typ);
+    for (const t of [...PT.PINGUIN_REIHE, ...PT.HELDEN_REIHE]) pruefe(t in PT.FREI, 'Freischaltung fehlt für ' + t);
+    // Jeder Pinguin, den ein Level als neu vorstellt, ist dort schon frei
+    for (const l of PT.LEVELS) if (l.neu) { const vorher = {}; for (const x of PT.LEVELS.slice(0, PT.LEVELS.indexOf(l))) vorher[x.id] = [true]; pruefe(PT.istFrei(l.neu, vorher), 'Neu frei ' + l.id); }
     for (const t of PT.TEILE) for (const z of [...t.ende, ...t.nachAbspann]) pruefe(PT.SPRECHER[z[0]], 'Ende Teil ' + t.nr + ' ' + z[0]);
     for (const l of PT.LEVELS) if (l.regeln.spiegel || l.regeln.wegRotation) pruefe(PT.KARTEN[l.karte].wege.length > 1, 'Mehrere Kanäle ' + l.id);
   }
@@ -449,6 +457,21 @@ for (const held of PT.HELDEN_REIHE) {
     pruefe(sb.geld === sn.geld + 60 - (tb.investiert - tn.investiert) && tb.eff.reichweite > tn.eff.reichweite && tb.eff.angriffe[0].intervall < tn.eff.angriffe[0].intervall, 'Boni wirken');
     pruefe(PT.dorfErnte({ ...D, stufen:{ raeucherei:2 }, geerntet:1 }, 3600000 * 30) === 48, 'Räucherei höchstens 12 h');
     pruefe(JSON.stringify(PT.boniOk({ geld:1e9, tempo:5, quatsch:3 })) === JSON.stringify({ geld:400, tempo:0.15 }), 'Boni begrenzt');
+    // Dorf 2.0: Phasen aus Teil 2, Stufe 7, Kristallgarten, Orkas Bucht, Werft, Aufgaben
+    const alleSterne = {}; for (const l of PT.LEVELS) alleSterne[l.id] = [true];
+    pruefe(PT.dorfPhase(alleSterne) === 6 && PT.DORF_PHASEN[6].max === 7, 'Dorf-Phase nach Teil 2');
+    pruefe(PT.dorfAusbau({ ...D, kristalle:999, stufen:{ hafen:6 } }, 'hafen', 6, 999).ok && !PT.dorfAusbau({ ...D, kristalle:999, stufen:{ hafen:5 } }, 'hafen', 4, 999).ok, 'Dorf bis Stufe 7');
+    pruefe(!PT.dorfAusbau({ ...D, kristalle:999 }, 'kristallgarten', 4, 999).ok && PT.dorfAusbau({ ...D, kristalle:999 }, 'kristallgarten', 5, 999).ok, 'Kristallgarten ab Stadt des Lichts');
+    pruefe(PT.dorfGartenErnte({ ...D, stufen:{ kristallgarten:2 }, garten:1 }, 3600000 * 30) === 12, 'Kristallgarten höchstens 12 h');
+    const b2 = PT.dorfBoni({ ...D, stufen:{ orkabucht:2, werft:3 } });
+    pruefe(b2.haie === 2 && b2.fk === 0.09 && PT.boniOk({ haie:9 }).haie === 3, 'Dorf-Boni Teil 2');
+    const sh = new PT.Spiel({ karte:'scholle', stufe:'leicht', boni:{ haie:3 } });
+    sh.rundeStarten(); let haie = 0;
+    for (let i = 0; i < 60 * 14 && sh.laeuft; i++) { sh.schritt(1 / 60); if (sh.ereignisse.some(e => e.art === 'verbuendet')) haie++; }
+    pruefe(haie >= 1, 'Orkas Haie im freien Spiel');
+    const auf = PT.dorfAuftrag('2026-10-23', 6);
+    pruefe(auf && PT.SPRECHER[auf.wer] && auf.ziel > 0 && JSON.stringify(auf) === JSON.stringify(PT.dorfAuftrag('2026-10-23', 6)), 'Dorf-Aufgabe');
+    pruefe([...Array(40)].every((_, i) => PT.dorfAuftrag(`2026-01-${i}`, 1).wer !== 'orka'), 'Orka bittet erst ab Stadt des Lichts');
   }
   // Versus
   {

@@ -86,7 +86,9 @@
   }
   const zahlOk = (v, min, max) => Number.isFinite(v) && v >= min && v <= max;
   // Boni aus dem Pingu-Dorf, die von außen kommen (Koop): nur bekannte Felder, nach oben begrenzt
-  const BONI_MAX = { geld:400, leben:40, tempo:0.15, reichweite:0.15 };
+  // Verbündete Haie aus Orkas Bucht im Pingu-Dorf (Stufe → wie oft und wie stark); hier, damit auch der Server sie kennt
+  PT.DORF_HAIE = [null, { alle:30, schaden:3, riesen:30, ladung:12 }, { alle:20, schaden:4, riesen:40, ladung:16 }, { alle:12, schaden:5, riesen:60, ladung:22 }];
+  const BONI_MAX = { geld:400, leben:40, tempo:0.15, reichweite:0.15, haie:3, fk:0.25 };
   PT.boniOk = function (b) {
     if (!b || typeof b !== 'object') return null;
     const r = {};
@@ -672,6 +674,12 @@
         * this.stroemung(f) * (this.imLicht(f.x) ? 1.2 : 1) * (this.albtraum ? 1.12 : 1);
     }
 
+    // Orkas Bucht (Pingu-Dorf): verbündete Haie auch ohne Abenteuer – im Koop gilt die beste Bucht
+    dorfHaie() {
+      if (this.unendlich) return null;
+      const n = this.koop ? Math.max(0, ...this.spieler.map(x => (x.boni && x.boni.haie) || 0)) : (this.boni && this.boni.haie) || 0;
+      return PT.DORF_HAIE[Math.min(3, n | 0)] || null;
+    }
     // Strömung (Karte): auf manchen Abschnitten schwimmen Fische schneller
     stroemung(f) {
       const st = this.kartenDaten.stroemung;
@@ -1100,7 +1108,7 @@
         }
       }
       // Teil 2: verbündete Haie schwimmen vom Ende des Kanals gegen den Strom und rammen Fische
-      const vb = this.regeln && this.regeln.verbuendete;
+      const vb = (this.regeln && this.regeln.verbuendete) || this.dorfHaie();
       if (vb && this.laeuft && (this.verbT += dt) >= vb.alle) {
         this.verbT = 0;
         const p = Math.floor(this.zufall() * this.wege.length), w = this.wege[p];

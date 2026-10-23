@@ -628,9 +628,6 @@
   ];
   PT.TEIL_VON_KAPITEL = nr => PT.TEILE.find(t => t.kapitel.includes(nr)) || PT.TEILE[0];
   PT.teilVon = l => PT.TEIL_VON_KAPITEL(l.kapitel);
-  // Helden, die erst das Abenteuer freischaltet (mit Meisterkraft): Kapitän Frost nach Teil 2, Kapitel 3
-  PT.HELD_KAPITEL = { eiskapitaen:13 };
-  PT.heldFrei = (id, sterne) => !PT.HELD_KAPITEL[id] || PT.kapitelFertig(PT.HELD_KAPITEL[id], sterne);
   // Ein Teil ist frei, wenn der vorige ganz geschafft ist
   PT.teilFrei = (nr, sterne) => nr === 1 || PT.abenteuerFertig(sterne, nr - 1);
 
