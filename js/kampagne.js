@@ -430,7 +430,7 @@
           ['nova', 'Ich will nicht mehr kämpfen, Opa. Nicht gegen die.'],
           ['opa', 'Dann kämpf für die, die oben auf dich warten. Für Mia.']
         ] }),
-    L(4, 3, 'Kapitän Frost', 'eisbergring', 'schwer', { runden:44, startRunde:30, geld:14000, thema:'tiefsee', bosse:{ 44:['kapitaen', 2] } }, [['leben', 0.1], ['ohneVerkauf']],
+    L(4, 3, 'Kapitän Frost', 'eisbergring', 'schwer', { runden:44, startRunde:30, geld:18000, leben:150, thema:'tiefsee', bosse:{ 44:['kapitaen', 2] }, ersetzen:{ 44:'12 zebra 0.6 6|4 koffer 1.2 14' } }, [['leben', 0.1], ['ohneVerkauf']],
       'Frost stellt sich dir. Er friert deine teuersten Pinguine ein und hüllt Fische in Eispanzer. Eisbären lässt er in Ruhe.', {
         gerettet:2, boss:'kapitaen',
         vorher:[

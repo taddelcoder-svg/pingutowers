@@ -396,7 +396,7 @@
       if (this.laeuft || this.vorbei || (this.gewonnen && !this.endlos)) return false;
       const n = this.runde + 1;
       const rg = this.regeln || {};
-      const r = PT.runde(n, this.modus, rg.bosse, rg.zusatz);
+      const r = PT.runde(n, this.modus, rg.bosse, rg.zusatz, rg.ersetzen);
       this.wetterWaehlen(n);
       this.storyRunde(n);
       this.laeuft = true;
