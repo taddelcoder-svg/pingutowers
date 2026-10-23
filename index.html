@@ -658,6 +658,7 @@
     .vorschau .vf img { width: 22px; height: 22px; }
   }
   .einst-oben { margin-left: auto; align-self: flex-start; font-size: 1rem; padding: 10px 16px; }
+  .einst-oben + .einst-oben { margin-left: 8px; }
   @media (max-width: 600px) { .einst-oben span { display: none; } }
 
   /* ================= Design-Upgrade 2: Medaillen-Münzen, Auswahl-Schritte, Start-Leiste, Upgrade-Karten ================= */
@@ -1004,6 +1005,7 @@
         <h1>Pinguin <span>Türmchen</span></h1>
       </div>
       <button class="knopf einst-oben" id="einstKnopf" aria-label="Einstellungen">⚙️<span> Einstellungen</span></button>
+      <button class="knopf einst-oben" data-sl-cloud hidden aria-label="Spielstand auf allen Geräten">☁️<span> Spielstand</span></button>
     </div>
     <p class="unter">Die Fische wollen durch euren Eiskanal! Stell Pinguine ans Ufer, rüste sie bis Stufe 5 auf, ruf einen Helden und lass keinen Fisch durch – vom kleinen Rotbarsch bis zu Kaiser Orka. Allein oder zu viert im Koop.</p>
     <p class="erfolge" id="erfolge"></p>
@@ -1403,6 +1405,7 @@ window.SLRangAdapter=function(){
   return{punkte:ks.length*100+e*50,progress:Math.min(100,Object.keys(med).length/alle*100)}
 };
 </script>
-<script src="https://rangliste-aoee.onrender.com/melder.js" data-spiel="Pinguin Türmchen" defer></script>
+<!-- data-speicher: diese Einträge sind der Spielstand, der über die Cloud auf andere Geräte kommt -->
+<script src="https://rangliste-aoee.onrender.com/melder.js" data-spiel="Pinguin Türmchen" data-speicher="pt-" data-speicher-ohne="pt-grafik,pt-ton,pt-vorschau-klein,pt-koop,pt-olymp" defer></script>
 </body>
 </html>
