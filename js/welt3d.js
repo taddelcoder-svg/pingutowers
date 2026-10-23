@@ -27,6 +27,9 @@
     // Abenteuer-Stimmungen: sterbende Tiefsee und rote Alarmnacht
     tiefsee:    { himmel:0x010309, boden:['#26304a', '#141a2e'], licht:0.24, halb:0.3, nebel:0x020610, fluss:0x123a64, schnee:0.35, meer:0x020814, flach:'#1a3a6a', himmelsLicht:0x6a8acc, bodenLicht:0x1a1a3a, sonne:0x8aa4ff, fuell:0x7a4aff, tiefe:true },
     blut:       { himmel:0x0e0405, boden:['#54484e', '#2e282e'], licht:0.42, halb:0.34, nebel:0x140607, fluss:0x2a5a8a, schnee:0.45, meer:0x0a0405, flach:'#6a2020', himmelsLicht:0xc8a0a0, bodenLicht:0x2a1010, sonne:0xd09088, fuell:0xff4a3a, alarm:true },
+    // Teil 2: das goldene, hungrige Licht und das Innere des Uralten
+    licht:      { himmel:0xfff1d6, boden:['#f6e8c8', '#dccbee'], licht:0.95, halb:0.6, nebel:0xfff0d8, fluss:0x7fd8ff, schnee:0.35, meer:0x4a6ab0, flach:'#fff2a8', himmelsLicht:0xfff8e0, bodenLicht:0xb8a0e8, sonne:0xfff2c4, fuell:0xffe08a, gold:true },
+    organisch:  { himmel:0x180503, boden:['#7a3a2a', '#4a1a14'], licht:0.45, halb:0.38, nebel:0x1e0705, fluss:0xc8501a, schnee:0.05, meer:0x2a0a04, flach:'#a04020', himmelsLicht:0xffb08a, bodenLicht:0x4a1008, sonne:0xffc89a, fuell:0xff8a3a, puls:true },
     asche:      { himmel:0x3a3638, boden:['#9a9498', '#6e686c'], licht:0.6, halb:0.45, nebel:0x3a3638, fluss:0x4a7a9a, schnee:0.7, meer:0x1a1c22, flach:'#8a7a70', himmelsLicht:0xe0d8d0, bodenLicht:0x4a4448, sonne:0xe8dcd0, fuell:0xa09088 },
     vulkan:     { himmel:0x2a1a1c, boden:['#857e8a', '#5f5866'], licht:0.75, halb:0.45, nebel:0x2a1a1c, fluss:0x3fb0e0, schnee:0.25, meer:0x16202e, lava:true, flach:'#d8643a', himmelsLicht:0xffe0cc, bodenLicht:0x5a3a3a, sonne:0xffe2cc, fuell:0xff8a4a }
   };
@@ -126,6 +129,7 @@
     })));
   }
   const EBENE = new T.PlaneGeometry(2, 2); EBENE.shared = true;
+  const OBEN = new T.Vector3(0, 1, 0), RICHTUNG = new T.Vector3();
   const ROEHRE = new T.CylinderGeometry(1, 1, 1, 20, 1, true); ROEHRE.shared = true;
   // Leuchtband entlang eines Linienzugs: je ein flaches und ein senkrechtes Band, damit der Strahl von jeder Seite leuchtet
   function bandPfad(pts, breite) {
@@ -672,6 +676,16 @@
         l.position.set(0, 120, 0); l.polar = true;
         sc.add(l); this.lichter.push(l);
       }
+      if (thema.gold) for (const farbe of [0xffe08a, 0xfff8d6, 0xd8b0ff]) {
+        const l = new T.PointLight(farbe, 0.7, 800, 1.4);
+        l.position.set(0, 140, 0); l.polar = true;
+        sc.add(l); this.lichter.push(l);
+      }
+      if (thema.puls) {
+        const l = new T.PointLight(0xff6a2a, 0.8, 1500, 1.2);
+        l.position.set(0, 240, 0); l.puls = true;
+        sc.add(l); this.lichter.push(l);
+      }
       if (thema.alarm) {
         const l = new T.PointLight(0xff2a1a, 0.5, 1400, 1.2);
         l.position.set(0, 260, 0); l.alarm = true;
@@ -695,6 +709,7 @@
         return { g, warn, runde };
       });
       this.denkmalN = 0;
+      this.teil2Bauen(spiel);
 
       // Leuchtpunkt-Systeme: additiv (Funken, Glanz), normal (Staub, Rauch, Schnee)
       this.glow = new Punkte(sc, 2600, true, this.punktSkala);
@@ -733,8 +748,9 @@
           sc.add(m);
           return m;
         };
+        const glut = { funke:0x5a4000, licht:0x4a4020, spiegelfisch:0x101a24, kristallkrebs:0x1a1040, kristallmutter:0x24104a, lichttraeger:0x2a2410, uralter:0x2a1804, uralterkern:0x301000 }[typ] || 0;
         const normal = mach(new T.MeshPhongMaterial({
-          vertexColors:true, shininess:typ === 'panzer' ? 110 : 40, specular:typ === 'panzer' ? 0xffffff : 0x333333,
+          vertexColors:true, emissive:glut, shininess:typ === 'panzer' || typ === 'spiegelfisch' ? 120 : 40, specular:typ === 'panzer' || typ === 'spiegelfisch' ? 0xffffff : 0x333333,
           transparent:typ === 'weiss', opacity:typ === 'weiss' ? 0.82 : 1
         }));
         normal.castShadow = true;
@@ -890,6 +906,30 @@
           }
           const glut = mesh(G.okta, mat(0xff8a2a, 'basic'), hr * 0.2, hr * 0.6, 0); glut.scale.set(3, 6, 3); g.add(glut);
           const kappe = mesh(G.kugel, mat(0xffffff), 0, hr * 0.5, 0); kappe.scale.set(hr * 0.45, hr * 0.1, hr * 0.35); g.add(kappe);
+        } else if (karte.deko === 'kristall') {
+          // Kristallwald: Bündel aus lila und goldenen Kristallen, die von innen leuchten
+          for (let k = 0; k < 6; k++) {
+            const w = k * 2.4 + i, d = k ? hr * 0.45 : 0, hoch = hr * (k ? 0.7 + (k % 3) * 0.25 : 1.4);
+            const kr = mesh(G.okta, mat(k % 3 === 0 ? 0xfff2c4 : k % 2 ? 0xd8b0ff : 0xb8a0ff, 'phong', { flatShading:true, shininess:150, specular:0xffffff, emissive:k % 3 === 0 ? 0x4a3a10 : 0x2a1450, transparent:true, opacity:0.92 }),
+              Math.cos(w) * d, hoch * 0.45, Math.sin(w) * d);
+            kr.scale.set(hr * 0.22, hoch, hr * 0.22); kr.rotation.set(Math.cos(w) * 0.35, w, Math.sin(w) * 0.35); g.add(kr);
+          }
+          const fuss = mesh(new T.DodecahedronGeometry(hr * 0.6, 0), mat(0x8a7aa8, 'lambert', { flatShading:true }), 0, 2, 0); fuss.scale.set(1, 0.3, 1); g.add(fuss);
+          if (i < 3) { const l = new T.PointLight(i % 2 ? 0xd8b0ff : 0xffe08a, 0.6, 260, 1.6); l.position.y = hr; g.add(l); }
+        } else if (karte.deko === 'fleisch') {
+          // Im Uralten: warme Fleischhügel mit pulsierenden Adern und einem Auge
+          const huegel = mesh(G.kugel, mat(0x8a3a24, 'phong', { shininess:60, specular:0xffb08a }), 0, 0, 0); huegel.scale.set(hr * 0.9, hr * 0.5, hr * 0.8); g.add(huegel);
+          for (let k = 0; k < 4; k++) {
+            const ader = mesh(G.torus, mat(0xff8a3a, 'basic'), 0, hr * 0.1 + k * 3, 0); ader.scale.set(hr * (0.75 - k * 0.15), hr * (0.68 - k * 0.14), 6); ader.rotation.x = Math.PI / 2 + (k - 1.5) * 0.15; g.add(ader);
+          }
+          const auge = mesh(G.kugel, mat(0xfff4d8, 'phong', { shininess:120 }), hr * 0.2, hr * 0.42, 0); auge.scale.setScalar(hr * 0.18); g.add(auge);
+          const pup = mesh(G.kugel, mat(0xff6a1a, 'basic'), hr * 0.2, hr * 0.52, hr * 0.06); pup.scale.setScalar(hr * 0.09); g.add(pup);
+        } else if (karte.deko === 'wrack') {
+          // Wrack der Eisernen Möwe: rostige Rumpfteile, ein gebrochener Mast
+          const rumpf = mesh(G.kugel, mat(0x5a3a2a, 'lambert', { flatShading:true }), 0, hr * 0.15, 0); rumpf.scale.set(hr * 0.9, hr * 0.35, hr * 0.45); rumpf.rotation.set(0.3, i, 0.25); g.add(rumpf);
+          const deck = mesh(G.box, mat(0x7a5a3a), 0, hr * 0.35, 0); deck.scale.set(hr * 1.2, 4, hr * 0.5); deck.rotation.set(0.3, i, 0.25); g.add(deck);
+          if (i % 2 === 0) { const mast = mesh(G.zyl, mat(0x4a3020), hr * 0.2, hr * 0.9, 0); mast.scale.set(3, hr * 1.4, 3); mast.rotation.z = 0.5 + i * 0.1; g.add(mast); }
+          const muschel = mesh(new T.DodecahedronGeometry(hr * 0.2, 0), mat(0x2a6a7a, 'lambert', { flatShading:true }), -hr * 0.4, hr * 0.3, hr * 0.2); g.add(muschel);
         } else if (karte.deko === 'bucht') {
           const huegel = mesh(G.halbkugel, mat(0xf4fbff, 'phong', { shininess:10 }), 0, 0, 0); huegel.scale.set(hr, hr * 0.55, hr * 0.9); g.add(huegel);
         } else if (i % 2 === 0 || karte.deko === 'gletscher') {
@@ -1221,11 +1261,11 @@
               this.animieren(e.turm, 0.25);
               break;
             }
-            this.effekte.push({ art:'strahl', x1:e.x1, y1:e.y1, x2:e.x2, y2:e.y2, t:0, dauer:0.12, farbe:e.bild === 'harpuneGold' ? 0xffd54a : e.bild === 'haft' ? 0xff6a3a : 0xe8f0ff, h1:e.turm && e.turm.eff && e.turm.eff.flieger ? FLUGHOEHE : 22 });
+            this.effekte.push({ art:'strahl', x1:e.x1, y1:e.y1, x2:e.x2, y2:e.y2, t:0, dauer:0.12, farbe:e.bild === 'harpuneGold' ? 0xffd54a : e.bild === 'haft' ? 0xff6a3a : e.bild === 'lanze' ? 0x9ff3ff : 0xe8f0ff, h1:e.turm && e.turm.eff && e.turm.eff.flieger ? FLUGHOEHE : 22 });
             this.animieren(e.turm, 0.12);
             break;
           case 'blitz':
-            this.effekte.push({ art:'blitz', pts:e.pts, t:0, dauer:0.22, farbe:e.bild === 'blitzGross' ? 0x7dffb2 : e.bild === 'blitzAurora' ? 0x5effc8 : 0xc3b0ff });
+            this.effekte.push({ art:'blitz', pts:e.pts, t:0, dauer:0.22, farbe:e.bild === 'blitzGross' ? 0x7dffb2 : e.bild === 'blitzAurora' ? 0x5effc8 : e.bild === 'prisma' ? [0xff8ad5, 0xfff27a, 0x9ff3ff][Math.floor(Math.random() * 3)] : 0xc3b0ff });
             this.animieren(e.turm, 0.2);
             break;
           case 'wurf':
@@ -1319,7 +1359,33 @@
             for (let i = 0; i < 140; i++) this.teilchenDazu(e.x, e.y, 20, i % 2 ? 0xff5af0 : 0xffffff, 3, 300);
             this.effekte.push({ art:'ring', x:e.x, y:e.y, r:260, t:0, dauer:1.2, farbe:0xc070ff });
             this.effekte.push({ art:'saeule', x:e.x, y:e.y, r:40, hoehe:400, t:0, dauer:1.6, farbe:0xb36bff });
-            this.texte.push({ x:e.x, y:e.y, h:110, text:'💔 PAKO', farbe:'#e0b0ff', t:0, dauer:3, gross:36 });
+            this.texte.push({ x:e.x, y:e.y, h:110, text:e.typ === 'uralterkern' ? '💛 DAS HERZ' : '💔 PAKO', farbe:e.typ === 'uralterkern' ? '#ffd27a' : '#e0b0ff', t:0, dauer:3, gross:36 });
+            break;
+          // Teil 2
+          case 'kristallschutz':
+            this.effekte.push({ art:'ring', x:e.x, y:e.y, r:e.r, t:0, dauer:0.7, farbe:0xd8b0ff });
+            this.funken(e.x, e.y, 12, 0xe9dcff, e.r > 120 ? 30 : 10, { streu:e.r * 0.7, tempo:20, hoch:60, groesse:7, dauer:0.9 });
+            if (e.r > 120) this.texte.push({ x:e.x, y:e.y, h:70, text:'💎 Kristallschild!', farbe:'#e0c8ff', t:0, dauer:1.4, gross:22 });
+            break;
+          case 'blenden':
+            this.flash = { farbe:'#fff8d6', t:0, dauer:0.9 };
+            this.effekte.push({ art:'ring', x:e.x, y:e.y, r:e.r, t:0, dauer:0.8, farbe:0xfff2a8 });
+            this.effekte.push({ art:'saeule', x:e.x, y:e.y, r:40, hoehe:300, t:0, dauer:0.8, farbe:0xfff8d6 });
+            this.funken(e.x, e.y, 30, 0xffffff, 30, { streu:40, tempo:200, hoch:120, groesse:9, dauer:0.8 });
+            this.texte.push({ x:e.x, y:e.y, h:80, text:'🔆 Geblendet!', farbe:'#fff2a8', t:0, dauer:1.4, gross:22 });
+            break;
+          case 'gespiegelt':
+            this.funken(e.x, e.y, 10, 0xffffff, e.klein ? 3 : 10, { tempo:e.klein ? 60 : 90, hoch:70, groesse:e.klein ? 5 : 8, dauer:0.4 });
+            if (!e.klein) this.effekte.push({ art:'welle', x:e.x, y:e.y, r:30, t:0, dauer:0.5, farbe:0xdfe8f0 });
+            break;
+          case 'wegWechsel':
+            this.effekte.push({ art:'ring', x:e.x, y:e.y, r:110, t:0, dauer:0.9, farbe:0xff7a3a });
+            this.effekte.push({ art:'welle', x:e.x, y:e.y, r:160, t:0, dauer:1.2, farbe:0xffb08a });
+            this.texte.push({ x:e.x, y:e.y, h:60, text:'🫀', farbe:'#ffb08a', t:0, dauer:1.6, gross:30 });
+            break;
+          case 'verbuendet':
+            for (let i = 0; i < 16; i++) this.teilchenDazu(e.x, e.y, 6, 0xdff5ff, 2, 110);
+            this.effekte.push({ art:'welle', x:e.x, y:e.y, r:50, t:0, dauer:0.6, farbe:0xffffff });
             break;
           case 'wegOffen':
             this.wackeln = Math.max(this.wackeln, 0.5);
@@ -1413,6 +1479,100 @@
     }
 
     /* ---------- Jedes Bild ---------- */
+    /* ---------- Teil 2: Lichtstrahlen, Strömung, verbündete Haie, Opas Tagebuchseite ---------- */
+    teil2Bauen(spiel) {
+      const sc = this.scene, L = spiel.regeln && spiel.regeln.licht;
+      this.lichtBaender = [];
+      if (L) for (let i = 0; i < L.anzahl; i++) {
+        const g = new T.Group();
+        const saeule = new T.Mesh(new T.BoxGeometry(1, 1, 1), new T.MeshBasicMaterial({ color:0xffd25a, transparent:true, opacity:0.14, depthWrite:false }));
+        saeule.scale.set(L.breite || 70, 420, H + 60); saeule.position.y = 210;
+        const boden = new T.Mesh(EBENE, new T.MeshBasicMaterial({ color:0xffc83a, transparent:true, opacity:0.3, depthWrite:false }));
+        boden.rotation.x = -Math.PI / 2; boden.scale.set((L.breite || 70) / 2, (H + 60) / 2, 1); boden.position.y = 4;
+        g.add(saeule, boden); sc.add(g);
+        this.lichtBaender.push(g);
+      }
+      // Strömung: helle Pfeile, die über den schnellen Abschnitt des Kanals jagen
+      this.stroemPfeile = [];
+      for (const [k, von, bis] of spiel.kartenDaten.stroemung || []) {
+        const w = spiel.wege[k]; if (!w) continue;
+        const d0 = w.laenge * von, d1 = w.laenge * bis, n = Math.max(4, Math.round((d1 - d0) / 55));
+        for (let i = 0; i < n; i++) {
+          const m = new T.Mesh(G.kegel4, new T.MeshBasicMaterial({ color:0xdff8ff, transparent:true, opacity:0.75, depthWrite:false }));
+          m.scale.set(7, 16, 2.5); sc.add(m);
+          this.stroemPfeile.push({ m, w, d0, d1, i, n });
+        }
+      }
+      // Verbündete Haie (ohne Krone, mit hellem Streifen)
+      this.haiMesh = null;
+      if (spiel.regeln && spiel.regeln.verbuendete) {
+        const m = new T.InstancedMesh(PT.M3.haiGeo(15, false), new T.MeshPhongMaterial({ vertexColors:true, shininess:60, emissive:0x0a2a4a }), 40);
+        m.count = 0; m.frustumCulled = false; m.castShadow = true; sc.add(m);
+        this.haiMesh = m;
+      }
+      this.tagebuch = null;
+    }
+    tagebuchZeigen(x, y) {
+      if (this.tagebuch) this.scene.remove(this.tagebuch.g);
+      const c = document.createElement('canvas'); c.width = 64; c.height = 80;
+      const k = c.getContext('2d');
+      k.fillStyle = '#f6ecd2'; k.fillRect(0, 0, 64, 80);
+      k.strokeStyle = '#8a6a3a'; k.lineWidth = 2;
+      for (let i = 0; i < 7; i++) { k.beginPath(); k.moveTo(8, 14 + i * 9); k.lineTo(56 - (i % 3) * 6, 14 + i * 9); k.stroke(); }
+      k.strokeStyle = '#c8a868'; k.lineWidth = 3; k.strokeRect(1.5, 1.5, 61, 77);
+      const tex = new T.CanvasTexture(c);
+      const g = new T.Group();
+      const seite = new T.Mesh(new T.PlaneGeometry(26, 32), new T.MeshBasicMaterial({ map:tex, side:T.DoubleSide }));
+      seite.rotation.x = -Math.PI / 2.6;
+      const schein = new T.Mesh(EBENE, new T.MeshBasicMaterial({ map:ringTextur(), color:0xffe08a, transparent:true, opacity:0.8, depthWrite:false, blending:T.AdditiveBlending }));
+      schein.rotation.x = -Math.PI / 2; schein.scale.setScalar(38); schein.position.y = -6;
+      g.add(seite, schein); g.position.set(X(x), 18, Z(y));
+      this.scene.add(g);
+      this.tagebuch = { g, seite, schein, x, y, weg:0 };
+      this.texte.push({ x, y, h:50, text:'📜', farbe:'#ffe08a', t:0, dauer:2, gross:28 });
+    }
+    tagebuchWeg(gesammelt) {
+      const tb = this.tagebuch; if (!tb) return;
+      if (gesammelt) {
+        this.scene.remove(tb.g); this.tagebuch = null;
+        this.funken(tb.x, tb.y, 20, 0xffe08a, 30, { tempo:120, hoch:160, groesse:9, dauer:1, grav:-40 });
+        this.effekte.push({ art:'ring', x:tb.x, y:tb.y, r:60, t:0, dauer:0.6, farbe:0xffe08a });
+        this.texte.push({ x:tb.x, y:tb.y, h:60, text:'📜 Gefunden!', farbe:'#ffe08a', t:0, dauer:1.6, gross:22 });
+      } else tb.weg = 0.001;
+    }
+    teil2Zeichnen(spiel, dt) {
+      if (this.lichtBaender.length) spiel.lichtStrahlen().forEach((m, i) => {
+        const g = this.lichtBaender[i]; if (!g) return;
+        g.position.x = X(m);
+        g.children[0].material.opacity = 0.12 + Math.sin(this.zeit * 2 + i) * 0.04;
+        if (Math.random() < dt * 14) this.funken(m + (Math.random() - 0.5) * 60, Math.random() * H, 6, 0xfff2a8, 1, { tempo:10, hoch:90, groesse:7, dauer:1.4, grav:-30 });
+      });
+      for (const p of this.stroemPfeile) {
+        const d = p.d0 + ((p.i / p.n + this.zeit * 0.35) % 1) * (p.d1 - p.d0), [x, y, w] = p.w.punkt(d);
+        p.m.position.set(X(x), WASSER_Y + 2, Z(y));
+        p.m.quaternion.setFromUnitVectors(OBEN, RICHTUNG.set(Math.cos(w), 0, Math.sin(w)));
+        p.m.material.opacity = 0.65 * Math.sin(Math.PI * ((d - p.d0) / (p.d1 - p.d0)));
+      }
+      if (this.haiMesh) {
+        const m4 = new T.Matrix4(), q = new T.Quaternion(), eu = new T.Euler(), v = new T.Vector3(), sk = new T.Vector3(1.3, 1.3, 1.3);
+        let n = 0;
+        for (const h of spiel.verbuendete || []) {
+          if (n >= 40 || h.x == null) continue;
+          eu.set(0, -(h.w + Math.PI), Math.sin(this.zeit * 8 + h.id) * 0.08); q.setFromEuler(eu);
+          m4.compose(v.set(X(h.x), WASSER_Y + 5 + Math.sin(this.zeit * 5 + h.id) * 1.5, Z(h.y)), q, sk);
+          this.haiMesh.setMatrixAt(n++, m4);
+        }
+        this.haiMesh.count = n; this.haiMesh.instanceMatrix.needsUpdate = true;
+      }
+      const tb = this.tagebuch;
+      if (tb) {
+        tb.g.position.y = 18 + Math.sin(this.zeit * 2.2) * 3 - tb.weg * 30;
+        tb.seite.rotation.z = Math.sin(this.zeit * 1.3) * 0.25;
+        tb.schein.material.opacity = 0.55 + Math.sin(this.zeit * 4) * 0.25;
+        if (Math.random() < dt * 6) this.funken(tb.x, tb.y, 22, 0xffe08a, 1, { tempo:20, hoch:40, groesse:6, dauer:0.8, grav:-20 });
+        if (tb.weg) { tb.weg += dt; if (tb.weg > 1) { this.scene.remove(tb.g); this.tagebuch = null; } }
+      }
+    }
     zeichnen(spiel, dt, auswahl) {
       this.zeit += dt;
       this.zeitUniform.value = this.zeit;
@@ -1453,6 +1613,7 @@
       if (this.leuchtKegel) this.leuchtKegel.rotation.y += dt * 0.8;
       this.pinguineZeichnen(spiel, dt);
       this.fischeZeichnen(spiel);
+      this.teil2Zeichnen(spiel, dt);
       this.geschosseZeichnen(spiel);
 
       // Teilchen
@@ -1490,6 +1651,7 @@
       // Polarlicht und Schnee
       this.lichter.forEach((l, i) => {
         if (l.alarm) { l.intensity = 0.2 + Math.max(0, Math.sin(this.zeit * 2.4)) * 0.6; return; }
+        if (l.puls) { const p = this.zeit * 1.6 % 1; l.intensity = 0.5 + Math.exp(-p * 9) * 1.1 + Math.exp(-Math.abs(p - 0.22) * 14) * 0.6; return; }
         if (!l.polar) return;
         const w = this.zeit * (0.15 + i * 0.05) + i * 2.1;
         l.position.set(Math.cos(w) * 380, 150 + Math.sin(this.zeit + i) * 30, Math.sin(w * 1.3) * 220);
@@ -1835,7 +1997,7 @@
         if (t.betaeubt > 0) {
           const [sx, sy] = this.bildschirm(t.x, t.y, 58);
           x.font = schrift(18); x.textAlign = 'center';
-          x.fillText(t.betaeubtArt === 'eis' ? '🧊' : t.betaeubtArt === 'tinte' ? '🦑' : '💫', sx + Math.sin(this.zeit * 6 + t.id) * 4, sy);
+          x.fillText(t.betaeubtArt === 'eis' ? '🧊' : t.betaeubtArt === 'tinte' ? '🦑' : t.betaeubtArt === 'licht' ? '🔆' : '💫', sx + Math.sin(this.zeit * 6 + t.id) * 4, sy);
         }
         if (koop && t.besitzer != null && this.namenZeigen) {
           const sp = spiel.spielerVon(t.besitzer);
@@ -1879,6 +2041,15 @@
       if (this.thema.tiefe) {
         const g = x.createRadialGradient(this.pw / 2, this.ph / 2, Math.min(this.pw, this.ph) * 0.3, this.pw / 2, this.ph / 2, Math.max(this.pw, this.ph) * 0.75);
         g.addColorStop(0, 'rgba(0,4,20,0.12)'); g.addColorStop(1, 'rgba(0,2,14,0.72)');
+        x.fillStyle = g; x.fillRect(0, 0, this.pw, this.ph);
+      } else if (this.thema.gold) {
+        const g = x.createRadialGradient(this.pw / 2, this.ph / 2, Math.min(this.pw, this.ph) * 0.35, this.pw / 2, this.ph / 2, Math.max(this.pw, this.ph) * 0.8);
+        g.addColorStop(0, 'rgba(255,240,180,0)'); g.addColorStop(1, `rgba(255,220,140,${0.16 + Math.sin(this.zeit * 0.8) * 0.05})`);
+        x.fillStyle = g; x.fillRect(0, 0, this.pw, this.ph);
+      } else if (this.thema.puls) {
+        const p = this.zeit * 1.6 % 1, schlag = Math.exp(-p * 9) + Math.exp(-Math.abs(p - 0.22) * 14) * 0.6;
+        const g = x.createRadialGradient(this.pw / 2, this.ph / 2, Math.min(this.pw, this.ph) * 0.3, this.pw / 2, this.ph / 2, Math.max(this.pw, this.ph) * 0.75);
+        g.addColorStop(0, 'rgba(80,10,0,0)'); g.addColorStop(1, `rgba(70,8,0,${0.35 + schlag * 0.25})`);
         x.fillStyle = g; x.fillRect(0, 0, this.pw, this.ph);
       } else if (this.thema.alarm) {
         const g = x.createRadialGradient(this.pw / 2, this.ph / 2, Math.min(this.pw, this.ph) * 0.35, this.pw / 2, this.ph / 2, Math.max(this.pw, this.ph) * 0.75);

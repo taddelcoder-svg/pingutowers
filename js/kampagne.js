@@ -627,7 +627,7 @@
     return [true, ...level.sterne.map(a => PT.sternGeschafft(a, spiel))];
   };
   PT.kapitelFertig = (nr, sterne) => PT.LEVELS.some(l => l.kapitel === nr) && PT.LEVELS.filter(l => l.kapitel === nr).every(l => PT.sternZahl((sterne || {})[l.id]) >= 1);
-  PT.abenteuerFertig = sterne => PT.KAPITEL.every(k => PT.kapitelFertig(k.nr, sterne));
+  PT.abenteuerFertig = (sterne, teil = 1) => PT.KAPITEL.filter(k => (k.teil || 1) === teil).every(k => PT.kapitelFertig(k.nr, sterne));
   // Alter Fortschritt aus der ersten Kampagne (k1-1 …): wird einmal gegen eine Entschädigung getauscht
   PT.alteSterne = sterne => Object.entries(sterne || {}).filter(([id]) => /^k\d-\d$/.test(id)).reduce((n, [, s]) => n + PT.sternZahl(s), 0);
   PT.STERN_XP = 60;

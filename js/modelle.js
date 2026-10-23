@@ -314,7 +314,7 @@
     teile.push([G.kegel4, 0xbff4ff, matrix(0.53 * r, 1.36 * r, 0.62 * r, 0, 0, -0.25, 0.09 * r, 0.38 * r, 0.09 * r)]);
     return verschmelzen(teile);
   }
-  function haiGeo(r) {
+  function haiGeo(r, mitKrone = true) {
     const teile = [];
     const haut = (x, y) => y < -0.12 * r ? mischen(0xf4f6f8, 0xd5dee8, glatt(-0.1 * r, -0.5 * r, y)) : mischen(0x4a6a8a, 0x2c4560, glatt(0, 0.5 * r, y));
     teile.push([G.kugel, haut, matrix(0, 0, 0, 0, 0, 0, 1.55 * r, 0.5 * r, 0.55 * r)]);
@@ -329,11 +329,128 @@
     augen(teile, r, 1.15 * r, 0.18 * r, 0.32 * r, 0.09 * r, true, 0x111111, 0x111111);
     teile.push([G.box, 0x5a1020, matrix(1.55 * r, -0.2 * r, 0, 0, 0, 0, 0.35 * r, 0.1 * r, 0.5 * r)]);
     for (let i = -4; i <= 4; i++) teile.push([G.kegel4, 0xffffff, matrix(1.65 * r, -0.12 * r, i * 0.055 * r, Math.PI, 0, 0, 0.025 * r, 0.09 * r, 0.025 * r)]);
-    krone(teile, r, 0.85 * r, 0.52 * r, 0.26);
+    if (mitKrone) krone(teile, r, 0.85 * r, 0.52 * r, 0.26);
+    return verschmelzen(teile);
+  }
+  /* ---------- Teil 2: Kinder des Uralten ---------- */
+  // Kristallkrebs: flacher Panzer mit Kristallspitzen, zwei Scheren, sechs Beine
+  function kristallkrebsGeo(r) {
+    const teile = [], kM = kleineKugel(r);
+    const panzer = (x, y, z) => (hash(Math.round(x / 4), Math.round(z / 4)) > 0.75 ? rgb(0xe8d8ff) : mischen(0x8a6ad8, 0xb8a0ff, glatt(-0.2 * r, 0.4 * r, y)));
+    teile.push([G.kugel, panzer, matrix(0, 0, 0, 0, 0, 0, 1.0 * r, 0.45 * r, 0.85 * r)]);
+    for (let i = 0; i < 7; i++) {
+      const w = i / 7 * Math.PI * 2, d = 0.45 * r * (i % 2 ? 1 : 0.4);
+      teile.push([G.okta, i % 2 ? 0xe9dcff : 0xc8b0ff, matrix(Math.cos(w) * d - 0.1 * r, 0.5 * r + (i % 3) * 0.12 * r, Math.sin(w) * d, 0, w, 0, 0.16 * r, (0.45 + (i % 3) * 0.15) * r, 0.16 * r)]);
+    }
+    for (const s of [-1, 1]) {
+      teile.push([G.kugel, 0x9a7ae8, matrix(0.95 * r, 0.05 * r, s * 0.6 * r, 0, s * 0.5, 0, 0.42 * r, 0.22 * r, 0.26 * r)]);
+      teile.push([G.kegel4, 0xe9dcff, matrix(1.35 * r, 0.12 * r, s * 0.72 * r, 0, 0, -Math.PI / 2 - 0.2, 0.12 * r, 0.42 * r, 0.12 * r)]);
+      teile.push([G.kegel4, 0xe9dcff, matrix(1.3 * r, -0.08 * r, s * 0.66 * r, 0, 0, -Math.PI / 2 + 0.3, 0.1 * r, 0.36 * r, 0.1 * r)]);
+      for (let k = 0; k < 3; k++) teile.push([G.zyl, 0x6a4ab8, matrix((0.35 - k * 0.38) * r, -0.25 * r, s * 0.95 * r, s * 0.9, 0, 0, 0.06 * r, 0.6 * r, 0.06 * r)]);
+      teile.push([kM, 0xffffff, matrix(0.85 * r, 0.42 * r, s * 0.2 * r, 0, 0, 0, 0.1 * r, 0.1 * r, 0.1 * r)]);
+      teile.push([kM, 0x2a0a5a, matrix(0.93 * r, 0.44 * r, s * 0.22 * r, 0, 0, 0, 0.05 * r, 0.05 * r, 0.05 * r)]);
+    }
+    return verschmelzen(teile);
+  }
+  // Mutter der Kristalle: eine Kuppel aus Kristall voller Spitzen, ein glühendes Herz, Beine aus Kristall
+  function kristallmutterGeo(r) {
+    const teile = [], kM = kleineKugel(r);
+    const kristall = (x, y, z) => (hash(Math.round(x / 6), Math.round(z / 6) + Math.round(y / 6) * 5) > 0.7 ? rgb(0xf4ecff) : mischen(0x9a7ae8, 0xe0c8ff, glatt(-0.2 * r, 0.9 * r, y)));
+    teile.push([G.kuppel, kristall, matrix(0, -0.15 * r, 0, 0, 0, 0, 1.1 * r, 0.95 * r, 1.0 * r)]);
+    teile.push([G.ikosa, 0xfff2c4, matrix(0.15 * r, 0.25 * r, 0, 0, 0, 0, 0.42 * r, 0.42 * r, 0.42 * r)]);
+    for (let i = 0; i < 14; i++) {
+      const w = i * 2.4, d = (0.25 + (i % 4) * 0.2) * r, h = (0.7 + (i % 3) * 0.35) * r;
+      teile.push([G.okta, i % 3 ? 0xd8c0ff : 0xffffff, matrix(Math.cos(w) * d, 0.55 * r + h * 0.35, Math.sin(w) * d, Math.sin(w) * 0.3, w, Math.cos(w) * 0.3, 0.13 * r, h, 0.13 * r)]);
+    }
+    for (let i = 0; i < 6; i++) {
+      const w = i / 6 * Math.PI * 2 + 0.3;
+      teile.push([G.kegel4, 0xb8a0ff, new T.Matrix4().compose(new T.Vector3(Math.cos(w) * 1.15 * r, -0.35 * r, Math.sin(w) * 1.05 * r),
+        new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), new T.Vector3(-Math.cos(w), 1.6, -Math.sin(w)).normalize()), new T.Vector3(0.12 * r, 0.9 * r, 0.12 * r))]);
+    }
+    for (const s of [-1, 0, 1]) {
+      teile.push([kM, 0xffffff, matrix(0.95 * r, 0.25 * r + Math.abs(s) * 0.05 * r, s * 0.3 * r, 0, 0, 0, 0.12 * r, 0.12 * r, 0.12 * r)]);
+      teile.push([kM, 0x8a2ad8, matrix(1.04 * r, 0.26 * r + Math.abs(s) * 0.05 * r, s * 0.31 * r, 0, 0, 0, 0.06 * r, 0.07 * r, 0.06 * r)]);
+    }
+    krone(teile, r, -0.1 * r, 1.0 * r, 0.26);
+    return verschmelzen(teile);
+  }
+  // Der Lichtträger: Opa Pingo im Mantel aus Licht, mit Heiligenschein und Stab
+  function lichttraegerGeo(r) {
+    const teile = [], kM = kleineKugel(r);
+    const mantel = (x, y, z) => (hash(Math.round(x / 4), Math.round(y / 4) + Math.round(z / 4) * 3) > 0.8 ? rgb(0xffffff) : mischen(0xffe9a8, 0xfff8e0, glatt(-0.6 * r, 0.6 * r, y)));
+    teile.push([G.kegel, mantel, matrix(-0.05 * r, -0.05 * r, 0, 0, 0, 0, 0.85 * r, 1.4 * r, 0.85 * r)]);
+    teile.push([G.kugel, 0x4a4f5a, matrix(0, 0.45 * r, 0, 0, 0, 0, 0.45 * r, 0.6 * r, 0.45 * r)]);
+    teile.push([G.kugel, 0xfff8e8, matrix(0.2 * r, 0.42 * r, 0, 0, 0, 0, 0.3 * r, 0.48 * r, 0.36 * r)]);
+    teile.push([G.kugel, 0x4a4f5a, matrix(0.05 * r, 1.12 * r, 0, 0, 0, 0, 0.36 * r, 0.36 * r, 0.36 * r)]);
+    teile.push([G.kegel, 0xffb347, matrix(0.48 * r, 1.08 * r, 0, 0, 0, -Math.PI / 2, 0.08 * r, 0.26 * r, 0.08 * r)]);
+    for (const s of [-1, 1]) {
+      teile.push([kM, 0xffffff, matrix(0.32 * r, 1.2 * r, s * 0.15 * r, 0, 0, 0, 0.08 * r, 0.08 * r, 0.06 * r)]);
+      // weißer Schnurrbart wie bei Opa
+      teile.push([G.kugel, 0xf4f4f4, matrix(0.4 * r, 1.0 * r, s * 0.1 * r, 0, s * 0.4, 0, 0.14 * r, 0.06 * r, 0.1 * r)]);
+      teile.push([G.kugel, 0xfff2c4, matrix(0.05 * r, 0.6 * r, s * 0.5 * r, s * 0.5, 0, 0.4, 0.14 * r, 0.5 * r, 0.08 * r)]);
+    }
+    // Heiligenschein und Lichtstrahlen
+    teile.push([G.torus, 0xfff2a8, matrix(-0.05 * r, 1.62 * r, 0, Math.PI / 2, 0, 0, 0.4 * r, 0.4 * r, 0.4 * r)]);
+    for (let i = 0; i < 10; i++) {
+      const w = i / 10 * Math.PI * 2;
+      teile.push([G.kegel4, 0xfff8d6, matrix(-0.35 * r, 0.9 * r + Math.sin(w) * 0.85 * r, Math.cos(w) * 0.85 * r, w, 0, 0, 0.05 * r, 0.6 * r, 0.05 * r)]);
+    }
+    // Stab mit Lichtkugel
+    teile.push([G.zyl, 0xc8a868, matrix(0.4 * r, 0.6 * r, 0.6 * r, 0, 0, -0.15, 0.04 * r, 1.7 * r, 0.04 * r)]);
+    teile.push([G.ikosa, 0xffffff, matrix(0.53 * r, 1.5 * r, 0.6 * r, 0, 0, 0, 0.18 * r, 0.18 * r, 0.18 * r)]);
+    return verschmelzen(teile);
+  }
+  // Der Uralte: ein urzeitlicher Riese aus goldenem Fleisch, übersät mit Augen, ein Maul voller Zähne, Lichtfäden
+  function uralterGeo(r) {
+    const teile = [], kM = kleineKugel(r);
+    const haut = (x, y, z) => (Math.abs(Math.sin(x * 0.06 + z * 0.05) * Math.cos(y * 0.08)) < 0.05 ? rgb(0xfff2a8) : hash(Math.round(x / 8), Math.round(z / 8) + Math.round(y / 8) * 3) > 0.82 ? rgb(0xc89a4a) : mischen(0x8a5a20, 0x5a3410, glatt(-0.3 * r, 0.7 * r, y)));
+    teile.push([G.kugel, haut, matrix(0, 0, 0, 0, 0, 0, 1.3 * r, 0.8 * r, 0.9 * r)]);
+    teile.push([G.kugel, haut, matrix(-1.2 * r, -0.05 * r, 0, 0, 0, 0, 0.8 * r, 0.55 * r, 0.6 * r)]);
+    teile.push([G.kegel, 0x6a4418, matrix(-2.05 * r, 0, 0, 0, 0, Math.PI / 2, 0.55 * r, 0.75 * r, 0.12 * r)]);
+    // Maul
+    teile.push([G.box, 0x2a0a00, matrix(1.15 * r, -0.25 * r, 0, 0, 0, 0, 0.4 * r, 0.32 * r, 1.2 * r)]);
+    for (let i = -6; i <= 6; i++) {
+      teile.push([G.kegel4, 0xfff4d8, matrix(1.28 * r, -0.12 * r, i * 0.09 * r, Math.PI, 0, 0, 0.035 * r, 0.24 * r, 0.035 * r)]);
+      teile.push([G.kegel4, 0xfff4d8, matrix(1.24 * r, -0.4 * r, i * 0.09 * r + 0.045 * r, 0, 0, 0, 0.03 * r, 0.2 * r, 0.03 * r)]);
+    }
+    // Augen, überall
+    for (let i = 0; i < 26; i++) {
+      const u = hash(i, 3), v = hash(i, 7), w = (u - 0.5) * 2.6, h = 0.15 + v * 1.1;
+      const x = Math.cos(w) * 1.15 * r * (0.6 + v * 0.4) - 0.3 * r, y = Math.sin(h) * 0.72 * r - 0.05 * r, z = Math.sin(w) * 0.85 * r;
+      const gr = (0.05 + hash(i, 11) * 0.09) * r * (i < 2 ? 2.2 : 1);
+      teile.push([kM, 0xfff8e8, matrix(x, y, z, 0, 0, 0, gr, gr, gr)]);
+      teile.push([kM, 0xff7a1a, matrix(x + gr * 0.5, y + gr * 0.1, z + Math.sign(z || 1) * gr * 0.3, 0, 0, 0, gr * 0.55, gr * 0.6, gr * 0.55)]);
+    }
+    // Lichtfäden wie bei einem Anglerfisch, mit Leuchtkugeln
+    for (let i = 0; i < 5; i++) {
+      const z = (i - 2) * 0.32 * r;
+      teile.push([G.zyl, 0x8a5a20, matrix(0.4 * r, 1.05 * r, z, z / r * 0.4, 0, -0.5, 0.035 * r, 0.8 * r, 0.035 * r)]);
+      teile.push([G.ikosa, 0xfff2a8, matrix(0.65 * r, 1.42 * r, z * 1.3, 0, 0, 0, 0.12 * r, 0.12 * r, 0.12 * r)]);
+    }
+    for (const s of [-1, 1]) teile.push([G.kugel, 0x6a4418, matrix(0.1 * r, -0.55 * r, s * 0.85 * r, s * 0.6, 0, -0.3, 0.6 * r, 0.07 * r, 0.35 * r)]);
+    return verschmelzen(teile);
+  }
+  // Herz des Uralten: ein schlagendes Herz, golden glühend, mit Adern und dem Herzlicht in der Mitte
+  function uralterkernGeo(r) {
+    const teile = [];
+    const fleisch = (x, y, z) => (Math.abs(Math.sin(x * 0.18 + y * 0.12) * Math.cos(z * 0.15)) < 0.07 ? rgb(0xfff2a8) : mischen(0xc8501a, 0x8a2a0a, glatt(-0.5 * r, 0.8 * r, y)));
+    for (const s of [-1, 1]) teile.push([G.kugel, fleisch, matrix(0, 0.25 * r, s * 0.38 * r, 0, 0, 0, 0.7 * r, 0.65 * r, 0.6 * r)]);
+    teile.push([G.kegel, fleisch, matrix(0, -0.5 * r, 0, Math.PI, 0, 0, 0.82 * r, 1.0 * r, 0.82 * r)]);
+    for (let i = 0; i < 5; i++) teile.push([G.zyl, 0x8a2a0a, matrix((i - 2) * 0.22 * r, 0.95 * r, (i % 2 - 0.5) * 0.4 * r, (i - 2) * 0.2, 0, (i - 2) * 0.25, 0.1 * r, 0.6 * r, 0.1 * r)]);
+    for (let i = 0; i < 12; i++) {
+      const w = i / 12 * Math.PI * 2;
+      teile.push([G.zyl, 0xffb347, matrix(Math.cos(w) * 0.55 * r, 0.1 * r + Math.sin(i) * 0.3 * r, Math.sin(w) * 0.55 * r, Math.sin(w) * 0.8, 0, Math.cos(w) * 0.8, 0.025 * r, 0.7 * r, 0.025 * r)]);
+    }
+    teile.push([G.ikosa, 0xfff8d6, matrix(0.62 * r, 0.1 * r, 0, 0, 0, 0, 0.28 * r, 0.28 * r, 0.28 * r)]);
     return verschmelzen(teile);
   }
   function fischGeo(typ) {
     const f = PT.FISCHE[typ], r = f.r, c = f.farbe;
+    if (typ === 'kristallkrebs') return kristallkrebsGeo(r);
+    if (typ === 'kristallmutter') return kristallmutterGeo(r);
+    if (typ === 'lichttraeger') return lichttraegerGeo(r);
+    if (typ === 'uralter') return uralterGeo(r * 0.82);
+    if (typ === 'uralterkern') return uralterkernGeo(r);
     if (typ === 'orka') return orkaGeo(r);
     if (typ === 'kugel') return kugelGeo(r, c);
     if (typ === 'flug') return flugGeo(r, c);
@@ -368,6 +485,19 @@
       koerper = (x, y, z) => (Math.abs(Math.sin(x * 0.5 + z * 0.4)) < 0.12 ? rgb(0xff5af0) : y < -0.3 * r ? rgb(0x7a4a8a) : mischen(0x4a1f5c, 0x2a0f38, glatt(0, 0.6 * r, y)));
       flosse = rgb(0x2a0f38); kScale = [1.25 * r, 0.85 * r, 0.75 * r];
       for (let i = 0; i < 5; i++) teile.push([G.kegel4, 0xd06aff, matrix((0.6 - i * 0.3) * r, 0.8 * r, ((i % 2) - 0.5) * 0.3 * r, ((i % 2) - 0.5) * 0.6, 0, 0.3, 0.1 * r, 0.55 * r, 0.1 * r)]);
+    }
+    if (typ === 'funke') {
+      koerper = (x, y) => (y > 0.15 * r ? rgb(0xfff8d6) : rgb(0xffc23a)); flosse = rgb(0xffe08a); kScale = [1.25 * r, 0.45 * r, 0.42 * r]; schwanz = [0.8 * r, 1.2 * r];
+      for (let i = 0; i < 4; i++) teile.push([G.okta, 0xfff2a8, matrix(-(1.4 + i * 0.45) * r, ((i % 2) - 0.5) * 0.4 * r, ((i % 3) - 1) * 0.3 * r, 0, i, 0, (0.18 - i * 0.03) * r, (0.18 - i * 0.03) * r, (0.18 - i * 0.03) * r)]);
+    }
+    if (typ === 'licht') {
+      koerper = (x, y) => mischen(0xfff2c4, 0xffffff, glatt(-0.4 * r, 0.6 * r, y)); flosse = rgb(0xffe9a8); kScale = [1.15 * r, 0.7 * r, 0.55 * r]; schwanz = [0.75 * r, 1.05 * r];
+      for (let i = 0; i < 7; i++) { const w = i / 7 * Math.PI - Math.PI / 2; teile.push([G.kegel4, 0xffffff, matrix(-0.1 * r + Math.sin(w) * 0.3 * r, 0.75 * r + Math.cos(w) * 0.25 * r, 0, 0, 0, -w * 0.7, 0.06 * r, (0.45 + (i % 2) * 0.25) * r, 0.06 * r)]); }
+    }
+    if (typ === 'spiegelfisch') {
+      koerper = (x, y, z) => (hash(Math.round(x / 3.2), Math.round(y / 3.2) + Math.round(z / 3.2) * 5) > 0.55 ? rgb(0xffffff) : mischen(0xa8b8c8, 0xe8f0f8, glatt(-0.4 * r, 0.5 * r, y)));
+      flosse = rgb(0xc8d8e8); kScale = [1.2 * r, 0.8 * r, 0.5 * r];
+      for (let i = 0; i < 5; i++) for (const s of [-1, 1]) teile.push([G.box, 0xf4faff, matrix((0.55 - i * 0.3) * r, ((i % 2) - 0.3) * 0.25 * r, s * 0.47 * r, 0, 0, 0.3, 0.2 * r, 0.2 * r, 0.03 * r)]);
     }
     if (typ === 'splitter') {
       koerper = (x, y) => (y > 0.2 * r ? rgb(0xff8af0) : rgb(0x9b3fb0)); flosse = rgb(0x5a1a6a); kScale = [1.1 * r, 0.5 * r, 0.45 * r]; schwanz = [0.7 * r, 0.9 * r];
@@ -902,6 +1032,34 @@
       if (p[2] >= 2) { const besen = mesh(G.zyl, mat(0x8b5a2b), -4, 6, 13); besen.scale.set(0.7, 30, 0.7); besen.rotation.z = 1.2; g.add(besen); const reisig = mesh(G.kegel, mat(0xd8b46a), -17, 1, 13); reisig.scale.set(3, 7, 3); reisig.rotation.z = 1.2; g.add(reisig); }
       if (p[2] >= 3) { const katze = mesh(G.kugel, mat(0x111111), -14, 5, -6); katze.scale.set(4, 3.5, 3); g.add(katze); const kk = mesh(G.kugel, mat(0x111111), -10, 9, -6); kk.scale.setScalar(2.6); g.add(kk); for (const z of [-1, 1]) { const o = mesh(G.kegel4, mat(0x111111), -10, 12, -6 + z * 1.3); o.scale.set(0.8, 2, 0.8); g.add(o); } }
     },
+    kristall(g, p, t) {
+      pinguinKoerper(g, t);
+      // Kristallkrone, schwebender Prismenkristall, Kristalllanze
+      const stark = Math.max(...p) >= 4;
+      const farbe = p[1] >= 3 ? 0xffe9a8 : p[2] >= 3 ? 0x9ff3ff : 0xd8b0ff;
+      for (let i = 0; i < 5; i++) { const w = i / 5 * Math.PI * 2; const k = mesh(G.okta, mat(farbe, 'phong', { flatShading:true, shininess:140, emissive:0x2a1a4a }), 1 + Math.cos(w) * 5.5, 38 + (i % 2) * 2, Math.sin(w) * 5.5); k.scale.set(1.4, 4 + (i % 2) * 2, 1.4); g.add(k); }
+      const prisma = new T.Group(); prisma.position.y = 54;
+      const kr = mesh(G.okta, mat(0xffffff, 'phong', { flatShading:true, shininess:160, transparent:true, opacity:0.85, emissive:stark ? 0x6a3aaa : 0x2a1a4a }), 0, 0, 0);
+      kr.scale.set(stark ? 6 : 4.5, stark ? 10 : 7.5, stark ? 6 : 4.5); prisma.add(kr);
+      if (p[0] >= 5) for (const c of [0xff5e5e, 0x5effa0, 0x5ea0ff]) { const r = mesh(G.torus, mat(c, 'basic', { transparent:true, opacity:0.6 }), 0, 0, 0); r.scale.setScalar(9); r.rotation.set(Math.random() * 3, Math.random() * 3, 0); prisma.add(r); }
+      g.add(prisma); t.dreher = prisma;
+      if (p[2] >= 1) { const l = mesh(G.kegel4, mat(0x9ff3ff, 'phong', { shininess:160, emissive:0x0a3a5a }), 14, 20, 11); l.scale.set(1.6, p[2] >= 4 ? 34 : 24, 1.6); l.rotation.z = -Math.PI / 2; g.add(l); }
+      if (p[1] >= 3) { const r = mesh(G.torus, mat(0xffe9a8, 'basic', { transparent:true, opacity:0.5 }), 0, 4, 0); r.scale.set(22, 22, 4); r.rotation.x = Math.PI / 2; r.castShadow = false; g.add(r); }
+    },
+    orca(g, p, t) {
+      // Ein Orca im Wasser mit einem Pinguin im Sattel
+      const gross = Math.max(...p) >= 4 ? 1.2 : 1;
+      const koerper = mesh(G.kugel, mat(0x111418, 'phong', { shininess:90 }), 0, 4, 0); koerper.scale.set(22 * gross, 9 * gross, 11 * gross); g.add(koerper);
+      const bauch = mesh(G.kugel, mat(0xf4f6f8), 4, 1, 0); bauch.scale.set(16 * gross, 6 * gross, 9 * gross); g.add(bauch);
+      for (const z of [-1, 1]) { const fleck = mesh(G.kugel, mat(0xffffff), 14 * gross, 8, z * 7 * gross); fleck.scale.set(4, 2.4, 1.5); g.add(fleck); }
+      const finne = mesh(G.kegel, mat(0x111418), -4, 16 * gross, 0); finne.scale.set(3, 14 * gross, 1.2); finne.rotation.z = 0.3; g.add(finne);
+      const fluke = mesh(G.kugel, mat(0x111418), -24 * gross, 5, 0); fluke.scale.set(4, 1.5, 12 * gross); g.add(fluke);
+      const sattel = mesh(G.box, mat(p[2] >= 4 ? 0xffd54a : 0x8b5a2b), 6, 13 * gross, 0); sattel.scale.set(10, 2, 10); g.add(sattel);
+      const pg = new T.Group(); pg.position.set(6, 13 * gross, 0); pg.scale.setScalar(0.62); pinguinKoerper(pg, t); g.add(pg);
+      if (p[1] >= 1) for (const z of [-1, 1]) { const r = mesh(G.zyl, mat(0x5a6573, 'phong', { shininess:80 }), 8, 4, z * 11 * gross); r.scale.set(1.8, 10, 1.8); r.rotation.z = -Math.PI / 2; g.add(r); }
+      if (p[0] >= 3) { const w = mesh(G.torus, mat(0x9fe4ff, 'basic', { transparent:true, opacity:0.5 }), 0, 2, 0); w.scale.set(30, 30, 4); w.rotation.x = Math.PI / 2; w.castShadow = false; g.add(w); t.dreher = w; }
+      if (p[2] >= 5) { const k = mesh(G.okta, mat(0xffd54a, 'basic'), 6, 32, 0); k.scale.setScalar(2.5); g.add(k); }
+    },
     sturm(g, p, t) {
       pinguinKoerper(g, t);
       // Wolke über dem Kopf, Wetterfahne, Wirbel am Boden
@@ -1046,6 +1204,17 @@
 
   /* ---------- Helden ---------- */
   const HELDEN_MODELLE = {
+    eiskapitaen(g, L, t) {
+      pinguinKoerper(g, t, 1, 0x163450);
+      const M = (geo, farbe, x, y, z, sx, sy, sz, art = 'lambert', extra = {}) => { const m = mesh(geo, mat(farbe, art, extra), x, y, z); m.scale.set(sx, sy, sz); g.add(m); return m; };
+      M(G.zyl, 0x0d1a2a, 1, 37.5, 0, 8, 2.4, 8); M(G.zyl, 0xf4f8ff, 1, 40, 0, 9.4, 2.2, 9.4).rotation.z = 0.08;
+      M(G.box, 0x0a1620, 8, 36.6, 0, 4, 0.7, 8).rotation.z = -0.2; M(G.okta, 0x9fe8ff, 9.4, 39, 0, 1.3, 1.6, 1.3, 'basic');
+      for (const z of [-1, 1]) { M(G.kugel, 0xbfeeff, 0, 25, z * 10, 4, 2, 3.6, 'phong', { shininess:140, emissive:0x0a3040 }); M(G.kegel4, 0xe6fbff, 0, 28.5, z * 10.6, 0.9, 4.5, 0.9).rotation.x = z * 0.4; }
+      M(G.box, 0xdff4ff, 6.8, 33, -3.6, 0.4, 4.6, 0.6, 'basic').rotation.x = 0.3;
+      const lanze = M(G.zyl, 0x5a6f88, 10, 20, 11, 1, 34, 1); lanze.rotation.z = -Math.PI / 2;
+      const spitze = M(G.kegel4, L >= 10 ? 0xffffff : 0xbff4ff, 29, 20, 11, 2.4, 9, 2.4, 'phong', { emissive:0x0a3a5a }); spitze.rotation.z = -Math.PI / 2;
+      if (L >= 5) { const m = M(G.kugel, 0x1a3a6a, -6, 18, 0, 5, 14, 11, 'phong', { emissive:0x0a1a3a }); m.castShadow = true; }
+    },
     kiel(g, L, t) {
       pinguinKoerper(g, t);
       const mantel = mesh(G.kugel, mat(0xb3261e), -1.5, 16, 0); mantel.scale.set(9.6, 13.2, 10.6); g.add(mantel);
@@ -1267,5 +1436,5 @@
     look = null;
     return g;
   }
-  window.PT.M3 = { G, mat, mesh, matrix, verschmelzen, fischGeo, pinguinBauen, pinguinFigur, pinguinKoerper, albatros, geschossArten, haufenGeo, PFAD_FARBEN, MODELL_GROESSE };
+  window.PT.M3 = { G, mat, mesh, matrix, verschmelzen, fischGeo, haiGeo, pinguinBauen, pinguinFigur, pinguinKoerper, albatros, geschossArten, haufenGeo, PFAD_FARBEN, MODELL_GROESSE };
 })();

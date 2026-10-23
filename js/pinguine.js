@@ -74,7 +74,11 @@
     supernova:    { name:'Supernova', symbol:'🌟', text:'Eine Sternenexplosion trifft jeden Fisch schwer.' },
     bauchklatscher:{ name:'Bauchklatscher', symbol:'💦', text:'Walter springt: Alle Fische in der Nähe sind betäubt und verletzt.' },
     walrossruf:   { name:'Walross-Ruf', symbol:'📣', text:'Pinguine in der Nähe greifen kurz doppelt so schnell an, dazu gibt es Geld.' },
-    lawine:       { name:'Walross-Lawine', symbol:'🏔️', text:'Eine Lawine schiebt alle Fische zurück und friert die kleinen ein.' }
+    lawine:       { name:'Walross-Lawine', symbol:'🏔️', text:'Eine Lawine schiebt alle Fische zurück und friert die kleinen ein.' },
+    prisma:       { name:'Prismensturm', symbol:'🔮', text:'Regenbogenstrahlen treffen jeden Fisch und enttarnen alle.' },
+    orcaflut:     { name:'Orca-Welle', symbol:'🐋', text:'Eine Orca-Welle spült alle Fische zurück und verletzt sie.' },
+    eisgefaengnis:{ name:'Eisgefängnis', symbol:'🧊', text:'Frost sperrt alle Fische in Eis – auch Riesen, nur Bosse nicht.' },
+    eisherrschaft:{ name:'Eisherrschaft', symbol:'❄️', text:'Frost lässt das Meer gefrieren: alle Fische eingefroren und schwer verletzt.' }
   };
 
   /* ---------- Pinguine ---------- */
@@ -379,7 +383,7 @@
           { name:'Dreizack-Wirbel', preis:450, text:'Sticht drei Fische auf einmal.', fx:s => { const a = A(s); a.anzahl = 3; a.streuung = 0.35; } },
           { name:'Strudel', preis:1400, text:'Ein Strudel zieht Fische in der Nähe zurück und bremst sie.', fx:s => {
             s.angriffe.push(angriff({ id:'strudel', art:'ring', intervall:1.8, schaden:1, durchschlag:20, typ:'normal', bild:'strudel', verlangsam:0.5, verlangsamDauer:1.5, ablenken:0.35, reichweite:s.reichweite * 0.8 })); } },
-          { name:'Poseidon-Pinguin', preis:5500, text:'+5 Schaden, +20 gegen Riesen, größerer Strudel.', fx:s => {
+          { name:'Neptun-Pinguin', preis:5500, text:'+5 Schaden, +20 gegen Riesen, größerer Strudel.', fx:s => {
             const a = A(s); a.schaden += 5; a.riesen += 20; a.durchschlag += 3; a.bild = 'dreizackGold'; const b = A(s, 'strudel'); if (b) { b.schaden += 3; b.reichweite += 30; b.durchschlag += 30; } } },
           { name:'Herrscher der Tiefe', preis:28000, text:'+15 Schaden, +60 gegen Riesen. Fähigkeit Tsunami: spült alle Fische zurück.', fx:s => {
             const a = A(s); a.schaden += 15; a.riesen += 60; a.intervall *= 0.7; F(s, { id:'tsunami', cd:55, schaden:40, riesen:400, weite:160 }); } }
@@ -793,8 +797,65 @@
     }
   };
   for (const id of Object.keys(PINGUINE)) PINGUINE[id].id = id;
+  // Teil 2: Kristall-Pinguin und Orca-Reiter
+  PINGUINE.kristall = {
+    name:'Kristall-Pinguin', preis:750, gruppe:'Magie', taste:'c', kurz:'Bricht Licht in Prismenstrahlen, die von Fisch zu Fisch springen. Kann andere Pinguine stärken oder Riesen durchbohren.',
+    basis:() => ({ reichweite:150, camo:false, angriffe:[angriff({ art:'blitz', intervall:1.2, schaden:1, kette:3, kettenWeite:90, typ:'normal', bild:'prisma' })] }),
+    pfade:[
+      [
+        { name:'Facetten', preis:400, text:'Strahlen springen zu 5 Fischen.', fx:s => { A(s).kette = 5; } },
+        { name:'Klarer Schliff', preis:900, text:'+1 Schaden, schneller.', fx:s => { A(s).schaden += 1; A(s).intervall *= 0.8; } },
+        { name:'Lichtbrechung', preis:2200, text:'Sieht getarnte Fische, Strahlen springen weiter.', fx:s => { s.camo = true; A(s).kettenWeite = 130; } },
+        { name:'Regenbogenprisma', preis:7500, text:'10 Sprünge, +2 Schaden, +6 gegen Riesen.', fx:s => { const a = A(s); a.kette = 10; a.schaden += 2; a.riesen += 6; } },
+        { name:'Herz des Lichts', preis:29000, text:'20 Sprünge, +5 Schaden. Fähigkeit Prismensturm.', fx:s => { const a = A(s); a.kette = 20; a.schaden += 5; a.riesen += 20; F(s, { id:'prisma', cd:50, schaden:30, riesen:500 }); } }
+      ],
+      [
+        { name:'Spiegelsplitter', preis:350, text:'Pinguine in der Nähe sehen 10 % weiter.', fx:s => { s.buff = { reichweite:0.1, camo:false, tempo:1, schaden:0, durchschlag:0, rabatt:0 }; } },
+        { name:'Fokuslinse', preis:1100, text:'Pinguine in der Nähe +1 Schaden.', fx:s => { s.buff.schaden = 1; } },
+        { name:'Kristallhalle', preis:3500, text:'Pinguine in der Nähe greifen 15 % schneller an und sehen getarnte Fische.', fx:s => { s.buff.tempo = 0.85; s.buff.camo = true; s.camo = true; } },
+        { name:'Lichtkathedrale', preis:9000, text:'+2 Durchschlag und 20 % mehr Reichweite für alle in der Nähe.', fx:s => { s.buff.durchschlag = 2; s.buff.reichweite = 0.2; s.reichweite += 30; } },
+        { name:'Ewiges Leuchten', preis:26000, text:'Pinguine in der Nähe greifen 30 % schneller an, +2 Schaden.', fx:s => { s.buff.tempo = 0.7; s.buff.schaden = 2; } }
+      ],
+      [
+        { name:'Kristalllanze', preis:500, text:'Zusätzlich eine Lanze, die einen Fisch sofort trifft (+10 gegen Riesen).', fx:s => {
+          s.angriffe.push(angriff({ id:'lanze', art:'sofort', intervall:2.4, schaden:2, riesen:10, durchschlag:1, typ:'normal', bild:'lanze' })); } },
+        { name:'Gehärteter Kristall', preis:1300, text:'Lanze +15 gegen Riesen.', fx:s => { const l = A(s, 'lanze'); if (l) l.riesen += 15; } },
+        { name:'Panzerbrecher', preis:3000, text:'Lanze durchbohrt Panzer, wirft schneller.', fx:s => { const l = A(s, 'lanze'); if (l) { l.panzerBrecher = true; l.intervall *= 0.7; } } },
+        { name:'Diamantspeer', preis:9500, text:'Lanze +5 Schaden, +60 gegen Riesen.', fx:s => { const l = A(s, 'lanze'); if (l) { l.schaden += 5; l.riesen += 60; } } },
+        { name:'Sternensplitter', preis:32000, text:'Lanze doppelt so schnell, +200 gegen Riesen.', fx:s => { const l = A(s, 'lanze'); if (l) { l.intervall *= 0.5; l.riesen += 200; l.schaden += 10; } } }
+      ]
+    ]
+  };
+  PINGUINE.orca = {
+    name:'Orca-Reiter', preis:900, gruppe:'Militär', taste:'j', wasser:true, kurz:'Reitet einen Orca in den Wasserlöchern. Flossenschläge rundherum, später Torpedos und Wellen.',
+    basis:() => ({ reichweite:110, camo:false, angriffe:[angriff({ art:'ring', intervall:1.3, schaden:2, durchschlag:10, typ:'normal', bild:'strudel' })] }),
+    pfade:[
+      [
+        { name:'Kräftige Flossen', preis:400, text:'Trifft 8 Fische mehr.', fx:s => { A(s).durchschlag += 8; } },
+        { name:'Große Welle', preis:1000, text:'+1 Schaden, Reichweite +20.', fx:s => { A(s).schaden += 1; s.reichweite += 20; } },
+        { name:'Brandung', preis:2600, text:'Flossenschläge werfen Fische zurück.', fx:s => { A(s).zurueck = 18; } },
+        { name:'Sturmflut', preis:8000, text:'+3 Schaden, +10 gegen Riesen, viel schneller.', fx:s => { const a = A(s); a.schaden += 3; a.riesen += 10; a.intervall *= 0.6; } },
+        { name:'Tsunami-Reiter', preis:28000, text:'Fähigkeit Orca-Welle: spült alle Fische weit zurück.', fx:s => { const a = A(s); a.schaden += 4; a.riesen += 25; F(s, { id:'orcaflut', cd:45, weite:200, schaden:30, riesen:450 }); } }
+      ],
+      [
+        { name:'Torpedo', preis:600, text:'Feuert zielsuchende Torpedos.', fx:s => {
+          s.angriffe.push(angriff({ id:'torpedo', intervall:1.6, schaden:3, riesen:4, typ:'explosion', tempo:420, flug:420, groesse:7, bild:'torpedo', splash:30, splashDurchschlag:10, zielsuchend:true })); } },
+        { name:'Doppelrohr', preis:1400, text:'Zwei Torpedos auf einmal.', fx:s => { const t = A(s, 'torpedo'); if (t) { t.anzahl = 2; t.streuung = 0.3; } } },
+        { name:'Schwere Sprengköpfe', preis:3200, text:'+10 gegen Riesen, größere Explosionen.', fx:s => { const t = A(s, 'torpedo'); if (t) { t.riesen += 10; t.splash += 20; } } },
+        { name:'Killerwal', preis:9000, text:'Torpedos doppelt so schnell, +30 gegen Riesen.', fx:s => { const t = A(s, 'torpedo'); if (t) { t.intervall *= 0.5; t.riesen += 30; } } },
+        { name:'Bändiger der Tiefe', preis:30000, text:'Fähigkeit Torpedo-Salve: 12 Torpedos auf die stärksten Fische.', fx:s => { const t = A(s, 'torpedo'); if (t) { t.riesen += 40; t.schaden += 4; } F(s, { id:'torpedos', cd:35, schaden:2500, anzahl:12 }); } }
+      ],
+      [
+        { name:'Echolot', preis:300, text:'Sieht getarnte Fische.', fx:s => { s.camo = true; } },
+        { name:'Weite Jagd', preis:700, text:'Reichweite +40.', fx:s => { s.reichweite += 40; } },
+        { name:'Rudelführer', preis:2000, text:'Boote und Orcas in der Nähe greifen 20 % schneller an.', fx:s => { s.buff = { reichweite:0, camo:true, tempo:0.8, schaden:0, durchschlag:1, rabatt:0, nurWasser:true }; } },
+        { name:'Fischfang', preis:5000, text:'+300 Geld am Ende jeder Runde.', fx:s => { s.geld = { flat:300, kisten:0, wert:0 }; } },
+        { name:'König der Wellen', preis:22000, text:'+1200 Geld pro Runde, alle Angriffe +2 Schaden.', fx:s => { s.geld.flat = 1200; for (const a of s.angriffe) a.schaden += 2; } }
+      ]
+    ]
+  };
   PT.PINGUINE = PINGUINE;
-  PT.PINGUIN_REIHE = ['zapfen', 'rundum', 'schneeball', 'frost', 'feuerwerk', 'harpune', 'boot', 'flieger', 'moerser', 'taucher', 'eisbaer', 'mecha', 'polar', 'ninja', 'laser', 'hexe', 'sturm', 'markt', 'haeuptling', 'disco', 'koch', 'fabrik'];
+  PT.PINGUIN_REIHE = ['zapfen', 'rundum', 'schneeball', 'frost', 'feuerwerk', 'harpune', 'boot', 'flieger', 'moerser', 'taucher', 'eisbaer', 'mecha', 'orca', 'polar', 'ninja', 'laser', 'hexe', 'sturm', 'kristall', 'markt', 'haeuptling', 'disco', 'koch', 'fabrik'];
   PT.GRUPPEN = ['Primär', 'Militär', 'Magie', 'Unterstützung'];
 
   /* ---------- Helden ----------
@@ -913,9 +974,32 @@
       }
     }
   };
+  // Teil 2: Kapitän Frost kämpft auf eurer Seite (frei ab Teil 2, Kapitel 3)
+  HELDEN.eiskapitaen = {
+    name:'Kapitän Frost', preis:900, held:true, taste:'h', farbe:'#9fe8ff', freischalten:'Teil 2, Kapitel 3 im Abenteuer',
+    kurz:'Der Verräter, der zurückkam. Eislanzen frieren kleine Fische ein, später sperrt er alles in Eis.',
+    kraft:{ id:'eisherrschaft', text:'Ab Stufe 5: Eisherrschaft friert alle Fische ein und verletzt sie schwer.' },
+    stufen:['Eislanzen, die kleine Fische kurz einfrieren.', 'Durchschlag +2.', 'Fähigkeit Eisgefängnis.', 'Sieht getarnte Fische.', 'Zwei Lanzen auf einmal.',
+      '+6 gegen Riesen, bremst Riesen.', 'Fähigkeit Eisfalle.', 'Wirft 35 % schneller.', 'Stärkeres Eisgefängnis.', '+4 Schaden, +20 gegen Riesen.'],
+    basis(L, kraft) {
+      const a = angriff({ intervall:0.9, schaden:2, durchschlag:3, typ:'normal', tempo:650, flug:330, groesse:6, bild:'eisstrahl', frost:0.6 });
+      const s = { reichweite:160, camo:false, angriffe:[a] };
+      if (L >= 2) a.durchschlag += 2;
+      if (L >= 3) F(s, { id:'eisgefaengnis', cd:45, dauer:2.5 });
+      if (L >= 4) s.camo = true;
+      if (L >= 5) { a.anzahl = 2; a.streuung = 0.15; }
+      if (L >= 6) { a.riesen += 6; a.riesenLangsam = 0.6; }
+      if (L >= 7) F(s, { id:'eisfalle', cd:40, schaden:30, durchschlag:300 });
+      if (L >= 8) a.intervall *= 0.65;
+      if (L >= 9) F(s, { id:'eisgefaengnis', cd:35, dauer:3.5 });
+      if (L >= 10) { a.schaden += 4; a.riesen += 20; }
+      if (kraft && L >= 5) F(s, { id:'eisherrschaft', cd:L >= 9 ? 45 : 55, dauer:L >= 9 ? 4 : 2.5, schaden:L >= 9 ? 50 : 15, riesen:L >= 9 ? 800 : 250 });
+      return s;
+    }
+  };
   for (const id of Object.keys(HELDEN)) HELDEN[id].id = id;
   PT.HELDEN = HELDEN;
-  PT.HELDEN_REIHE = ['kiel', 'aurora', 'frosti', 'nova', 'walter'];
+  PT.HELDEN_REIHE = ['kiel', 'aurora', 'frosti', 'nova', 'walter', 'eiskapitaen'];
   PT.def = typ => PINGUINE[typ] || HELDEN[typ];
 
   // Werte eines Pinguins mit seinen Upgrades (pfade = [Stufe Pfad 1, 2, 3]) bzw. eines Helden auf Stufe L
