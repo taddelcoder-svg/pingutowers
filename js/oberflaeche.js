@@ -1795,7 +1795,7 @@
     el.hidden = false;
     if (k === vorschauSchluessel) return;
     vorschauSchluessel = k;
-    const r = PT.runde(n, spiel.modus);
+    const r = PT.runde(n, spiel.modus, spiel.regeln && spiel.regeln.bosse, spiel.regeln && spiel.regeln.zusatz, spiel.regeln && spiel.regeln.ersetzen);
     const summe = new Map();
     for (const g of r.gruppen) {
       const sch = `${g.typ}|${g.camo ? 'c' : ''}${g.nach ? 'r' : ''}${g.fest ? 'f' : ''}`;
@@ -2123,7 +2123,7 @@
     }
   }
   function rundenHinweis(n) {
-    const r = PT.runde(n, spiel.modus);
+    const r = PT.runde(n, spiel.modus, spiel.regeln && spiel.regeln.bosse, spiel.regeln && spiel.regeln.zusatz, spiel.regeln && spiel.regeln.ersetzen);
     const typen = [...new Set(r.gruppen.map(g => g.typ))];
     const neu = { 17:'Nachwachsende Fische! Grüne Algen = sie wachsen nach.', 20:'Anglerfische! Explosionen helfen nicht.', 22:'Eisfische! Kälte hilft nicht.', 24:'Getarnte Fische!',
       26:'Zebrafische!', 28:'Panzerwelse! Spitzes prallt ab.', 38:'Kofferfische!', 40:'Ein Walhai!', 46:'Gepanzerte Fische mit Helm!', 55:'Der Megalodon kommt!', 60:'Ein Schattenrochen! Er taucht nur kurz auf – mit Nachtsicht trifft man ihn immer.', 65:'Die Riesenkrake!',

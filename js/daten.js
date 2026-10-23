@@ -43,7 +43,7 @@
     schatten: { name:'Schattenfisch',     hp:2,    tempo:120, r:12, farbe:'#1c1530', kinder:['schwarz'], immer:'camo' },
     splitter: { name:'Splitterling',      hp:2,    tempo:165, r:10, farbe:'#9b3fb0', kinder:['rosa'] },
     verderbt: { name:'Verderbter Fisch',  hp:12,   tempo:92,  r:15, farbe:'#4a1f5c', kinder:['splitter', 'splitter', 'splitter'], immun:['kaelte'] },
-    kapitaen: { name:'Kapitän Frost',     hp:11000, tempo:17, r:58, farbe:'#9fd8ff', kinder:[], riese:true, boss:true },
+    kapitaen: { name:'Kapitän Frost',     hp:5000, tempo:14, r:58, farbe:'#9fd8ff', kinder:[], riese:true, boss:true },
     zerbrochen:{ name:'Pako, der Zerbrochene', hp:26000, tempo:15, r:76, farbe:'#3a1050', kinder:[], riese:true, boss:true }
   };
   for (const id of Object.keys(FISCHE)) FISCHE[id].id = id;
@@ -393,8 +393,8 @@
     abyssos:{ modus:'tiefsee', runden:{ 35:1, 70:2 }, hp:[0, 3500, 22000], belohnung:3000, symbol:'🏮',
       welle:[[['schwarz', 8], ['tinte', 4]], [['koffer', 4], ['rochen', 1]]], finsternis:{ alle:9, dauer:3.5 }, zweite:'zerbrochen' },
     // Kapitän Frost: friert die wertvollsten Pinguine ein und hüllt Fische in seiner Nähe kurz in Eispanzer (alles prallt ab)
-    kapitaen:{ modus:null, runden:{}, hp:[0, 1600, 11000], belohnung:2200, symbol:'🎖️',
-      welle:[[['weiss', 8], ['zebra', 2]], [['koffer', 4], ['wal', 1]]], frostbefehl:{ alle:8, anzahl:[0, 2, 3], dauer:[0, 2.5, 3.5] }, eispanzer:{ alle:10, radius:170, dauer:2 } },
+    kapitaen:{ modus:null, runden:{}, hp:[0, 1600, 5000], belohnung:2200, symbol:'🎖️',
+      welle:[[['weiss', 8], ['zebra', 2]], [['zebra', 6], ['koffer', 2]]], frostbefehl:{ alle:8, anzahl:[0, 2, 2], dauer:[0, 2.5, 2.5] }, eispanzer:{ alle:12, radius:150, dauer:1.5 } },
     // Pako, der Zerbrochene: die zweite Gestalt von Abyssos (nur im Abenteuer, regeln.zweitePhase)
     zerbrochen:{ modus:null, runden:{}, hp:[0, 6000, 26000], belohnung:4000, symbol:'💔',
       welle:[[['schatten', 8], ['verderbt', 2]], [['verderbt', 6], ['rochen', 2]]], finsternis:{ alle:7, dauer:3 },
@@ -407,8 +407,9 @@
   // Boss-Jagd: In Runde 20 und 40 kommt Krakus (Stufe 1 und 2) mit Begleitung, beim Orka-Angriff Kaiser Orka in 25 und 50.
   // bosse (Kampagne): { runde:[typ, stufe] } – zusätzliche Bosse unabhängig vom Spielmodus
   // zusatz (Kampagne): { '12':'gruppen', '20+':'gruppen' } – zusätzliche Fische in Runde 12 bzw. ab Runde 20
-  PT.runde = function (n, modus, bosse, zusatz) {
-    let text = R[n], zaeh = 1;
+  // ersetzen (Kampagne): { runde:'gruppen' } – diese Runde besteht nur aus den angegebenen Fischen (plus Boss)
+  PT.runde = function (n, modus, bosse, zusatz, ersetzen) {
+    let text = ersetzen && typeof ersetzen[n] === 'string' ? ersetzen[n] : R[n], zaeh = 1;
     if (!text) {
       const k = n - PT.RUNDEN_FEST;
       zaeh = 1 + k * 0.08;
