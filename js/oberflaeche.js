@@ -47,6 +47,14 @@
   fort.kisten = Object.assign({ holz:0, silber:0, gold:0 }, fort.kisten);
   fort.tagebuch = Object.assign({}, fort.tagebuch);   // gesammelte Seiten aus Opas Tagebuch (Teil 2)
   fort.albtraum = Object.assign({}, fort.albtraum);   // im Albtraum geschaffte Levels
+  // Freischaltung durch das Abenteuer: Wer schon vorher gespielt hat, behält alle Pinguine und Helden
+  if (fort.freiVersion == null) {
+    const p = speicher.lesen('pt-pass');
+    fort.allesFrei = !!(fort.lebenslang.platzer || fort.lebenslang.siege || Object.keys(fort.kampagne).length || (p && p.xp > 0));
+    fort.freiVersion = 1;
+    speicher.schreiben('pt-fortschritt', fort);
+  }
+  const frei = typ => PT.istFrei(typ, fort.kampagne, fort.allesFrei);
   const fortMerken = () => speicher.schreiben('pt-fortschritt', fort);
   let tagesAktiv = null;          // Datum der Tages-Herausforderung, die gerade gespielt wird
   let spielLohn = { xp:0, muenzen:0, erfolge:[] };   // was dieses Spiel gebracht hat (fürs Ergebnisbild)
@@ -247,6 +255,20 @@
         xpDazu(a.xp);
         muenzenDazu(a.muenzen);
         kristalleDazu(2);
+      }
+    }
+    // Dorf-Aufgabe
+    const da = dorfAuftragHeute(), DA = fort.dorf.auftrag;
+    if (da && !DA.fertig) {
+      const plus = da.art === 'platzer' ? d('platzer') : da.art === 'faehigkeiten' ? d('faehigkeiten') : da.art === 'stufe5' ? d('stufe5')
+        : (da.art === 'runden' && art === 'runde') || (da.art === 'sieg' && art === 'sieg') ? 1 : 0;
+      if (plus) {
+        DA.stand = Math.min(da.ziel, (DA.stand || 0) + plus);
+        if (DA.stand >= da.ziel) {
+          DA.fertig = true;
+          fort.dorf.kristalle += da.kristalle; fort.dorf.bewohner += 1;
+          banner(`🏘️ ${PT.SPRECHER[da.wer].name}: Danke!`, `Dorf-Aufgabe erledigt · +${da.kristalle} ❄️ · ein neuer Bewohner`, 3.2);
+        }
       }
     }
     if (art === 'sieg') fort.lebenslang.siege++;
@@ -903,7 +925,7 @@
   const kapAnz = k => (k.anzeige != null ? k.anzeige : k.nr);
   const kapitelTitel = k => (kapAnz(k) === 0 ? k.name : `Kapitel ${kapAnz(k)}: ${k.name}`);
   const levelNummer = l => { const a = kapAnz(PT.KAPITEL_VON(l.kapitel)); return a === 0 ? 'Prolog' : `${a}-${l.nr}`; };
-  const heldFrei = id => !PT.heldFrei || PT.heldFrei(id, fort.kampagne);
+  const heldFrei = id => frei(id);
   function abenteuerBauen() {
     const el = $('#abenteuer');
     const sterne = fort.kampagne;
@@ -929,6 +951,9 @@
     $('#tagebuchKnopf').textContent = `📜 Opas Tagebuch (${seiten} / ${Object.keys(PT.TAGEBUCH).length} Seiten)`;
     const alt = fort.kampagneAlt;
     $('#abenteuerAlt').hidden = !alt || teil.nr !== 1;
+    const pf = PT.PINGUIN_REIHE.filter(frei).length, hf = PT.HELDEN_REIHE.filter(frei).length;
+    $('#abenteuerFrei').hidden = pf === PT.PINGUIN_REIHE.length && hf === PT.HELDEN_REIHE.length;
+    $('#abenteuerFrei').textContent = `🔓 Freigeschaltet: ${pf} von ${PT.PINGUIN_REIHE.length} Pinguinen und ${hf} von ${PT.HELDEN_REIHE.length} Helden. Jedes Kapitel bringt neue dazu – die Levels zeigen an, was danach frei wird.`;
     if (alt) $('#abenteuerAlt').textContent = `✨ Das Abenteuer wurde komplett neu geschrieben. Für deine ${alt.sterne} Sterne aus dem alten Abenteuer hast du eine Goldkiste und ${10 + alt.sterne} Eiskristalle bekommen. Deine Looks bleiben dir.`;
     el.innerHTML = PT.KAPITEL.filter(k => teil.kapitel.includes(k.nr)).map(k => {
       const levels = PT.LEVELS.filter(l => l.kapitel === k.nr);
@@ -974,6 +999,8 @@
     if (r.verbuendete) infos.push('🦈 Verbündete');
     if (r.wegRotation) infos.push('🫀 Adern ruhen abwechselnd');
     if (r.heldFaellt) infos.push('🕯️ Abschied');
+    const danach = PT.freiDurch(id).filter(t => !frei(t));
+    if (danach.length) infos.push(`🔓 Danach frei: ${danach.map(PT.freiName).join(', ')}`);
     if (PT.TAGEBUCH[l.id]) infos.push(fort.tagebuch[l.id] ? '📜 Seite gefunden' : '📜 Eine Seite treibt vorbei');
     if (l.neu && PT.PINGUINE[l.neu]) infos.push(`✨ Neu: ${PT.PINGUINE[l.neu].name}`);
     if (l.neuFisch) infos.push(`🐟 Neu: ${PT.FISCHE[l.neuFisch].name}`);
@@ -1004,7 +1031,7 @@
     PT.Ton.start();
     speicher.weg('pt-stand');
     tagesAktiv = null; kampagneAktiv = id;
-    const held = l.held || wahl.held;
+    const held = l.held || (heldFrei(wahl.held) ? wahl.held : 'kiel');
     spielStarten(new PT.Spiel({ karte:l.karte, stufe:l.stufe, modus:'standard', held, kraft:kraftAktiv(held), regeln:albtraum ? { ...l.regeln, albtraum:true } : l.regeln, boni:boniAktiv(), seed:Date.now() & 0xffffff }));
     const k = PT.KAPITEL_VON(l.kapitel);
     if (albtraum) setTimeout(() => banner('😱 Albtraum', 'Weniger Geld, halbe Leben, schnellere Fische, stärkere Bosse. Viel Glück.', 3), mitSzene ? 0 : 400);
@@ -1042,12 +1069,10 @@
       kristalleDazu(12); xpDazu(150);
       setTimeout(() => banner('😱 Albtraum überlebt!', '+12 💎 Eiskristalle · +150 Erfahrung', 3), 2500);
     }
-    for (const [held, kap] of Object.entries(PT.HELD_KAPITEL || {})) {
-      if (PT.kapitelFertig(kap, fort.kampagne) && !fort.besitz.kraefte[held]) {
-        fort.besitz.kraefte[held] = true; fortMerken();
-        setTimeout(() => banner(`🎖️ Neuer Held: ${PT.HELDEN[held].name}`, 'Mit Meisterkraft – such ihn dir unten im Menü aus.', 4), 3000);
-      }
-    }
+    // Freischaltung: neue Pinguine und Helden nach diesem Level
+    const neuFrei = erstesMal ? PT.freiDurch(l.id).filter(t => fort.allesFrei ? t === 'eiskapitaen' : true) : [];
+    if (neuFrei.includes('eiskapitaen')) { fort.besitz.kraefte.eiskapitaen = true; fortMerken(); }
+    if (neuFrei.length) setTimeout(() => banner(`🔓 Neu freigeschaltet`, neuFrei.map(t => `${PT.HELDEN[t] ? '⭐ ' : ''}${PT.freiName(t)}`).join(' · '), 4), 3000);
     // Das Dorf entsteht (nach Kapitel 2) und wächst mit jedem weiteren Kapitel
     const phase = PT.dorfPhase(fort.kampagne);
     if (phase > phaseVorher) {
@@ -1350,7 +1375,7 @@
     const D = fort.dorf, phase = PT.dorfPhase(fort.kampagne), P = PT.DORF_PHASEN[phase];
     $('#dorfTitel').textContent = `🏘️ ${phase ? P.name : 'Pingu-Dorf'}`;
     $('#dorfVorrat').textContent = `❄️ ${zahl(D.kristalle)} · 🪙 ${zahl(fort.muenzen)} · 🐧 ${D.bewohner} Bewohner`;
-    $('#dorfText').textContent = phase ? `${P.text} ${phase < 4 ? 'Mit jedem Kapitel des Abenteuers wächst es weiter.' : ''}`
+    $('#dorfText').textContent = phase ? `${P.text} ${phase < PT.DORF_PHASEN.length - 1 ? 'Mit dem Abenteuer wächst es weiter – auch in Teil 2.' : ''}`
       : 'Noch gibt es kein Dorf. Spiel das Abenteuer „Schwarzes Eis“ – nach Kapitel 2 schlagen die Überlebenden ihr erstes Lager auf.';
     $('#dorfZu').hidden = phase > 0;
     $('#dorfZu').textContent = '🔒 Nach Kapitel 2 des Abenteuers entsteht hier ein Flüchtlingslager.';
@@ -1366,6 +1391,28 @@
         PT.Ton.upgrade(); kurzTipp(`🪙 +${n} Fischmünzen aus der Räucherei`);
         menueBauen();
       };
+    }
+    // Kristallgarten: Eiskristalle abholen
+    const garten = PT.dorfWert(D, 'kristallgarten'), gBereit = PT.dorfGartenErnte(D, Date.now());
+    $('#dorfGarten').hidden = !garten;
+    if (garten) {
+      $('#dorfGarten').innerHTML = `<span>💎 Kristallgarten: <b>${gBereit}</b> Eiskristalle bereit <small>(${String(garten).replace('.', ',')} pro Stunde, bis zu 12 Stunden)</small></span><button class="knopf" id="gartenAbholen" ${gBereit ? '' : 'disabled'}>Abholen</button>`;
+      $('#gartenAbholen').onclick = () => {
+        const n = PT.dorfGartenErnte(fort.dorf, Date.now());
+        if (!n) return;
+        fort.dorf.kristalle += n; fort.dorf.garten = Date.now(); fortMerken();
+        PT.Ton.upgrade(); kurzTipp(`💎 +${n} Eiskristalle aus dem Kristallgarten`);
+        menueBauen();
+      };
+    }
+    // Dorf-Aufgabe des Tages
+    const da = phase ? dorfAuftragHeute() : null;
+    $('#dorfAuftrag').hidden = !da;
+    if (da) {
+      const A = fort.dorf.auftrag, sp = PT.SPRECHER[da.wer], st = A.stand || 0, fertig = A.fertig;
+      $('#dorfAuftrag').innerHTML = `<img src="${portrait(da.wer)}" alt=""><div style="flex:1"><p><b style="color:${sp.farbe}">${esc(sp.name)}:</b> „${esc(da.text)}“</p>
+        <small>${fertig ? '✅ Erledigt – danke!' : `${zahl(st)} / ${zahl(da.ziel)}`} · Lohn: ${da.kristalle} ❄️ und ein neuer Bewohner · neue Bitte jeden Tag</small>
+        <div class="mini"><i style="width:${Math.round(Math.min(1, st / da.ziel) * 100)}%"></i></div></div>`;
     }
     $('#dorfGebaeude').innerHTML = PT.DORF_REIHE.map(id => {
       const g = PT.DORF_GEBAEUDE[id], st = PT.dorfStufe(D, id), max = PT.dorfMax(id);
@@ -1383,6 +1430,13 @@
     }
     if (dorfWelt) { dorfWelt.zeigen(D, phase, dorfAuswahl, Object.fromEntries(PT.DEKO_REIHE.filter(id => PT.dekoFrei(id, passStufe(), fort.besitz)).map(id => [id, true]))); dorfWelt.start(); }
   }
+  // Dorf-Aufgabe: heute gültig, Stand in fort.dorf.auftrag
+  function dorfAuftragHeute() {
+    const d = PT.heute(), phase = PT.dorfPhase(fort.kampagne);
+    if (!phase) return null;
+    if (!fort.dorf.auftrag || fort.dorf.auftrag.datum !== d) fort.dorf.auftrag = { datum:d, stand:0, fertig:false };
+    return PT.dorfAuftrag(d, phase);
+  }
   function ausbauen(id) {
     const phase = PT.dorfPhase(fort.kampagne), a = PT.dorfAusbau(fort.dorf, id, phase, fort.muenzen);
     if (!a.ok) { PT.Ton.fehler(); return; }
@@ -1391,6 +1445,8 @@
     fort.dorf.stufen[id] = PT.dorfStufe(fort.dorf, id) + 1;
     const st = fort.dorf.stufen[id];
     if (id === 'raeucherei' && !fort.dorf.geerntet) fort.dorf.geerntet = Date.now();
+    if (id === 'kristallgarten' && !fort.dorf.garten) fort.dorf.garten = Date.now();
+    if (id === 'novafeuer') { fort.besitz.skins.novalicht = true; setTimeout(() => banner('🕯️ Novas Leuchtfeuer', 'Neuer Look: Novas Licht', 3), 300); }
     if (id === 'denkmal') { fort.besitz.skins.veteran = true; banner('🗿 Walters Denkmal', 'Neuer Look: Walters Helm', 3); }
     if (id === 'leuchtfeuer' && st >= 3 && !fort.besitz.sockel.herzlicht) { fort.besitz.sockel.herzlicht = true; banner('💡 Das Leuchtfeuer brennt', 'Neuer Sockel: Herzlicht. Tief unten öffnet sich ein Auge …', 4); }
     else banner(`${PT.DORF_GEBAEUDE[id].symbol} ${PT.DORF_GEBAEUDE[id].name}`, `Stufe ${st}: ${PT.DORF_GEBAEUDE[id].zeigen(PT.DORF_GEBAEUDE[id].wert[st])}`, 2.4);
@@ -1578,7 +1634,7 @@
     speicher.weg('pt-stand');
     tagesAktiv = null; kampagneAktiv = null;
     const eigen = eigeneKarte(wahl.karte);
-    spielStarten(new PT.Spiel({ karte:eigen ? 'eigen' : wahl.karte, eigeneKarte:eigen, stufe:wahl.stufe, modus:wahl.modus, held:wahl.held, kraft:kraftAktiv(wahl.held),
+    spielStarten(new PT.Spiel({ karte:eigen ? 'eigen' : wahl.karte, eigeneKarte:eigen, stufe:wahl.stufe, modus:wahl.modus, held:heldFrei(wahl.held) ? wahl.held : 'kiel', kraft:kraftAktiv(heldFrei(wahl.held) ? wahl.held : 'kiel'),
       boni:boniAktiv(), wetter:wahl.wetter !== false, seed:Date.now() & 0xffffff }));
   }
   /* ---------- Eigene Karten ---------- */
@@ -1681,6 +1737,7 @@
     else { st.textContent = '▶ Runde starten'; st.classList.remove('schnell'); st.setAttribute('aria-label', 'Nächste Runde starten'); }
     for (const b of document.querySelectorAll('.pingu-kauf')) {
       const typ = b.dataset.typ;
+      if (b.classList.contains('gesperrt')) { b.setAttribute('aria-pressed', false); continue; }
       const preis = spiel.preisBau(typ);
       b.querySelector('span').textContent = zahl(preis) + ' 💰';
       b.classList.toggle('teuer', preis > geld);
@@ -1707,6 +1764,7 @@
     }
     for (const gruppe of PT.GRUPPEN) {
       const typen = PT.PINGUIN_REIHE.filter(t => PT.PINGUINE[t].gruppe === gruppe && spiel.erlaubt(t, ich()));
+      const zu = t => sperreAktiv() && !frei(t);
       if (!typen.length) continue;
       const h = document.createElement('p');
       h.className = 'gruppe'; h.textContent = gruppe;
@@ -1714,10 +1772,11 @@
       for (const typ of typen) {
         const p = PT.PINGUINE[typ];
         const b = document.createElement('button');
-        b.className = 'pingu-kauf';
+        b.className = 'pingu-kauf' + (zu(typ) ? ' gesperrt' : '');
         b.dataset.typ = typ;
-        b.title = `${p.name} – ${p.kurz}`;
-        b.innerHTML = `<kbd>${p.taste}</kbd><img src="${bilder[typ] || ''}" alt=""><b>${esc(p.name)}</b><span></span>`;
+        b.title = zu(typ) ? `🔒 ${p.name} – ${PT.freiText(typ)}` : `${p.name} – ${p.kurz}`;
+        b.innerHTML = zu(typ) ? `<kbd>🔒</kbd><img src="${bilder[typ] || ''}" alt=""><b>${esc(p.name)}</b><span class="frei-hinweis">🔒 Abenteuer</span>`
+          : `<kbd>${p.taste}</kbd><img src="${bilder[typ] || ''}" alt=""><b>${esc(p.name)}</b><span></span>`;
         b.onclick = () => bauWaehlen(bauTyp === typ ? null : typ);
         b.onpointerenter = () => { $('#ladenInfo').textContent = `${p.name}: ${p.kurz}`; };
         l.appendChild(b);
@@ -1733,7 +1792,10 @@
       $('#sandLeeren').onclick = () => tun({ t:'leeren' });
     }
   }
+  // Gesperrte Pinguine gibt es allein und im Koop erst nach dem passenden Abenteuer-Level
+  const sperreAktiv = () => !!spiel && !tagesAktiv && !olymp && !vs && spiel.modus !== 'sandkasten';
   function bauWaehlen(typ) {
+    if (typ && sperreAktiv() && !frei(typ)) { PT.Ton.fehler(); kurzTipp(`🔒 ${PT.freiName(typ)}: ${PT.freiText(typ)}`); return; }
     if (typ && spiel.preisBau(typ) > meinGeld()) { PT.Ton.fehler(); kurzTipp('Dafür reicht das Geld noch nicht.'); return; }
     if (typ && PT.HELDEN[typ] && spiel.heldDa(ich())) return;
     bauTyp = typ;
@@ -2650,6 +2712,7 @@
         netz() { return netz && { id:netz.id, n:netz.n, ziel:netz.ziel, raum:netz.raum }; },
         tun(b) { return tun(b); },
         welt() { return welt; },
+        dorfWelt() { return dorfWelt; },
         spiel() { return spiel; },
         stand() { return { runde:spiel.runde, leben:spiel.leben, geld:spiel.geld, fische:spiel.fische.length, geschosse:spiel.geschosse.length, tuerme:spiel.tuerme.length, haufen:spiel.haufen.length }; }
       };

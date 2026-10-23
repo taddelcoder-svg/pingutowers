@@ -89,6 +89,18 @@ Tasten: Buchstaben am Pinguin im Laden (`Q W E R F T S P O V B M Z N L X G U I D
 - Große Pass-Seite mit allen Stufen als Karten, Aufstiegs-Karte (Mythisch mit Lichtstrahl), tägliche Login-Belohnung.
 - Umstieg: Wer nach der alten Rechnung schon weit war, landet direkt auf der passenden Stufe, Belohnungen werden gutgeschrieben.
 
+## Dorf 2.0 und Freischaltung durch das Abenteuer
+
+- **Freischaltung** (`freischalten.js`): Neue Spieler beginnen mit fünf Pinguinen und Kapitän Kiel. Die übrigen
+  Pinguine und Helden werden nach festen Abenteuer-Levels frei (`PT.FREI`); der Leveldialog zeigt „Danach frei“,
+  im Laden und in der Heldenwahl stehen gesperrte Einträge mit Hinweis. Gilt allein und im Koop; Tages-Herausforderung,
+  Olympiade, Sandkasten und Versus lassen alles zu. Wer schon vorher gespielt hat, behält alles (außer Kapitän Frost).
+- **Dorf 2.0** (`dorf.js`, `dorf3d.js`): zwei neue Phasen mit Teil 2 („Stadt des Lichts“, „Novas Stadt“), Gebäude
+  bis Stufe 7. Neue Gebäude: Kristallgarten (Eiskristalle zum Abholen), Orkas Bucht (verbündete Haie im freien Spiel
+  und im Koop), Frosts Werft (Fähigkeiten laden schneller), Novas Leuchtfeuer (Look „Novas Licht“).
+  Tägliche Dorf-Aufgabe von Mia, Kiko, Frost oder Orka. 3D: Tag-Nacht-Wechsel, Laternen, schwebende Kristalle,
+  goldenes Leuchten unter der Scholle, Mia, Kiko und Frost im Dorf, Orka und seine Haie im Meer, bis zu 50 Bewohner.
+
 ## Teil 2: Das erwachte Licht
 
 - **Abenteuer Teil 2** (`kampagne2.js`): Prolog und 5 Kapitel, 30 weitere Levels, frei nach Teil 1. Drei Winter nach
@@ -193,6 +205,7 @@ js/
   fortschritt.js   Erfolge, Pinguin-Wissen, Tagesaufträge, Tages-Herausforderung, Kisten, Händler, Wochen-Quests
   kampagne.js      Abenteuer „Schwarzes Eis“: Kapitel, Levels, Szenen, Funk, Abspann, Sterne-Aufgaben
   kampagne2.js     Abenteuer Teil 2 „Das erwachte Licht“: Levels, Szenen, Opas Tagebuch, Teile
+  freischalten.js  Welche Pinguine und Helden nach welchem Abenteuer-Level frei werden
   dorf3d.js        3D-Ansicht des Pingu-Dorfs
   editor.js        Karten-Editor
   modelle.js       3D-Modelle: Fische, Pinguine, Helden, Albatros, Geschosse

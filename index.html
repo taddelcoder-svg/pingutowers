@@ -297,6 +297,9 @@
   .pingu-kauf span { font-weight: 800; color: var(--gold); font-size: .85rem; }
   .pingu-kauf kbd { position: absolute; top: 3px; left: 5px; font: 700 .68rem system-ui; color: var(--panel-leise); text-transform: uppercase; }
   .pingu-kauf.teuer { opacity: .45; }
+  .pingu-kauf.gesperrt { opacity: .4; filter: grayscale(1); }
+  .pingu-kauf.gesperrt span.frei-hinweis { color: var(--panel-leise); font-size: .7rem; }
+  .abenteuer-frei { background: linear-gradient(135deg, rgba(53,176,74,.15), var(--eis)); border-radius: 12px; padding: 8px 12px; font-weight: 700; color: var(--tinte) !important; }
   .pingu-kauf.teuer span { color: var(--rot); }
   .pingu-kauf.held { grid-column: 1 / -1; flex-direction: row; gap: 10px; padding: 6px 10px; border-color: rgba(246,195,67,.5); }
   .pingu-kauf.held img { width: 52px; height: 52px; }
@@ -901,7 +904,13 @@
   .dorf-welt { position: relative; margin: 10px 0; border-radius: 16px; overflow: hidden; background: #0b1630; aspect-ratio: 16 / 8; min-height: 220px; }
   .dorf-welt canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
   .dorf-zu { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; color: #fff; padding: 20px; background: rgba(5,10,25,.72); font-weight: 700; line-height: 1.5; }
-  .dorf-ernte { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: var(--eis); border-radius: 12px; padding: 8px 12px; font-weight: 700; }
+  .dorf-auftrag { display: flex; gap: 10px; align-items: center; background: linear-gradient(135deg, rgba(255,182,213,.25), var(--eis)); border-radius: 12px; padding: 8px 12px; margin-top: 6px; }
+  .dorf-auftrag img { width: 52px; height: 52px; border-radius: 50%; background: #13203a; flex: none; }
+  .dorf-auftrag p { margin: 0; line-height: 1.35; }
+  .dorf-auftrag small { display: block; color: var(--tinte-weich); font-weight: 700; }
+  .dorf-auftrag .mini { height: 6px; border-radius: 4px; background: rgba(0,0,0,.08); overflow: hidden; margin-top: 4px; }
+  .dorf-auftrag .mini i { display: block; height: 100%; background: linear-gradient(90deg, #ff8ab0, #ffd54a); }
+  .dorf-ernte { margin-top: 6px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: var(--eis); border-radius: 12px; padding: 8px 12px; font-weight: 700; }
   .dorf-gebaeude { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin-top: 10px; }
   .gebaeude { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center; background: var(--eis); border: 1px solid var(--linie); border-radius: 14px; padding: 8px 10px; }
   .gebaeude.gewaehlt { outline: 3px solid var(--akzent); }
@@ -1059,6 +1068,7 @@
       <p id="abenteuerText2" hidden>Drei Winter nach dem Untergang steigt ein Licht aus dem Meer. Wunderschön. Hungrig. Und auf den Wellen treiben Seiten aus Opas Tagebuch. Ein Prolog, fünf Kapitel, 30 Levels – mit Lichtstrahlen, Strömung, Spiegeln, verbündeten Haien und einem Ende, das alles verändert. Wer ein Level geschafft hat, kann es im 😱 Albtraum noch einmal versuchen.</p>
       <button class="knopf tagebuch-knopf" id="tagebuchKnopf" hidden>📜 Opas Tagebuch</button>
       <p class="abenteuer-alt" id="abenteuerAlt" hidden></p>
+      <p class="abenteuer-frei" id="abenteuerFrei" hidden></p>
       <div id="abenteuer"></div>
     </div>
     <div class="dorf-box" id="dorfBox" hidden>
@@ -1066,6 +1076,8 @@
       <p id="dorfText"></p>
       <div class="dorf-welt" id="dorfWeltBox"><canvas id="dorfWelt" aria-label="Dein Dorf in 3D"></canvas><div class="dorf-zu" id="dorfZu" hidden></div></div>
       <div class="dorf-ernte" id="dorfErnte" hidden></div>
+      <div class="dorf-ernte" id="dorfGarten" hidden></div>
+      <div class="dorf-auftrag" id="dorfAuftrag" hidden></div>
       <div class="dorf-gebaeude" id="dorfGebaeude"></div>
       <p class="dorf-hinweis">Eiskristalle gibt es für Sterne im Abenteuer, Tagesaufträge, Kisten und Versus-Siege. Die Boni gelten im freien Spiel, im Abenteuer und im Koop (nicht bei Tages-Herausforderung, Olympiade und Versus).</p>
     </div>
@@ -1368,6 +1380,7 @@
 <script src="js/fortschritt.js"></script>
 <script src="js/kampagne.js"></script>
 <script src="js/kampagne2.js"></script>
+<script src="js/freischalten.js"></script>
 <script src="js/dorf.js"></script>
 <script src="js/modelle.js"></script>
 <script src="js/welt3d.js"></script>

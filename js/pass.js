@@ -55,6 +55,7 @@
     uralt:    { name:'Auge des Uralten', rumpf:0x5a3a10, bauch:0xffd27a, glanz:true, leuchten:0x4a2a00, extra:'maske', aura:'feuer', herkunft:'kampagne' },
     hueterin: { name:'Nova, Hüterin des Lichts', rumpf:0x14304a, bauch:0xfff2c4, glanz:true, leuchten:0x6a4a00, extra:'heiligenschein', aura:'licht', herkunft:'kampagne' },
     kommandantin:{ name:'Kommandantin Mia', rumpf:0x8a8f99, bauch:0xffe6f0, glanz:true, extra:'stahlhelm', herkunft:'kampagne' },
+    novalicht:{ name:'Novas Licht', rumpf:0x14304a, bauch:0xfff2c4, glanz:true, leuchten:0x4a3a00, extra:'laterne', aura:'licht', herkunft:'dorf' },
     veteran:  { name:'Walters Helm', rumpf:0x3a3a30, bauch:0xe8e0c8, extra:'stahlhelm', herkunft:'dorf' },
     // Pinguin-Pass 2.0 (Stufe 36–100). aura: Teilchen rund um den Pinguin im Spiel
     ninja:    { name:'Ninja', rumpf:0x15151a, bauch:0x2a2a32, extra:'stirnband' },
