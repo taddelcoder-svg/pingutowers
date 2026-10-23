@@ -43,7 +43,7 @@
   fort.lebenslang = Object.assign({ platzer:0, tage:0, siege:0, kisten:0, vsSiege:0, vsSpiele:0 }, fort.lebenslang);
   fort.dorf = Object.assign(PT.dorfNeu(), fort.dorf || {});
   fort.dorf.stufen = Object.assign({}, fort.dorf.stufen);
-  fort.besitz = Object.assign({ skins:{}, sockel:{} }, fort.besitz);
+  fort.besitz = Object.assign({ skins:{}, sockel:{}, titel:{}, effekte:{}, taenze:{}, kraefte:{}, deko:{} }, fort.besitz);
   fort.kisten = Object.assign({ holz:0, silber:0, gold:0 }, fort.kisten);
   const fortMerken = () => speicher.schreiben('pt-fortschritt', fort);
   let tagesAktiv = null;          // Datum der Tages-Herausforderung, die gerade gespielt wird
@@ -124,34 +124,94 @@
   }
 
   /* ---------- Pinguin-Pass ---------- */
-  const pass = Object.assign({ xp:0, skin:'standard', sockel:'standard' }, speicher.lesen('pt-pass') || {});
+  const pass = Object.assign({ xp:0, skin:'standard', sockel:'standard', titel:'neuling', effekt:'standard', tanz:'standard', prestige:0, abgeholt:null }, speicher.lesen('pt-pass') || {});
   const passStufe = () => PT.passStufe(pass.xp).stufe;
+  // Umstieg auf den Pass mit 100 Stufen: was nach der alten Rechnung schon erreicht war, gilt als abgeholt
+  if (pass.abgeholt == null) pass.abgeholt = Math.min(passStufe(), PT.passStufeAlt(pass.xp));
+  if (!PT.TITEL[pass.titel]) pass.titel = 'neuling';
+  if (!PT.EFFEKTE[pass.effekt]) pass.effekt = 'standard';
+  if (!PT.TAENZE[pass.tanz]) pass.tanz = 'standard';
   if (!PT.SKINS[pass.skin] || !PT.skinFrei(pass.skin, passStufe(), fort.besitz)) pass.skin = 'standard';
   if (!PT.SOCKEL[pass.sockel] || !PT.sockelFrei(pass.sockel, passStufe(), fort.besitz)) pass.sockel = 'standard';
   let lookBilder = {}, sockelBilder = {};
+  // Eine Belohnung aus dem Pass als Text und Bild
   function belohnungText(b) {
-    if (b.skin) return `Neuer Look: ${PT.SKINS[b.skin].name}`;
-    if (b.sockel) return `Neuer Sockel: ${PT.SOCKEL[b.sockel].name}`;
-    if (b.muenzen) return `${b.muenzen} Fischmünzen`;
-    return `Meisterkraft für ${PT.HELDEN[b.kraft].name}`;
+    if (b.skin) return `Look: ${PT.SKINS[b.skin].name}`;
+    if (b.sockel) return `Sockel: ${PT.SOCKEL[b.sockel].name}`;
+    if (b.kraft) return `Meisterkraft für ${PT.HELDEN[b.kraft].name}`;
+    if (b.titel) return `Titel „${PT.TITEL[b.titel]}“`;
+    if (b.effekt) return `Platz-Effekt: ${PT.EFFEKTE[b.effekt].name}`;
+    if (b.tanz) return `Siegestanz: ${PT.TAENZE[b.tanz].name}`;
+    if (b.deko) return `Dorf-Deko: ${PT.DEKO[b.deko].name}`;
+    if (b.muenzen) return `${Math.round(b.muenzen * PT.prestigeFaktor(pass.prestige))} Fischmünzen`;
+    if (b.kristalle) return `${b.kristalle} Eiskristalle`;
+    if (b.kiste) return PT.KISTEN[b.kiste].name;
+    if (b.booster) return `${b.booster}× Doppel-Erfahrung`;
+    return '';
   }
+  function belohnungBild(b) {
+    if (b.skin && lookBilder[b.skin]) return `<img src="${lookBilder[b.skin]}" alt="">`;
+    if (b.sockel && sockelBilder[b.sockel]) return `<img src="${sockelBilder[b.sockel]}" alt="">`;
+    return `<i>${b.kraft ? '✨' : b.titel ? '🏷️' : b.effekt ? PT.EFFEKTE[b.effekt].zeichen : b.tanz ? '💃' : b.deko ? PT.DEKO[b.deko].symbol : b.muenzen ? '🪙' : b.kristalle ? '❄️' : b.kiste ? PT.KISTEN[b.kiste].symbol : b.booster ? '⚡' : '🎖️'}</i>`;
+  }
+  const stufeText = st => (PT.PASS_STUFEN[st] ? PT.PASS_STUFEN[st].b.map(belohnungText).join(' · ') : '');
+  // Münzen, Kristalle, Kisten und Booster einer Stufe gutschreiben (Looks & Co. ergeben sich aus der Stufe)
+  function stufeAbholen(st) {
+    const x = PT.PASS_STUFEN[st];
+    if (!x) return;
+    for (const b of x.b) {
+      if (b.muenzen) { fort.muenzen += Math.round(b.muenzen * PT.prestigeFaktor(pass.prestige)); }
+      if (b.kristalle) fort.dorf.kristalle += b.kristalle;
+      if (b.kiste) fort.kisten[b.kiste] = (fort.kisten[b.kiste] || 0) + 1;
+      if (b.booster) fort.booster += b.booster;
+    }
+    fortMerken();
+  }
+  // Aufstiegs-Karte in der Mitte, bei Mythisch mit Lichtstrahl (mehrere nacheinander)
+  let aufSchlange = [], aufUhr = null;
+  function aufstiegZeigen(st) {
+    // mitten im Spiel nur ein Banner, außer bei Legendär und Mythisch
+    const x = PT.PASS_STUFEN[st];
+    if (!$('#spiel').hidden && x && x.s !== 'l' && x.s !== 'm') { banner(`🎖️ Pass-Stufe ${st}!`, stufeText(st), 3); PT.Ton.upgrade(); return; }
+    aufSchlange.push(st);
+    if (!aufUhr) aufNaechste();
+  }
+  function aufNaechste() {
+    const st = aufSchlange.shift();
+    if (st == null) { $('#aufstieg').hidden = true; aufUhr = null; return; }
+    const x = PT.PASS_STUFEN[st], R = PT.SELTENHEIT[x ? x.s : 'g'];
+    const k = $('#aufKarte');
+    k.style.setProperty('--rf', R.farbe);
+    k.classList.toggle('mythisch', !!x && x.s === 'm');
+    $('#aufSeltenheit').textContent = R.name;
+    $('#aufStufe').textContent = `Stufe ${st}`;
+    $('#aufInhalt').innerHTML = x ? x.b.map(b => `${belohnungBild(b)}<p>${esc(belohnungText(b))}</p>`).join('') : '';
+    $('#aufstieg').hidden = false;
+    k.style.animation = 'none'; void k.offsetHeight; k.style.animation = '';
+    if (x && (x.s === 'm' || x.s === 'l')) { PT.Ton.schlag(); PT.Ton.upgrade(); } else PT.Ton.upgrade();
+    aufUhr = setTimeout(aufNaechste, x && x.s === 'm' ? 4500 : 2600);
+  }
+  $('#aufstieg').onclick = () => { clearTimeout(aufUhr); aufNaechste(); };
   // ohneSpiel: Erfahrung auch außerhalb eines Spiels (Kisten, Wochen-Quests)
   function xpDazu(n, ohneSpiel) {
     if (!n || (!ohneSpiel && (!spiel || spiel.unendlich))) return;
     if (spielBooster && !ohneSpiel) n *= 2;
     n = Math.round(n * (1 + PT.dorfWert(fort.dorf, 'akademie')));
     saisonXp(n);
-    const vor = passStufe();
     pass.xp += n;
     spielLohn.xp += n;
-    speicher.schreiben('pt-pass', pass);
-    const nach = passStufe();
-    for (let st = vor + 1; st <= nach; st++) {
-      const b = PT.PASS_BELOHNUNG[st];
-      banner(`🎖️ Pinguin-Pass Stufe ${st}!`, b ? belohnungText(b) : 'Weiter so!', 3);
-      if (b && b.muenzen) muenzenDazu(b.muenzen);
-      PT.Ton.upgrade();
+    passNachholen();
+  }
+  // Stufen, die neu erreicht sind: Belohnungen abholen und zeigen
+  function passNachholen(still) {
+    const nach = passStufe(), von = pass.abgeholt;
+    while (pass.abgeholt < nach) {
+      pass.abgeholt++;
+      stufeAbholen(pass.abgeholt);
+      if (!still || nach - von <= 3) aufstiegZeigen(pass.abgeholt);
     }
+    if (still && nach - von > 3) setTimeout(() => banner('🎖️ Der Pinguin-Pass hat jetzt 100 Stufen!', `Du bist direkt auf Stufe ${nach} – die Belohnungen ab Stufe ${von + 1} sind gutgeschrieben.`, 5), 900);
+    speicher.schreiben('pt-pass', pass);
   }
   // Zähler seit dem letzten Melden: Aufträge, lebenslange Fische (nach jeder Runde und am Spielende)
   function zaehlerStand() {
@@ -198,7 +258,7 @@
   }
   function erfolgeCheck(ende, gewonnen) {
     if (!spiel || olymp) return;
-    const neu = PT.erfolgePruefen({ spiel, gewonnen, ende, geld:meinGeld(), lebenslang:fort.lebenslang, passStufe:passStufe(), medaillen,
+    const neu = PT.erfolgePruefen({ spiel, gewonnen, ende, geld:meinGeld(), lebenslang:fort.lebenslang, passStufe:passStufe(), prestige:pass.prestige, medaillen,
       kampagne:fort.kampagne, dorf:fort.dorf, lookZahl:PT.SKIN_REIHE.filter(id => PT.skinFrei(id, passStufe(), fort.besitz)).length }, fort.erfolge);
     for (const e of neu) {
       fort.erfolge[e.id] = PT.heute();
@@ -209,24 +269,24 @@
     if (neu.length) fortMerken();
   }
   // Meisterkraft im Einzelspiel: freigeschaltet und eingeschaltet (in der Olympiade nie)
-  const kraftAktiv = held => !olymp && wahl.kraft !== false && !!held && PT.kraftFrei(held, passStufe());
+  const kraftAktiv = held => !olymp && wahl.kraft !== false && !!held && PT.kraftFrei(held, passStufe(), fort.besitz);
   function passBauen() {
     const info = PT.passStufe(pass.xp);
     $('#passStufe').textContent = `🎖️ Pinguin-Pass · Stufe ${info.stufe}${info.stufe >= PT.PASS_MAX ? ' (Maximum)' : ''}`;
     $('#passXp').textContent = info.bedarf ? `${zahl(info.rest)} / ${zahl(info.bedarf)} Erfahrung` : `${zahl(pass.xp)} Erfahrung`;
     $('#passBalken').style.width = (info.bedarf ? Math.round(info.rest / info.bedarf * 100) : 100) + '%';
-    const naechste = Object.keys(PT.PASS_BELOHNUNG).map(Number).find(st => st > info.stufe);
-    $('#passNaechst').textContent = naechste ? `Nächste Belohnung auf Stufe ${naechste}: ${belohnungText(PT.PASS_BELOHNUNG[naechste])}.` : 'Alles freigeschaltet!';
+    const naechste = info.stufe < PT.PASS_MAX ? info.stufe + 1 : null;
+    const mythisch = Object.keys(PT.PASS_STUFEN).map(Number).find(st => st > info.stufe && PT.PASS_STUFEN[st].s === 'm');
+    $('#passNaechst').textContent = naechste ? `Nächste Stufe ${naechste}: ${stufeText(naechste)}.${mythisch ? ` Mythisch auf Stufe ${mythisch}: ${stufeText(mythisch)}.` : ''}`
+      : pass.prestige < PT.PRESTIGE_MAX ? 'Stufe 100! Öffne den Pass für Prestige.' : 'Alles geschafft – du bist eine Legende.';
+    $('#passTitel').textContent = `${'⭐'.repeat(pass.prestige || 0)} ${PT.TITEL[pass.titel] || ''}`.trim();
     $('#muenzen').textContent = `🪙 ${zahl(fort.muenzen)}`;
     // Leiste mit den Belohnungen rund um die aktuelle Stufe
     const von = Math.max(1, Math.min(info.stufe - 2, PT.PASS_MAX - 9));
     let leiste = '';
     for (let st = von; st <= Math.min(PT.PASS_MAX, von + 11); st++) {
-      const b = PT.PASS_BELOHNUNG[st];
-      const bild = b && b.skin && lookBilder[b.skin] ? `<img src="${lookBilder[b.skin]}" alt="">` : b && b.sockel && sockelBilder[b.sockel] ? `<img src="${sockelBilder[b.sockel]}" alt="">`
-        : `<i>${!b ? '🎖️' : b.muenzen ? '🪙' : b.kraft ? '✨' : '🎁'}</i>`;
-      const name = !b ? 'Stufe' : b.skin ? PT.SKINS[b.skin].name : b.sockel ? 'Sockel ' + PT.SOCKEL[b.sockel].name : b.muenzen ? `${b.muenzen} Münzen` : 'Meisterkraft';
-      leiste += `<div class="stufe-chip ${st <= info.stufe ? 'da' : ''} ${st === info.stufe ? 'jetzt' : ''}"><b>${st}</b>${bild}<span>${esc(name)}</span></div>`;
+      const x = PT.PASS_STUFEN[st], b = x.b[0];
+      leiste += `<div class="stufe-chip r-${x.s} ${st <= info.stufe ? 'da' : ''} ${st === info.stufe ? 'jetzt' : ''}" title="${esc(PT.SELTENHEIT[x.s].name + ': ' + stufeText(st))}"><b>${st}</b>${belohnungBild(b)}<span>${esc(belohnungText(b))}</span></div>`;
     }
     $('#passLeiste').innerHTML = leiste;
     // Tagesaufträge
@@ -260,18 +320,64 @@
     }).join('');
     for (const b of looks.querySelectorAll('[data-look]')) b.onclick = () => lookWaehlen(b.dataset.look);
     $('#kraeftePass').innerHTML = PT.HELDEN_REIHE.map(h => {
-      const ab = Object.entries(PT.PASS_BELOHNUNG).find(([, b]) => b.kraft === h);
-      const frei = PT.kraftFrei(h, info.stufe);
-      return `<li class="${frei ? 'da' : ''}">${frei ? '✨' : '🔒'} <b>${esc(PT.HELDEN[h].name)}</b>${frei ? '' : ` (Stufe ${ab ? ab[0] : '?'})`}: ${esc(PT.HELDEN[h].kraft.text)}</li>`;
+      const ab = PT.belohnungStufe('kraft', h);
+      const frei = PT.kraftFrei(h, info.stufe, fort.besitz);
+      return `<li class="${frei ? 'da' : ''}">${frei ? '✨' : '🔒'} <b>${esc(PT.HELDEN[h].name)}</b>${frei ? '' : ` (Stufe ${ab || '?'})`}: ${esc(PT.HELDEN[h].kraft.text)}</li>`;
     }).join('');
+    // Titel, Platz-Effekte, Siegestänze, Dorf-Deko
+    const wahlChips = (el, reihe, name, frei, aktiv, setzen) => {
+      el.innerHTML = reihe.map(id => { const ok = frei(id); return `<button data-id="${id}" aria-pressed="${aktiv === id}" ${ok ? '' : 'disabled'} title="${ok ? '' : esc('Stufe ' + (PT.belohnungStufe(el.dataset.art, id) || '?'))}">${esc(name(id))}${ok ? '' : ' 🔒'}</button>`; }).join('');
+      for (const b of el.querySelectorAll('[data-id]')) b.onclick = () => { setzen(b.dataset.id); PT.Ton.klick(); speicher.schreiben('pt-pass', pass); wahlSenden(); menueBauen(); };
+    };
+    $('#titelWahl').dataset.art = 'titel'; $('#effektWahl').dataset.art = 'effekt'; $('#tanzWahl').dataset.art = 'tanz';
+    wahlChips($('#titelWahl'), PT.TITEL_REIHE, id => PT.TITEL[id], id => PT.titelFrei(id, info.stufe, fort.besitz), pass.titel, id => { pass.titel = id; });
+    wahlChips($('#effektWahl'), PT.EFFEKT_REIHE, id => `${PT.EFFEKTE[id].zeichen} ${PT.EFFEKTE[id].name}`, id => PT.effektFrei(id, info.stufe, fort.besitz), pass.effekt, id => { pass.effekt = id; });
+    wahlChips($('#tanzWahl'), PT.TAENZE_REIHE, id => `💃 ${PT.TAENZE[id].name}`, id => PT.tanzFrei(id, info.stufe, fort.besitz), pass.tanz, id => { pass.tanz = id; });
+    $('#dekoListe').innerHTML = PT.DEKO_REIHE.map(id => { const ok = PT.dekoFrei(id, info.stufe, fort.besitz); return `<span class="${ok ? '' : 'zu'}">${PT.DEKO[id].symbol} ${esc(PT.DEKO[id].name)}${ok ? ' ✓' : ` · Stufe ${PT.belohnungStufe('deko', id)}`}</span>`; }).join('');
+    if (!$('#passSeite').hidden) passSeiteBauen();
   }
+  // Große Pass-Seite: alle 100 Stufen als Karten, Prestige
+  function passSeiteBauen() {
+    const info = PT.passStufe(pass.xp);
+    $('#psTitel').textContent = `🎖️ Pinguin-Pass · Stufe ${info.stufe} / ${PT.PASS_MAX}`;
+    $('#psUnter').textContent = `${'⭐'.repeat(pass.prestige || 0)}${pass.prestige ? ` Prestige ${pass.prestige} · ` : ''}${PT.TITEL[pass.titel] || ''} · ${info.bedarf ? `${zahl(info.rest)} / ${zahl(info.bedarf)} Erfahrung bis Stufe ${info.stufe + 1}` : 'Maximum erreicht'}`;
+    $('#psBalken').style.width = (info.bedarf ? Math.round(info.rest / info.bedarf * 100) : 100) + '%';
+    let html = '';
+    for (let st = 1; st <= PT.PASS_MAX; st++) {
+      const x = PT.PASS_STUFEN[st], R = PT.SELTENHEIT[x.s];
+      html += `<div class="ps-karte r-${x.s} ${st > info.stufe ? 'zu' : ''} ${st === info.stufe ? 'jetzt' : ''} ${st % 10 === 0 ? 'meilenstein' : ''}" style="--rf:${R.farbe}" data-st="${st}">
+        <span class="rar">${esc(R.name)}</span><b>${st}</b>${x.b.slice(0, 2).map(belohnungBild).join('')}<span>${esc(stufeText(st))}</span></div>`;
+    }
+    $('#psLeiste').innerHTML = html;
+    const pr = $('#psPrestige');
+    if (info.stufe >= PT.PASS_MAX && pass.prestige < PT.PRESTIGE_MAX) {
+      pr.innerHTML = `<span>🏆 Stufe 100 geschafft! Mit <b>Prestige ${pass.prestige + 1}</b> startest du die Leiste neu: Alles, was du freigeschaltet hast, bleibt für immer. Du bekommst einen Prestige-Stern, und Münzen aus dem Pass gibt es dann ${Math.round((PT.prestigeFaktor(pass.prestige + 1) - 1) * 100)} % mehr.</span><button class="knopf" id="prestigeLos">⭐ Prestige ${pass.prestige + 1} starten</button>`;
+      $('#prestigeLos').onclick = prestigeStarten;
+    } else pr.innerHTML = pass.prestige ? `<span>${'⭐'.repeat(pass.prestige)} Prestige ${pass.prestige} von ${PT.PRESTIGE_MAX}</span>` : '';
+    const jetzt = $('#psLeiste').querySelector('.jetzt');
+    if (jetzt) $('#psLeiste').scrollLeft = jetzt.offsetLeft - $('#psLeiste').clientWidth / 2 + 54;
+  }
+  function prestigeStarten() {
+    if (passStufe() < PT.PASS_MAX || pass.prestige >= PT.PRESTIGE_MAX || !confirm('Prestige starten? Deine Leiste beginnt wieder bei Stufe 1 – alles Freigeschaltete bleibt.')) return;
+    const alles = PT.passAllesBesitz();
+    for (const [k, v] of Object.entries(alles)) fort.besitz[k] = Object.assign(fort.besitz[k] || {}, v);
+    fortMerken();
+    pass.prestige++; pass.xp = 0; pass.abgeholt = 1;
+    speicher.schreiben('pt-pass', pass);
+    banner(`⭐ Prestige ${pass.prestige}!`, 'Alles bleibt freigeschaltet – auf zu Stufe 100!', 4);
+    PT.Ton.schlag(); PT.Ton.upgrade();
+    wahlSenden();
+    menueBauen();
+  }
+  const passZeigen = () => ({ skin:pass.skin, sockel:pass.sockel, titel:pass.titel, effekt:pass.effekt, prestige:pass.prestige || 0 });
+  function wahlSenden() { if (netz && netz.raum) senden({ t:'wahl', boni:dorfBoni(), held:meinMitglied() ? meinMitglied().held : wahl.held, kraft:kraftAktivKoop(), ...passZeigen() }); }
   function lookWaehlen(id) {
     if (!PT.skinFrei(id, passStufe(), fort.besitz) || pass.skin === id) return;
     pass.skin = id;
     speicher.schreiben('pt-pass', pass);
     PT.Ton.klick();
     bilderMalen(false, true);
-    if (netz && netz.raum) senden({ t:'wahl', boni:dorfBoni(), held:meinMitglied() ? meinMitglied().held : wahl.held, kraft:kraftAktivKoop(), skin:pass.skin, sockel:pass.sockel });
+    if (netz && netz.raum) senden({ t:'wahl', boni:dorfBoni(), held:meinMitglied() ? meinMitglied().held : wahl.held, kraft:kraftAktivKoop(), ...passZeigen() });
     menueBauen();
   }
   function sockelWaehlen(id) {
@@ -280,7 +386,7 @@
     speicher.schreiben('pt-pass', pass);
     PT.Ton.klick();
     bilderMalen();
-    if (netz && netz.raum) senden({ t:'wahl', boni:dorfBoni(), held:meinMitglied() ? meinMitglied().held : wahl.held, kraft:kraftAktivKoop(), skin:pass.skin, sockel:pass.sockel });
+    if (netz && netz.raum) senden({ t:'wahl', boni:dorfBoni(), held:meinMitglied() ? meinMitglied().held : wahl.held, kraft:kraftAktivKoop(), ...passZeigen() });
     menueBauen();
   }
   // Vorschaubilder im aktuellen Look (Laden, Helden), alle Looks und Sockel für den Pass
@@ -302,7 +408,7 @@
   const imKoop = () => !!(spiel && spiel.koop);
   const meinMitglied = () => (netz && netz.raum && netz.raum.mitglieder ? netz.raum.mitglieder.find(m => m.id === netz.id) : null);
   const binHost = () => !!(netz && netz.raum && netz.raum.host === netz.id);
-  const kraftAktivKoop = (held) => { const m = meinMitglied(); const h = held !== undefined ? held : m ? m.held : wahl.held; return wahl.kraft !== false && !!h && PT.kraftFrei(h, passStufe()); };
+  const kraftAktivKoop = (held) => { const m = meinMitglied(); const h = held !== undefined ? held : m ? m.held : wahl.held; return wahl.kraft !== false && !!h && PT.kraftFrei(h, passStufe(), fort.besitz); };
   function senden(d) {
     if (!netz) return;
     if (netz.ws && netz.ws.readyState === 1) netz.ws.send(JSON.stringify(d));
@@ -317,7 +423,7 @@
     ws.onopen = () => {
       netz.versuche = 0;
       const alt = speicher.lesen('pt-koop', sessionStorage);
-      ws.send(JSON.stringify({ t:'hallo', name:koopName(), skin:pass.skin, sockel:pass.sockel, token:alt && alt.token, code:alt && alt.code }));
+      ws.send(JSON.stringify({ t:'hallo', name:koopName(), ...passZeigen(), token:alt && alt.token, code:alt && alt.code }));
       for (const d of netz.warte.splice(0)) ws.send(JSON.stringify(d));
       koopFehler('');
       if (imKoop()) kurzTipp('Wieder verbunden.');
@@ -355,7 +461,7 @@
         speicher.schreiben('pt-koop', { token:netz.token, code:d.code }, sessionStorage);
         koopReiter = true;
         // gerade beigetreten: eigenen Helden, Meisterkraft und Look mitteilen
-        if ((!alt || alt.code !== d.code) && d.phase === 'lobby') senden({ t:'wahl', boni:dorfBoni(), held:wahl.held, kraft:kraftAktivKoop(wahl.held), skin:pass.skin, sockel:pass.sockel });
+        if ((!alt || alt.code !== d.code) && d.phase === 'lobby') senden({ t:'wahl', boni:dorfBoni(), held:wahl.held, kraft:kraftAktivKoop(wahl.held), ...passZeigen() });
         if (d.phase === 'lobby' && imKoop()) zumMenue();
         if (d.phase === 'spiel' && imKoop()) {
           tempo = d.tempo;
@@ -917,19 +1023,19 @@
       b.className = 'heldwahl';
       b.setAttribute('aria-pressed', !ohne && meiner === id);
       b.disabled = ohne && !!id;
-      const kraft = d && PT.kraftFrei(id, st) && !olymp ? ' <span class="chip kraft" title="Meisterkraft freigeschaltet">✨</span>' : '';
+      const kraft = d && PT.kraftFrei(id, st, fort.besitz) && !olymp ? ' <span class="chip kraft" title="Meisterkraft freigeschaltet">✨</span>' : '';
       b.innerHTML = d ? `<img src="${bilder[id] || ''}" alt=""><span><b>${esc(d.name)}${kraft}</b><small>${esc(d.kurz)} · ${PT.preis(d.preis, E.stufe)} 💰</small></span>`
         : '<span style="font-size:2.4rem;width:72px;text-align:center">🚫</span><span><b>Ohne Held</b><small>Nur Pinguine.</small></span>';
       b.onclick = () => {
         PT.Ton.klick();
         wahl.held = id; speicher.schreiben('pt-wahl', wahl);
-        if (koopReiter && netz && netz.raum) senden({ t:'wahl', boni:dorfBoni(), held:id, kraft:kraftAktivKoop(id), skin:pass.skin, sockel:pass.sockel });
+        if (koopReiter && netz && netz.raum) senden({ t:'wahl', boni:dorfBoni(), held:id, kraft:kraftAktivKoop(id), ...passZeigen() });
         menueBauen();
       };
       h.appendChild(b);
     }
     // Meisterkraft ein- und ausschalten
-    const frei = !!meiner && PT.kraftFrei(meiner, st) && !olymp && !ohne;
+    const frei = !!meiner && PT.kraftFrei(meiner, st, fort.besitz) && !olymp && !ohne;
     $('#kraftReihe').hidden = !frei;
     $('#kraftAn').checked = wahl.kraft !== false;
     if (frei) $('#kraftText').textContent = PT.HELDEN[meiner].kraft.text;
@@ -964,7 +1070,7 @@
     $('#raumCode').textContent = raum.code;
     $('#mitglieder').innerHTML = raum.mitglieder.map((m, i) => {
       const held = m.held && PT.HELDEN[m.held] ? PT.HELDEN[m.held].name : 'ohne Held';
-      return `<li style="--f:${PT.KOOP_FARBEN[i] || '#999'}" class="${m.online ? '' : 'weg'}"><i></i><b>${esc(m.name)}</b>${m.id === raum.host ? ' 👑' : ''}${m.id === netz.id ? ' (du)' : ''}<small>${esc(held)}${m.kraft ? ' ✨' : ''}${m.skin && m.skin !== 'standard' && PT.SKINS[m.skin] ? ' · ' + esc(PT.SKINS[m.skin].name) : ''}${m.online ? '' : ' · offline'}</small></li>`;
+      return `<li style="--f:${PT.KOOP_FARBEN[i] || '#999'}" class="${m.online ? '' : 'weg'}"><i></i><b>${'⭐'.repeat(m.prestige || 0)}${esc(m.name)}</b>${m.titel && PT.TITEL[m.titel] ? `<span class="titel">${esc(PT.TITEL[m.titel])}</span>` : ''}${m.id === raum.host ? ' 👑' : ''}${m.id === netz.id ? ' (du)' : ''}<small>${esc(held)}${m.kraft ? ' ✨' : ''}${m.skin && m.skin !== 'standard' && PT.SKINS[m.skin] ? ' · ' + esc(PT.SKINS[m.skin].name) : ''}${m.online ? '' : ' · offline'}</small></li>`;
     }).join('');
     $('#koopHinweis').textContent = raum.phase === 'spiel' ? 'In diesem Raum läuft gerade eine Partie.' : raum.einst.versus
       ? (binHost() ? `⚔️ Versus: genau 2 Spieler. Wähl Karte und Schwierigkeit, dann starte. Dein Gegner tritt mit dem Code ${raum.code} bei.` : '⚔️ Versus! Such dir deinen Helden aus. Karte und Schwierigkeit wählt der Gastgeber.')
@@ -985,7 +1091,7 @@
     const n = koopName();
     if (!n) { koopFehler('Gib zuerst deinen Namen ein.'); $('#koopName').focus(); return false; }
     speicher.schreiben('pt-name', n);
-    senden({ t:'hallo', name:n, skin:pass.skin, sockel:pass.sockel });
+    senden({ t:'hallo', name:n, ...passZeigen() });
     return true;
   }
   function wahlMerken() { speicher.schreiben('pt-wahl', wahl); menueBauen(); }
@@ -1141,7 +1247,7 @@
   /* ---------- Pingu-Dorf ---------- */
   let dorfReiter = false, dorfWelt = null, dorfAuswahl = null;
   function erfolgeOhneSpiel() {
-    const neu = PT.erfolgePruefen({ spiel:{ statistik:{}, tuerme:[] }, lebenslang:fort.lebenslang, passStufe:passStufe(), medaillen, kampagne:fort.kampagne, dorf:fort.dorf,
+    const neu = PT.erfolgePruefen({ spiel:{ statistik:{}, tuerme:[] }, lebenslang:fort.lebenslang, passStufe:passStufe(), prestige:pass.prestige, medaillen, kampagne:fort.kampagne, dorf:fort.dorf,
       lookZahl:PT.SKIN_REIHE.filter(id => PT.skinFrei(id, passStufe(), fort.besitz)).length }, fort.erfolge);
     for (const e of neu) { fort.erfolge[e.id] = PT.heute(); fort.muenzen += e.muenzen; banner(`🏆 Erfolg: ${e.name}`, `${e.text} · +${e.muenzen} 🪙`, 3); }
     if (neu.length) fortMerken();
@@ -1181,7 +1287,7 @@
       try { dorfWelt = new PT.DorfWelt($('#dorfWelt')); dorfWelt.beiWahl = id => { dorfAuswahl = id; PT.Ton.klick(); dorfBauen(); const el = document.querySelector(`[data-gebaeude="${id}"]`); if (el) el.scrollIntoView({ block:'nearest', behavior:'smooth' }); }; }
       catch (e) { console.error(e); }
     }
-    if (dorfWelt) { dorfWelt.zeigen(D, phase, dorfAuswahl); dorfWelt.start(); }
+    if (dorfWelt) { dorfWelt.zeigen(D, phase, dorfAuswahl, Object.fromEntries(PT.DEKO_REIHE.filter(id => PT.dekoFrei(id, passStufe(), fort.besitz)).map(id => [id, true]))); dorfWelt.start(); }
   }
   function ausbauen(id) {
     const phase = PT.dorfPhase(fort.kampagne), a = PT.dorfAusbau(fort.dorf, id, phase, fort.muenzen);
@@ -1196,6 +1302,7 @@
     else banner(`${PT.DORF_GEBAEUDE[id].symbol} ${PT.DORF_GEBAEUDE[id].name}`, `Stufe ${st}: ${PT.DORF_GEBAEUDE[id].zeigen(PT.DORF_GEBAEUDE[id].wert[st])}`, 2.4);
     fortMerken();
     PT.Ton.upgrade();
+    xpDazu(40 * st, true);
     dorfAuswahl = id;
     if (dorfWelt) dorfWelt.gebaut(id);
     erfolgeOhneSpiel();
@@ -1288,6 +1395,7 @@
     if (meins) {
       fort.lebenslang.vsSpiele++;
       if (gewonnen) {
+        if (welt) welt.tanzStarten(pass.tanz);
         fort.lebenslang.vsSiege++;
         xpDazu(400); muenzenDazu(15); kristalleDazu(6);
         if (fort.lebenslang.vsSiege >= 10 && !fort.besitz.sockel.eiskrieg) { fort.besitz.sockel.eiskrieg = true; banner('⚔️ 10 Versus-Siege!', 'Neuer Sockel: Eiskrieg', 3.5); }
@@ -1328,10 +1436,16 @@
       welt.grafik(grafikHoch);
       // Aussehen der Pinguine: eigener Look, im Koop Look und Farbe des Besitzers
       welt.aussehenFuer = t => {
-        if (!spiel || !spiel.koop || t.besitzer == null) return { skin:pass.skin, sockel:pass.sockel };
+        if (!spiel || !spiel.koop || t.besitzer == null) return { ...passZeigen() };
         const sp = spiel.spielerVon(t.besitzer);
         const m = netz && netz.raum && netz.raum.mitglieder.find(x => x.id === t.besitzer);
         return { skin:m ? m.skin : 'standard', sockel:m ? m.sockel : 'standard', farbe:sp ? PT.KOOP_FARBEN[sp.farbe] : null };
+      };
+      // Platz-Effekt: eigener aus dem Pass, im Koop der des Besitzers
+      welt.effektFuer = von => {
+        if (!spiel || !spiel.koop || von == null || (netz && von === netz.id)) return pass.effekt;
+        const m = netz && netz.raum && netz.raum.mitglieder.find(x => x.id === von);
+        return m && PT.EFFEKTE[m.effekt] ? m.effekt : null;
       };
       einstAnwenden();
     }
@@ -2046,6 +2160,7 @@
     const k = $('#endeKnoepfe');
     $('#ende').hidden = false;
     endeArt = gewonnen ? 'gewonnen' : 'verloren';
+    if (gewonnen && welt) welt.tanzStarten(pass.tanz);
     if (spiel.koop) return koopEnde(gewonnen);
     pausiert = true;
     if (gewonnen) {
@@ -2224,7 +2339,7 @@
     const ev = spiel.ereignisse.splice(0);
     if (ev.length) { welt.ereignisse(ev); PT.Ton.ereignisse(ev); ereignisse(ev); }
     if (auswahl && !spiel.tuerme.includes(auswahl)) turmWaehlen(null);
-    welt.zeichnen(spiel, (imKoop() ? koopPause : pausiert) ? 0 : dt, auswahl);
+    welt.zeichnen(spiel, (imKoop() ? koopPause : pausiert) && !welt.tanz ? 0 : dt, auswahl);
     if (bannerZeit > 0) { bannerZeit -= dt; if (bannerZeit <= 0) $('#banner').classList.remove('an'); }
     if (tippZeit > 0) { tippZeit -= dt; if (tippZeit <= 0) tipp(''); }
     faehigkeitenZeigen();
@@ -2232,6 +2347,21 @@
     anzeigen();
   }
 
+  // Tägliche Login-Belohnung: Erfahrung, Münzen, jeden 7. Tag in Folge eine Silberkiste
+  function loginBelohnung() {
+    const heute = PT.heute(), gestern = PT.heute(new Date(Date.now() - 86400000));
+    const L = fort.login || { datum:null, serie:0 };
+    if (L.datum === heute) return;
+    L.serie = L.datum === gestern ? L.serie + 1 : 1;
+    L.datum = heute;
+    fort.login = L;
+    const b = PT.loginBelohnung(L.serie);
+    fort.muenzen += b.muenzen;
+    if (b.kiste) fort.kisten[b.kiste] = (fort.kisten[b.kiste] || 0) + 1;
+    fortMerken();
+    xpDazu(b.xp, true);
+    setTimeout(() => banner(`🎁 Täglicher Bonus · Tag ${L.serie}`, `+${b.xp} Erfahrung · +${b.muenzen} 🪙${b.kiste ? ' · Silberkiste!' : ''}`, 3.5), 600);
+  }
   // Das alte Abenteuer (k1-1 …) gibt es nicht mehr: einmal gegen eine Goldkiste und Eiskristalle tauschen
   function altesAbenteuerTauschen() {
     const n = PT.alteSterne(fort.kampagne);
@@ -2253,6 +2383,11 @@
       return;
     }
     altesAbenteuerTauschen();
+    passNachholen(true);
+    loginBelohnung();
+    $('#passOeffnen').onclick = () => { PT.Ton.klick(); $('#passSeite').hidden = false; passSeiteBauen(); };
+    $('#passZu').onclick = () => { PT.Ton.klick(); $('#passSeite').hidden = true; };
+    $('#passSeite').addEventListener('click', e => { if (e.target.id === 'passSeite') $('#passSeite').hidden = true; });
     lexikonBauen();
     menueBauen();
     einstAnwenden();
@@ -2275,7 +2410,7 @@
     $('#koopRaus').onclick = () => { PT.Ton.klick(); koopVerlassen(); };
     $('#kraftAn').onchange = () => {
       wahl.kraft = $('#kraftAn').checked; speicher.schreiben('pt-wahl', wahl);
-      if (koopReiter && netz && netz.raum) { const m = meinMitglied(); senden({ t:'wahl', boni:dorfBoni(), held:m ? m.held : wahl.held, kraft:kraftAktivKoop(), skin:pass.skin, sockel:pass.sockel }); }
+      if (koopReiter && netz && netz.raum) { const m = meinMitglied(); senden({ t:'wahl', boni:dorfBoni(), held:m ? m.held : wahl.held, kraft:kraftAktivKoop(), ...passZeigen() }); }
     };
     $('#tagLos').onclick = () => { PT.Ton.start(); tagesStarten(); };
     $('#reiterAbenteuer').onclick = () => { PT.Ton.klick(); abenteuerReiter = true; koopReiter = false; dorfReiter = false; menueBauen(); };
@@ -2394,7 +2529,7 @@
         },
         faehigkeiten() { for (const t of spiel.tuerme) for (const k of Object.keys(t.fcd)) t.fcd[k] = 0; return spiel.faehigkeitenListe().map(f => f.id); },
         ausloesen(id) { return spiel.faehigkeitAusloesen(id); },
-        pass(xp, skin, sockel) { if (xp != null) pass.xp = xp; if (skin) pass.skin = skin; if (sockel) pass.sockel = sockel; speicher.schreiben('pt-pass', pass); bilderMalen(false, true); menueBauen(); return PT.passStufe(pass.xp); },
+        pass(xp, skin, sockel) { if (xp != null) { pass.xp = xp; passNachholen(); } if (skin) pass.skin = skin; if (sockel) pass.sockel = sockel; speicher.schreiben('pt-pass', pass); bilderMalen(false, true); menueBauen(); return PT.passStufe(pass.xp); },
         fort(f) { Object.assign(fort, f); fortMerken(); menueBauen(); return fort; },
         tag() { tagesStarten(); return tagesAktiv; },
         ende(g) { endeZeigen(g); },

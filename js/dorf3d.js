@@ -239,7 +239,46 @@
     }
 
     /* ---------- von außen ---------- */
-    zeigen(dorf, phase, auswahl) {
+    // Deko aus dem Pinguin-Pass: Lichterkette, Fahnen, Eisskulptur, Statue, goldenes Iglu, Nordlichter, Feuerwerk
+    dekoBauen(deko) {
+      if (this.dekoGruppe) this.scene.remove(this.dekoGruppe);
+      const g = this.dekoGruppe = new T.Group();
+      this.lampen = []; this.nordlicht = []; this.feuerwerk = !!deko.feuerwerk;
+      if (deko.lichterkette) for (let i = 0; i < 48; i++) {
+        const w = i / 48 * Math.PI * 2;
+        const l = mesh(G.kugelMini, mat([0xff5e5e, 0xffd54a, 0x5ec8ff, 0x7dffb2][i % 4], 'basic'), Math.cos(w) * 120, 34 + Math.sin(i * 1.7) * 3, Math.sin(w) * 120);
+        l.scale.setScalar(2.6); g.add(l); this.lampen.push(l);
+      }
+      if (deko.lichterkette) for (let i = 0; i < 8; i++) { const w = i / 8 * Math.PI * 2; const p = mesh(G.zyl, mat(0x6b4a2a), Math.cos(w) * 120, 22, Math.sin(w) * 120); p.scale.set(1.2, 24, 1.2); g.add(p); }
+      if (deko.fahnen) for (let i = 0; i < 6; i++) {
+        const w = i / 6 * Math.PI * 2 + 0.3;
+        const st = mesh(G.zyl, mat(0xdfe6ee), Math.cos(w) * 100, 36, Math.sin(w) * 100); st.scale.set(1, 50, 1); g.add(st);
+        const fa = mesh(G.box, mat([0xe2463b, 0x2f7fe0, 0xf6c343][i % 3]), Math.cos(w) * 100, 54, Math.sin(w) * 100 + 9); fa.scale.set(1, 12, 18); fa.userData.flattern = i; g.add(fa);
+      }
+      if (deko.eisskulptur) {
+        const f = mesh(G.kugel, mat(0xcfefff, 'phong', { shininess:150, transparent:true, opacity:0.85, emissive:0x1a4a6a }), -60, 40, -40); f.scale.set(22, 12, 10); g.add(f);
+        const sw = mesh(G.kegel, mat(0xcfefff, 'phong', { transparent:true, opacity:0.85 }), -86, 46, -40); sw.scale.set(10, 14, 3); sw.rotation.z = Math.PI / 2; g.add(sw);
+        const so = mesh(new T.CylinderGeometry(14, 18, 20, 8), mat(0xa8c8dc, 'phong', { flatShading:true }), -60, 20, -40); g.add(so);
+      }
+      if (deko.goldstatue) {
+        const fig = new T.Group(); pinguinKoerper(fig, null, 1.3, 0xc9a020);
+        fig.traverse(o => { if (o.isMesh) o.material = mat(0xffd54a, 'phong', { shininess:160, specular:0xffffff, emissive:0x3a2a00 }); });
+        fig.position.set(-55, 30, 45); fig.rotation.y = -0.6; g.add(fig);
+        const so = mesh(new T.CylinderGeometry(18, 22, 18, 8), mat(0x8a8f99, 'phong', { flatShading:true }), -55, 21, 45); g.add(so);
+      }
+      if (deko.goldiglu) {
+        const i = mesh(G.halbkugel, mat(0xffd54a, 'phong', { shininess:160, specular:0xffffff, emissive:0x2a1a00 }), 10, 12, -215); i.scale.set(34, 30, 34); g.add(i);
+        const t = mesh(G.zyl, mat(0xffe9a8), 10, 16, -180); t.scale.set(10, 14, 10); t.rotation.x = Math.PI / 2; g.add(t);
+      }
+      if (deko.nordlichter) for (const [farbe, z] of [[0x3cff9a, -500], [0x9a6bff, -560], [0x3cc8ff, -620]]) {
+        const n = new T.Mesh(new T.PlaneGeometry(1400, 160, 24, 1), new T.MeshBasicMaterial({ color:farbe, transparent:true, opacity:0.18, side:T.DoubleSide, depthWrite:false, blending:T.AdditiveBlending }));
+        n.position.set(0, 330, z); n.basis = n.geometry.attributes.position.array.slice(); g.add(n); this.nordlicht.push(n);
+      }
+      this.scene.add(g);
+    }
+    zeigen(dorf, phase, auswahl, deko = {}) {
+      const dsig = JSON.stringify(deko);
+      if (dsig !== this.dekoSig) { this.dekoSig = dsig; this.dekoBauen(deko); }
       const sig = JSON.stringify([dorf.stufen, phase]);
       if (sig !== this.sig) {
         this.sig = sig;
@@ -293,6 +332,17 @@
       for (const g of Object.values(this.gebaeude)) if (g) for (const c of g.children) {
         if (c.userData.schaukeln != null) c.rotation.x = Math.sin(this.zeit * 1.3 + c.userData.schaukeln) * 0.08;
         if (c.userData.dreh) c.rotation.y += dt * c.userData.dreh;
+      }
+      for (const [i, l] of (this.lampen || []).entries()) l.visible = Math.sin(this.zeit * 3 + i * 1.3) > -0.6;
+      if (this.dekoGruppe) for (const c of this.dekoGruppe.children) if (c.userData.flattern != null) c.rotation.y = Math.sin(this.zeit * 3 + c.userData.flattern) * 0.3;
+      for (const [k, n] of (this.nordlicht || []).entries()) {
+        const p = n.geometry.attributes.position;
+        for (let i = 0; i < p.count; i++) p.setY(i, n.basis[i * 3 + 1] + Math.sin(this.zeit * 0.6 + n.basis[i * 3] * 0.006 + k) * 40);
+        p.needsUpdate = true;
+      }
+      if (this.feuerwerk && Math.random() < 0.02) {
+        const x = (Math.random() - 0.5) * 400, z = (Math.random() - 0.5) * 400, y = 220 + Math.random() * 100;
+        for (let i = 0; i < 40; i++) { const w = Math.random() * Math.PI * 2, h = Math.random() - 0.5; this.funken.push({ x, y, z, vx:Math.cos(w) * 140 * Math.cos(h), vy:Math.sin(h) * 140 + 40, vz:Math.sin(w) * 140 * Math.cos(h), t:0 }); }
       }
       if (this.auge) this.auge.material.opacity = 0.25 + Math.max(0, Math.sin(this.zeit * 0.6)) * 0.5;
       // Gerade gebaut: kurz hüpfen

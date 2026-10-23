@@ -21,6 +21,12 @@ const BEFEHL_FELDER = { t:'s', typ:'s', x:'n', y:'n', id:'i', pfad:'i', ziel:'s'
 
 const nameOk = n => String(n || '').replace(/[\u0000-\u001f\u007f<>&"]/g, '').trim().slice(0, 16);
 const skinOk = s => (/^[a-z]{1,16}$/.test(String(s)) ? String(s) : 'standard');
+// Titel, Platz-Effekt und Prestige aus dem Pinguin-Pass (nur Aussehen)
+function passOk(m, d) {
+  m.titel = d.titel ? skinOk(d.titel) : m.titel || null;
+  m.effekt = d.effekt ? skinOk(d.effekt) : m.effekt || 'standard';
+  if (Number.isInteger(d.prestige)) m.prestige = Math.max(0, Math.min(5, d.prestige));
+}
 // Nur bekannte Felder mit dem richtigen Typ weitergeben
 function befehlOk(b) {
   if (!b || typeof b !== 'object' || typeof b.t !== 'string') return null;
@@ -49,7 +55,8 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
     return {
       t:'raum', code:raum.code, host:raum.host, phase:raum.phase, du:m.id, einst:raum.einst,
       tempo:raum.tempo, pause:raum.pause, auto:raum.auto,
-      mitglieder:mitglieder(raum).map(x => ({ id:x.id, name:x.name, held:x.held, kraft:x.kraft, skin:x.skin, sockel:x.sockel, online:!!x.transport, mit:!!x.mitspieler })),
+      mitglieder:mitglieder(raum).map(x => ({ id:x.id, name:x.name, held:x.held, kraft:x.kraft, skin:x.skin, sockel:x.sockel, titel:x.titel, effekt:x.effekt, prestige:x.prestige,
+        online:!!x.transport, mit:!!x.mitspieler })),
       versus:!!(raum.spiel && raum.spiel.versus)
     };
   }
@@ -154,6 +161,7 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
           const n = nameOk(d.name); if (n) m.name = n;
           m.skin = skinOk(d.skin);
           if (d.sockel) m.sockel = skinOk(d.sockel);
+          passOk(m, d);
           if (typeof d.token === 'string' && d.code && !raum) {
             const r = liste.get(String(d.code).toUpperCase());
             const alt = r && mitglieder(r).find(x => x.token === d.token);
@@ -188,6 +196,7 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
           m.held = d.held === null || PT.HELDEN[d.held] ? d.held : m.held;
           m.kraft = !!d.kraft; m.skin = skinOk(d.skin); m.sockel = skinOk(d.sockel);
           m.boni = PT.boniOk(d.boni);
+          passOk(m, d);
           return raumSenden(raum);
         case 'einst': {
           if (!istHost || raum.phase !== 'lobby') return;

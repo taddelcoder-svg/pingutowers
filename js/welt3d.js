@@ -476,7 +476,7 @@
       this.scene = new T.Scene();
       this.pinguine.clear(); this.flieger.clear(); this.eulen.clear(); this.geschossAlt = null; this.halos = [];
       this.strudel = []; this.lavaLicht = null; this.glutPos = null; this.rauch = [];
-      this.leuchtKegel = null; this.finsternis = null;
+      this.leuchtKegel = null; this.finsternis = null; this.tanz = null;
       this.effekte = [];
       this.texte = [];
       this.zoom = 1; this.schwenk.set(0, 0);
@@ -1110,6 +1110,12 @@
             this.funken(e.x, e.y, WASSER_Y + 6, f.farbe, f.riese ? 8 : 3, { tempo:50, hoch:80, groesse:9, dauer:0.4, a:0.7 });
             if (this.effekte.length < 70) this.effekte.push({ art:'welle', x:e.x, y:e.y, r:f.riese ? 46 : 20 + f.r * 0.6, t:0, dauer:f.riese ? 0.8 : 0.5, farbe:0xffffff });
             if (f.riese) this.texte.push({ x:e.x, y:e.y, h:30, text:'💥', farbe:'#fff', t:0, dauer:1, gross:28 });
+            // Platz-Effekt aus dem Pinguin-Pass (nur Aussehen): bei Riesen immer, bei kleinen Fischen ab und zu
+            const ef = e.eigen && this.effektFuer ? PT.EFFEKTE[this.effektFuer(e.von)] : null;
+            if (ef && ef.farben.length && (f.riese || Math.random() < 0.35)) {
+              for (const fc of ef.farben) this.funken(e.x, e.y, WASSER_Y + 8, fc, f.riese ? 10 : 2, { tempo:f.riese ? 160 : 80, hoch:f.riese ? 180 : 110, groesse:f.riese ? 10 : 6, dauer:0.7, grav:180 });
+              if (f.riese || Math.random() < 0.08) this.texte.push({ x:e.x, y:e.y, h:26, text:ef.zeichen, farbe:'#fff', t:0, dauer:0.9, gross:f.riese ? 26 : 16 });
+            }
             break;
           }
           case 'bossBesiegt':
@@ -1331,6 +1337,40 @@
         }
       }
     }
+    auraTeilchen(art, x, y) {
+      const w = Math.random() * Math.PI * 2, r = 14 + Math.random() * 6;
+      const px = x + Math.cos(w) * r, py = y + Math.sin(w) * r;
+      const A = {
+        feuer:[[0xff6a1a, 0xffc040, 0xff2a1a], { tempo:8, hoch:70, groesse:7, dauer:0.7, grav:-40 }],
+        frost:[[0xbff4ff, 0xffffff], { tempo:10, hoch:30, groesse:6, dauer:0.9, grav:20 }],
+        blitz:[[0xfff27a, 0xc3b0ff], { tempo:50, hoch:40, groesse:5, dauer:0.25, grav:0 }],
+        schnee:[[0xffffff], { tempo:12, hoch:-10, groesse:5, dauer:1.2, grav:10 }],
+        regenbogen:[[0xff3a3a, 0xffa03a, 0xffe03a, 0x3aff7a, 0x3aa0ff, 0xa03aff], { tempo:10, hoch:60, groesse:6, dauer:0.8, grav:-20 }],
+        schatten:[[0x3a1a5a, 0x7a4ab8, 0x120818], { tempo:6, hoch:40, groesse:9, dauer:1, grav:-15, a:0.6 }],
+        licht:[[0xfff2c4, 0xffd54a, 0xffffff], { tempo:6, hoch:80, groesse:6, dauer:0.9, grav:-40 }],
+        herzen:[[0xff5e8a, 0xffb0c8], { tempo:6, hoch:50, groesse:6, dauer:0.9, grav:-20 }],
+        gift:[[0x7dffb2, 0x2f8a3a], { tempo:6, hoch:35, groesse:7, dauer:0.9, grav:-10 }],
+        blasen:[[0x9fe4ff, 0xffffff], { tempo:4, hoch:55, groesse:5, dauer:1, grav:-30 }]
+      }[art];
+      if (!A) return;
+      this.funken(px, py, 8 + Math.random() * 20, A[0][Math.floor(Math.random() * A[0].length)], 1, { ...A[1], boden:-999 });
+      if (art === 'licht' && Math.random() < 0.3) this.halo(X(x), 7, Z(y), 0xffd54a, 60, 0.25);
+    }
+    tanzen(p, t) {
+      const z = this.zeit - this.tanz.start, ph = z * 7 + t.id * 0.7, i = p.innen;
+      p.tanzte = true;
+      switch (this.tanz.art) {
+        case 'huepfen': i.position.y = Math.abs(Math.sin(ph)) * 10; break;
+        case 'drehen': i.rotation.y += 0.25; i.position.y = Math.abs(Math.sin(ph * 0.5)) * 3; break;
+        case 'wackeln': i.rotation.z = Math.sin(ph * 1.6) * 0.35; i.position.y = Math.abs(Math.sin(ph * 1.6)) * 2; break;
+        case 'welle': i.position.y = Math.max(0, Math.sin(z * 5 - t.x * 0.012)) * 14; break;
+        case 'salto': { const k = (ph * 0.6) % (Math.PI * 2); i.position.y = Math.sin(Math.min(Math.PI, k)) * 16; i.rotation.z = k < Math.PI ? k * 2 : 0; break; }
+        case 'disco': i.rotation.y += 0.18; i.position.y = Math.abs(Math.sin(ph * 1.3)) * 6; if (Math.random() < 0.05) this.funken(t.x, t.y, 30, [0xff5ec8, 0x5ec8ff, 0xffd54a][t.id % 3], 2, { tempo:40, hoch:60, groesse:6, dauer:0.5 }); break;
+        case 'triumph': { const k = (z * 1.6 + t.id * 0.3) % 2; i.position.y = k < 1 ? Math.sin(k * Math.PI) * 26 : 0; i.rotation.y += k < 1 ? 0.3 : 0; break; }
+        default: i.position.y = Math.abs(Math.sin(ph)) * 4;
+      }
+    }
+    tanzStarten(art) { this.tanz = { art:art || 'standard', start:this.zeit }; }
     // Denkmal: der gefallene Held als Pinguin aus Eis
     denkmalBauen([x, y, typ]) {
       const b = pinguinBauen(PT.def(typ) ? typ : 'zapfen', [0, 0, 0], 1, {});
@@ -1538,6 +1578,12 @@
         if (p.teile.aura) this.halo(X(t.x), 7, Z(t.y), PT.M3.PFAD_FARBEN[Math.max(0, t.pfade.indexOf(5))], 80 + Math.sin(this.zeit * 3 + t.id) * 9, 0.4);
         else if (PT.HELDEN[t.typ]) this.halo(X(t.x), 7, Z(t.y), 0xffd54a, 62 + Math.sin(this.zeit * 2.4 + t.id) * 5, 0.3);
         if (p.teile.orb) p.teile.orb.scale.setScalar((p.teile.orbGroesse || 4) * (1 + Math.sin(this.zeit * 5) * 0.12));
+        // Aura aus dem Pinguin-Pass: Teilchen rund um den Pinguin
+        if (p.aura === undefined) { const sk = PT.SKINS[(this.aussehen(t) || {}).skin]; p.aura = sk && sk.aura ? sk.aura : null; }
+        if (p.aura && dt > 0 && Math.random() < dt * (this.hoch ? 9 : 4)) this.auraTeilchen(p.aura, t.x, t.y);
+        // Siegestanz am Ende eines gewonnenen Spiels
+        if (this.tanz) this.tanzen(p, t);
+        else if (p.tanzte) { p.tanzte = false; p.innen.position.y = 0; p.innen.rotation.x = p.innen.rotation.z = 0; }
         // Albatros fliegt über die Karte
         if (t.eff && t.eff.flieger) {
           let f = this.flieger.get(t.id);
