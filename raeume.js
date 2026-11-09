@@ -55,7 +55,7 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
     return {
       t:'raum', code:raum.code, host:raum.host, phase:raum.phase, du:m.id, einst:raum.einst,
       tempo:raum.tempo, pause:raum.pause, auto:raum.auto,
-      mitglieder:mitglieder(raum).map(x => ({ id:x.id, name:x.name, held:x.held, kraft:x.kraft, skin:x.skin, sockel:x.sockel, titel:x.titel, effekt:x.effekt, prestige:x.prestige,
+      mitglieder:mitglieder(raum).map(x => ({ id:x.id, name:x.name, held:x.held, kraft:x.kraft, rolle:x.rolle, skin:x.skin, sockel:x.sockel, titel:x.titel, effekt:x.effekt, prestige:x.prestige,
         online:!!x.transport, mit:!!x.mitspieler })),
       versus:!!(raum.spiel && raum.spiel.versus)
     };
@@ -129,7 +129,7 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
         spieler:mit.map(m => ({ id:m.id, name:m.name, held:m.held, kraft:m.kraft })) });
     } else raum.spiel = new PT.Spiel({
       karte:e.karte, stufe:e.stufe, modus:e.modus, seed:seed() & 0xffffff, geldModus:e.geldModus, eigeneKarte:e.eigen, wetter:e.wetter !== false,
-      spieler:mit.map(m => ({ id:m.id, name:m.name, held:m.held, kraft:m.kraft, boni:m.boni }))
+      spieler:mit.map(m => ({ id:m.id, name:m.name, held:m.held, kraft:m.kraft, boni:m.boni, rolle:m.rolle }))
     });
     // Wer nur zuschaut (später kommt), spielt ab der nächsten Lobby mit
     for (const m of raum.mitglieder.values()) m.mitspieler = mit.includes(m);
@@ -142,7 +142,7 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
 
   /* ---------- Nachrichten ---------- */
   function verbinden(transport) {
-    const m0 = { id:'s' + (naechsteId++), token:crypto.randomBytes(12).toString('hex'), name:'', skin:'standard', sockel:'standard', held:'kiel', kraft:false,
+    const m0 = { id:'s' + (naechsteId++), token:crypto.randomBytes(12).toString('hex'), name:'', skin:'standard', sockel:'standard', held:'kiel', kraft:false, rolle:null,
       raum:null, transport, mitspieler:false, zaehler:0, fenster:jetzt(), zuletztZustand:0 };
     senden(m0, { t:'du', id:m0.id, token:m0.token });
     const ich = () => m0.ersetzt || m0;
@@ -197,6 +197,11 @@ function raeume({ jetzt = () => Date.now(), seed = () => crypto.randomBytes(4).r
           m.kraft = !!d.kraft; m.skin = skinOk(d.skin); m.sockel = skinOk(d.sockel);
           m.boni = PT.boniOk(d.boni);
           passOk(m, d);
+          return raumSenden(raum);
+        case 'rolle':
+          // Koop-Rolle (nur in der Lobby, jeder für sich)
+          if (raum.phase !== 'lobby') return;
+          m.rolle = PT.ROLLEN[d.rolle] ? d.rolle : null;
           return raumSenden(raum);
         case 'einst': {
           if (!istHost || raum.phase !== 'lobby') return;

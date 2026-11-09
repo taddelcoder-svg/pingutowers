@@ -1100,7 +1100,7 @@
     const h = PT.tagesHerausforderung(PT.heute());
     speicher.weg('pt-stand');
     tagesAktiv = h.datum; kampagneAktiv = null;
-    spielStarten(new PT.Spiel({ karte:h.karte, stufe:h.stufe, modus:h.modus, held:h.held, kraft:kraftAktiv(h.held), regeln:h.regeln, seed:Date.now() & 0xffffff }));
+    spielStarten(new PT.Spiel({ karte:h.karte, stufe:h.stufe, modus:h.modus, held:h.held, kraft:kraftAktiv(h.held), regeln:h.regeln, seed:h.seed }));
   }
   function heldenBauen() {
     const E = einst();
@@ -1165,8 +1165,18 @@
     $('#raumCode').textContent = raum.code;
     $('#mitglieder').innerHTML = raum.mitglieder.map((m, i) => {
       const held = m.held && PT.HELDEN[m.held] ? PT.HELDEN[m.held].name : 'ohne Held';
-      return `<li style="--f:${PT.KOOP_FARBEN[i] || '#999'}" class="${m.online ? '' : 'weg'}"><i></i><b>${'⭐'.repeat(m.prestige || 0)}${esc(m.name)}</b>${m.titel && PT.TITEL[m.titel] ? `<span class="titel">${esc(PT.TITEL[m.titel])}</span>` : ''}${m.id === raum.host ? ' 👑' : ''}${m.id === netz.id ? ' (du)' : ''}<small>${esc(held)}${m.kraft ? ' ✨' : ''}${m.skin && m.skin !== 'standard' && PT.SKINS[m.skin] ? ' · ' + esc(PT.SKINS[m.skin].name) : ''}${m.online ? '' : ' · offline'}</small></li>`;
+      return `<li style="--f:${PT.KOOP_FARBEN[i] || '#999'}" class="${m.online ? '' : 'weg'}"><i></i><b>${'⭐'.repeat(m.prestige || 0)}${esc(m.name)}</b>${m.titel && PT.TITEL[m.titel] ? `<span class="titel">${esc(PT.TITEL[m.titel])}</span>` : ''}${m.id === raum.host ? ' 👑' : ''}${m.id === netz.id ? ' (du)' : ''}<small>${esc(held)}${m.kraft ? ' ✨' : ''}${m.rolle && PT.ROLLEN[m.rolle] ? ' · ' + PT.ROLLEN[m.rolle].symbol + ' ' + esc(PT.ROLLEN[m.rolle].name) : ''}${m.skin && m.skin !== 'standard' && PT.SKINS[m.skin] ? ' · ' + esc(PT.SKINS[m.skin].name) : ''}${m.online ? '' : ' · offline'}</small></li>`;
     }).join('');
+    // Rolle wählen (nur in der Lobby, jeder für sich)
+    const rw = $('#rollenWahl'), ichM = raum.mitglieder.find(m => m.id === netz.id);
+    rw.hidden = raum.phase !== 'lobby' || !ichM;
+    if (!rw.hidden) {
+      rw.innerHTML = '<span style="align-self:center;font-weight:800">Deine Rolle:</span>' + [null, ...PT.ROLLEN_REIHE].map(id => {
+        const r = id && PT.ROLLEN[id];
+        return `<button type="button" data-rolle="${id || ''}" aria-pressed="${(ichM.rolle || null) === id}" title="${esc(r ? r.text : 'Keine besondere Rolle.')}">${r ? r.symbol + ' ' + esc(r.name) : 'Keine'}</button>`;
+      }).join('');
+      rw.querySelectorAll('button').forEach(b => { b.onclick = () => { PT.Ton.klick(); senden({ t:'rolle', rolle:b.dataset.rolle || null }); }; });
+    }
     $('#koopHinweis').textContent = raum.phase === 'spiel' ? 'In diesem Raum läuft gerade eine Partie.' : raum.einst.versus
       ? (binHost() ? `⚔️ Versus: genau 2 Spieler. Wähl Karte und Schwierigkeit, dann starte. Dein Gegner tritt mit dem Code ${raum.code} bei.` : '⚔️ Versus! Such dir deinen Helden aus. Karte und Schwierigkeit wählt der Gastgeber.')
       : binHost()
@@ -1852,6 +1862,7 @@
     }
     if (t.eff.camo) teile.push('👁 Tarnung');
     if (t.eff.gebufft) teile.push('🪶 verstärkt');
+    if (t.eff.kombo) teile.push(`${t.eff.kombo.symbol} Kombo: ${t.eff.kombo.name}`);
     if (t.eff.geld) {
       const g = t.eff.geld;
       if (g.kisten) teile.push(`📦 ${g.kisten} × ${Math.round(g.wert)}`);
@@ -1978,7 +1989,9 @@
       return `<span class="${PT.FISCHE[g.typ].boss ? 'boss' : ''}" title="${esc(PT.FISCHE[g.typ].name)}"><img src="${fischBilder[g.typ] || ''}" alt="${esc(PT.FISCHE[g.typ].name)}">${g.anzahl}×${zus ? `<em>${zus}</em>` : ''}</span>`;
     });
     el.classList.toggle('klein', vorschauKlein);
-    el.innerHTML = `<b>🔍 Runde ${n}${r.boss ? ` · ${PT.BOSSE[r.bossTyp].symbol} Boss!` : ''}${vorschauKlein ? ' ▸' : ''}</b><div class="vf">${teile.join('')}</div>`;
+    const mu = spiel.mutationen && !r.boss ? PT.MUTATIONEN[PT.mutationFuer(n, spiel.seed)] : null;
+    const wechsel = spiel.kartenDaten.wechsel ? spiel.offeneWege(n) : null;
+    el.innerHTML = `<b>🔍 Runde ${n}${r.boss ? ` · ${PT.BOSSE[r.bossTyp].symbol} Boss!` : ''}${vorschauKlein ? ' ▸' : ''}</b>${mu ? `<small class="mut" title="${esc(mu.text)}">${mu.symbol} ${esc(mu.name)}</small>` : ''}${wechsel ? `<small class="mut">🧊 Kanal ${wechsel.map(i => i + 1).join(', ')} offen</small>` : ''}<div class="vf">${teile.join('')}</div>`;
   }
 
   // Wetter oben in der Leiste
@@ -2228,7 +2241,9 @@
   function ereignisse(liste) {
     for (const e of liste) {
       if (e.art === 'rundeStart') {
+        const mu = e.mutation && PT.MUTATIONEN[e.mutation];
         if (e.boss) banner(`${PT.BOSSE[e.bossTyp].symbol} ${PT.FISCHE[e.bossTyp].name} ist da!`, e.boss === 1 ? 'Boss Stufe 1 – lass ihn nicht durch!' : 'Boss Stufe 2 – das große Finale!', 3);
+        else if (mu) banner(`Runde ${e.runde} · ${mu.symbol} ${mu.name}`, mu.text);
         else if (e.wetter && PT.WETTER[e.wetter]) banner(`${PT.WETTER[e.wetter].symbol} ${PT.WETTER[e.wetter].name}!`, PT.WETTER[e.wetter].text, 3);
         else banner(`Runde ${e.runde}`, rundenHinweis(e.runde));
         wetterHud();
@@ -2264,9 +2279,9 @@
       if (e.art === 'leck' && spiel.leben < spiel.startLeben / 2) funk('knapp');
       if (e.art === 'rundeEnde') {
         const n = e.runde + 1;
-        const boss = PT.bossFuer(spiel.modus);
-        const bossRunde = boss && Object.keys(PT.BOSSE[boss].runden).map(Number).find(r => r >= n && r - n <= 2);
-        if (bossRunde) { const k = bossRunde - n + 1; banner(`Runde ${e.runde} geschafft!`, `${PT.FISCHE[boss].name} kommt in ${k} ${k === 1 ? 'Runde' : 'Runden'} – stell auf „Stärkster“!`, 2.6); }
+        const plan = PT.bossPlan(spiel.modus);
+        const bossRunde = Object.keys(plan).map(Number).sort((a, b) => a - b).find(r => r >= n && r - n <= 2);
+        if (bossRunde) { const k = bossRunde - n + 1; banner(`Runde ${e.runde} geschafft!`, `${PT.FISCHE[plan[bossRunde][0]].name} kommt in ${k} ${k === 1 ? 'Runde' : 'Runden'} – stell auf „Stärkster“!`, 2.6); }
         else banner(`Runde ${e.runde} geschafft!`, `+${zahl(e.bonus)} 💰`);
         xpDazu(PT.passXpRunde(e.runde, spiel.stufe));
         fortschrittMelden('runde');
@@ -2279,6 +2294,8 @@
       if (e.art === 'flutwelle' && spiel.tuerme.some(t => t.betaeubt > 0 && (!spiel.koop || t.besitzer === ich()))) kurzTipp('🌊 Flutwelle! Deine Pinguine am Ufer sind kurz betäubt.');
       if (e.art === 'eisatem' && spiel.tuerme.some(t => t.betaeubtArt === 'eis' && (!spiel.koop || t.besitzer === ich()))) kurzTipp('❄️ Eisatem! Pinguine am Ufer sind eingefroren.');
       if (e.art === 'schmelzWarnung') kurzTipp('💧 Achtung: Nach der nächsten Runde schmilzt eine Eisfläche (blau gestrichelt). Wer dort steht, bekommt sein Geld zurück.');
+      if (e.art === 'wegWarnung') kurzTipp('🧊 Wechselwasser: In der übernächsten Runde wechselt der offene Kanal. Plane deine Pinguine um.');
+      if (e.art === 'tauWechsel') { kurzTipp('🧊 Wechselwasser! In der nächsten Runde schwimmen die Fische durch den anderen Kanal (der zugefrorene hat einen Eisdeckel).'); letzteAnzeige = ''; }
       if (e.art === 'geschmolzen') { kurzTipp('💧 Eine Eisfläche ist geschmolzen – jetzt dürfen dort Boote hin.'); letzteAnzeige = ''; }
       if (e.art === 'bossBesiegt') {
         const B = PT.BOSSE[e.typ] || PT.BOSSE.krakus;

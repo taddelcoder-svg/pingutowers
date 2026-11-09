@@ -6,24 +6,32 @@ Fisch – vom Rotbarsch bis zur Riesenkrake, zu Krakus und Kaiser Orka. Allein o
 
 ## Spiel
 
-- **11 Karten:** Eisscholle und Pinguinbucht (Anfänger, die Bucht endet in einem Eisloch und hat
+- **12 Karten:** Eisscholle und Pinguinbucht (Anfänger, die Bucht endet in einem Eisloch und hat
   Wasserlöcher), Eiskreuz (Mittel, der Kanal kreuzt sich selbst, mit Fischerhafen), Gletscherspalte,
   Eistunnel (Mittel, zwei Tunnel – darunter sieht nur der Taucher-Pinguin die Fische), Schmelzscholle
   (Mittel, Eisflächen schmelzen in Runde 10, 15, 20, 25 und 30 zu Wasser; wer dort steht, bekommt sein
   Geld zurück, danach dürfen Boote hin), Erebus-Krater (Mittel, mit Vulkan und Lavaspalten), Polarnacht,
   Doppelstrom (Profi, zwei Kanäle), Treibeis-Inseln (Profi, viele Wasserlöcher) und Dreizack (Profi, drei
-  Schlangen-Kanäle). Weil sich die Fische auf mehrere Kanäle aufteilen, gibt es dort mehr Geld (Startgeld und
+  Schlangen-Kanäle) und Wechselwasser (Profi, zwei Kanäle, aber immer nur einer ist offen: alle 6 Runden friert er zu,
+  der andere taut auf; der Eisdeckel zeigt den zugefrorenen Kanal, eine Warnung kommt zwei Runden vorher, dazu schmelzen
+  zwei Eisflächen). Weil sich die Fische auf mehrere Kanäle aufteilen, gibt es dort mehr Geld (Startgeld und
   alle Einnahmen × 1,3 bei zwei, × 1,5 bei drei Kanälen; gilt auch für eigene Karten). Eisberge zwischen den
   Kanälen verhindern, dass ein einziger Platz in der Mitte alles abdeckt.
 - **Karten-Editor:** Kanäle (bis zu drei) zeichnen, Eisberge, Wasserlöcher und Tunnel setzen, Thema wählen,
   speichern, spielen und als Link teilen (`?karte=…`). Eigene Karten gehen auch im Koop (der Gastgeber wählt sie).
 - **4 Stufen:** Leicht (30 Runden, 200 Leben, Preise −15 %), Mittel (40 Runden, 150 Leben),
   Schwer (60 Runden, 100 Leben, +8 %), Extrem (80 Runden, 1 Leben, +20 %). Nach dem Sieg geht es endlos weiter.
-- **10 Spielmodi:** Standard, Nur Grundpinguine, Umgekehrt, Halbes Geld, Fischflut (keine Pausen),
+- **12 Spielmodi:** Standard, Nur Grundpinguine, Umgekehrt, Halbes Geld, Fischflut (keine Pausen),
   Boss-Jagd (Krakus in Runde 20 und 40), Orka-Angriff (Kaiser Orka in Runde 25 und 50, seine
   Flutwellen betäuben Pinguine am Ufer), Hai-König (Runde 20 und 40, ruft ständig Fische herbei),
   Leviathan-Erwachen (Eis-Leviathan in Runde 30 und 60, sein Eisatem friert Pinguine ein) und
+  Mutanten-Wellen (ab Runde 3 haben alle Fische einer Runde ein Merkmal: Schild, Teilung, Tarnung, Heilen oder Eile;
+  die Rundenvorschau verrät es vorher), Boss-Rush (alle 10 Runden der nächste Boss: Krakus, Orka, Leviathan, Hai-König,
+  ab Runde 50 in Stufe 2; mit jeder Phase wird ein Boss 12 % schneller) und
   Sandkasten (unendlich Geld, Fische selbst losschicken).
+- **Kombos:** Zwei passende Pinguine nahe beieinander (höchstens 110 Pixel) verstärken sich gegenseitig, z. B. Frost +
+  Schneeball = Blizzard, Zapfen + Stachel = Stachelhagel, Harpune + Taucher = Fangnetz, Polarlicht + Laser = Kurzschluss
+  (alle Kombos stehen in `PT.KOMBOS`, in der Seitenleiste steht „Kombo: …“).
 - **19 Pinguine** in vier Gruppen, je 3 Upgrade-Pfade mit 5 Stufen (höchstens 5-2-0, und jede
   Stufe 5 nur einmal pro Pinguinart und Pfad):
   - Primär: Zapfen-, Stachel-, Schneeball- und Frost-Pinguin
@@ -54,6 +62,9 @@ Fisch – vom Rotbarsch bis zur Riesenkrake, zu Krakus und Kaiser Orka. Allein o
 - **Koop:** bis zu 4 Spieler in einem Raum (4-stelliger Code). Der Gastgeber wählt Karte, Stufe,
   Modus und Geld: geteilt (eine Kasse, jeder darf alles) oder getrennt (jeder hat seine Kasse und
   rüstet nur eigene Pinguine auf). Jeder hat seinen eigenen Helden; Pause, Tempo und Auto gelten für alle.
+  In der Lobby wählt jeder eine **Rolle** (oder keine): Baumeister (Upgrades der eigenen Pinguine −10 %), Heiler
+  (+2 Leben für das Team am Rundenende, höchstens die Startleben), Taktiker (eigene Pinguine +10 % Reichweite und 8 % schneller)
+  oder Heldentrainer (Held bekommt +50 % Erfahrung).
   Der Server rechnet das Spiel mit und gibt den Takt vor, die Browser rechnen Takt für Takt nach und
   bekommen bei Abweichung den Spielstand neu. Wer die Verbindung verliert, kommt nach dem Neuladen zurück.
 - **Pinguin-Pass:** Erfahrung für Runden, Bosse, Siege, Tagesaufträge und die Tages-Herausforderung,
@@ -63,7 +74,8 @@ Fisch – vom Rotbarsch bis zur Riesenkrake, zu Krakus und Kaiser Orka. Allein o
   Jeden Tag gibt es drei **Tagesaufträge** (z. B. Fische erwischen, Fähigkeiten einsetzen, Stufe 5 kaufen).
   Looks und Sockel sieht man auch im Koop. Im Browser gespeichert.
 - **Tägliche Herausforderung:** jeden Tag dieselbe feste Aufgabe für alle (Karte, Stufe, Held und ein oder
-  zwei Regeln wie „Nur Militär“, „Höchstens 6 Pinguine“, „Kein Verkaufen“, „Upgrades bis Stufe 3“).
+  zwei Regeln wie „Nur Militär“, „Höchstens 6 Pinguine“, „Kein Verkaufen“, „Upgrades bis Stufe 3“, „Mutanten-Tag“).
+  Der Startwert kommt aus dem Datum, damit alle dieselben Mutationen sehen.
 - **Fischmünzen und Pinguin-Wissen:** Münzen für Runden, Siege, Erfolge, Aufträge und Pass-Stufen; damit
   lernen die Pinguine dauerhaft dazu (Startgeld, Leben, Rabatt, Rundenbonus, Helden-Erfahrung, Fähigkeiten).
   Gilt im Einzelspiel, nicht in Olympiade, Koop und Tages-Herausforderung; lässt sich abschalten.
@@ -175,7 +187,7 @@ npm start
 
 Dann http://localhost:10700 öffnen (vorher einmal `npm install`, einzige Abhängigkeit: `ws` für den Koop). Node ≥ 18.
 
-- `npm test` – Stresstest der Logik (jeder Pinguin in vielen Upgrade-Kombinationen, alle Helden,
+- `npm test` – Stresstest der Logik, `test/neu-test.js` (Mutationen, Kombos, Wechselwasser, Boss-Rush, Koop-Rollen) (jeder Pinguin in vielen Upgrade-Kombinationen, alle Helden,
   Fähigkeiten, Modi und Karten, Meisterkräfte, Orka, Speichern/Laden, Nachwachsen), der Koop-Test
   (zwei Browser ohne Netz gegen den Raum-Server) und der Balance-Bot.
 - `node test/sim.js [karte] [stufe] [modus] [bis]` – Balance-Test ohne Grafik: ein Bot baut nach Plan.

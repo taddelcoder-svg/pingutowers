@@ -144,7 +144,8 @@
     { titel:'Teure Zeiten', text:'Alles kostet 40 % mehr, dafür 1.200 Startgeld.', regeln:() => ({ preis:1.4, geld:1200 }) },
     { titel:'Glaskanone', text:'Nur 25 Leben.', regeln:() => ({ leben:25 }) },
     { titel:'Allein gegen alle', text:'Kein Held.', regeln:() => ({ ohneHeld:true }) },
-    { titel:'Knappe Kasse', text:'Nur 450 Startgeld.', regeln:() => ({ geld:450 }) }
+    { titel:'Knappe Kasse', text:'Nur 450 Startgeld.', regeln:() => ({ geld:450 }) },
+    { titel:'Mutanten-Tag', text:'Ab Runde 3 haben alle Fische einer Runde ein Merkmal (Schild, Teilung, Tarnung, Heilen oder Eile).', regeln:() => ({ mutation:true }) }
   ];
   PT.tagesHerausforderung = function (datum) {
     const z = zufallAus('tag|' + datum);
@@ -156,7 +157,7 @@
     const regeln = { ...a.regeln(), ...(b ? b.regeln() : {}), runden:wahl(z, [25, 30, 35]) };
     const held = regeln.ohneHeld ? null : wahl(z, PT.HELDEN_REIHE);
     return {
-      datum, karte, stufe, modus:'standard', held, regeln,
+      datum, karte, stufe, modus:'standard', held, regeln, seed:Math.floor(z() * 0xffffff),
       titel:b ? `${a.titel} + ${b.titel}` : a.titel,
       text:[a.text, b && b.text, `${regeln.runden} Runden auf ${PT.KARTEN[karte].name} (${PT.STUFEN[stufe].name})${held ? `, Held: ${PT.HELDEN[held].name}` : ''}.`].filter(Boolean).join(' '),
       xp:600 + (stufe === 'schwer' ? 300 : stufe === 'mittel' ? 150 : 0), muenzen:stufe === 'schwer' ? 25 : stufe === 'mittel' ? 18 : 12
