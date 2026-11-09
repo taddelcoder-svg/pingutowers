@@ -222,6 +222,10 @@
   .mitglieder li { background: var(--eis); border-radius: 12px; padding: 8px 12px; border-left: 6px solid var(--f); }
   .mitglieder li.weg { opacity: .5; }
   .mitglieder small { display: block; color: var(--tinte-weich); }
+  .rollen { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+  .rollen button { font: inherit; font-weight: 800; padding: 6px 10px; border-radius: 999px; border: 2px solid var(--eis); background: var(--eis); color: inherit; cursor: pointer; }
+  .rollen button[aria-pressed="true"] { border-color: var(--f, #2f7fe0); background: #fff; }
+  .vorschau .mut { display: block; font-weight: 800; color: #ffd54a; font-size: .8rem; }
   .mitspieler { display: flex; gap: 6px; flex-wrap: wrap; }
   .mitspieler .sp { display: flex; align-items: center; gap: 5px; font-size: .85rem; font-weight: 700; padding: 3px 8px; border-radius: 8px; background: var(--panel-2); }
   .mitspieler .sp i, .besitzer i { width: 10px; height: 10px; border-radius: 50%; background: var(--f); display: inline-block; }
@@ -1099,6 +1103,7 @@
       <div id="koopRaum" hidden>
         <div class="raum-code">Raum-Code <b id="raumCode"></b></div>
         <ul class="mitglieder" id="mitglieder"></ul>
+        <div id="rollenWahl" class="rollen" hidden></div>
         <p id="koopHinweis" style="color:var(--tinte-weich);margin:0"></p>
         <button class="knopf" id="koopRaus" style="margin-top:12px">Raum verlassen</button>
       </div>

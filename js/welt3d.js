@@ -574,10 +574,19 @@
       const uferFarben = [[0.88, 0.95, 1], [0.97, 0.99, 1], [1, 1, 1], [0.7, 0.85, 0.97]];   // Eiskante: unten bläulich, oben weiß
       const glitzMat = new T.MeshBasicMaterial({ map:glitzTextur(), color:thema.lava ? 0xffb090 : 0xcfeeff, transparent:true, opacity:0.3, blending:T.AdditiveBlending, depthWrite:false });
       this.glitzMat = glitzMat;
-      for (const w of spiel.wege) {
+      this.deckel = [];
+      for (const [wi, w] of spiel.wege.entries()) {
         const wasser = new T.Mesh(wegBand(w, [[-b - 1, WASSER_Y], [0, WASSER_Y], [b + 1, WASSER_Y]], 120), wasserMat);
         wasser.receiveShadow = true;
         sc.add(wasser);
+        // Tauwetter: ein zugefrorener Kanal bekommt einen Eisdeckel
+        if (spiel.kartenDaten.wechsel) {
+          const deckel = new T.Mesh(wegBand(w, [[-b - 1, WASSER_Y + 3], [0, WASSER_Y + 3.6], [b + 1, WASSER_Y + 3]], 120),
+            new T.MeshPhongMaterial({ color:0xf4fbff, transparent:true, opacity:0.95, shininess:90, specular:0xffffff, side:T.DoubleSide }));
+          deckel.renderOrder = 4; deckel.receiveShadow = true; deckel.visible = false;
+          sc.add(deckel);
+          this.deckel[wi] = deckel;
+        }
         const glitz = new T.Mesh(wegBand(w, [[-b - 1, WASSER_Y + 0.3], [0, WASSER_Y + 0.3], [b + 1, WASSER_Y + 0.3]], 70), glitzMat);
         glitz.renderOrder = 3;
         sc.add(glitz);
@@ -1594,6 +1603,10 @@
         r.m.material.opacity = 0.5 * (1 - r.t);
       }
 
+      if (this.deckel && this.deckel.length) {
+        const offen = spiel.offeneWege(spiel.runde + 1);
+        this.deckel.forEach((d, i) => { if (d) d.visible = !offen.includes(i); });
+      }
       for (const z of this.schmelzFlaechen || []) {
         z.g.visible = z.runde <= spiel.runde;
         z.warn.material.opacity = z.runde === spiel.runde + 1 ? 0.35 + Math.sin(this.zeit * 5) * 0.3 : 0;

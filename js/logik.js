@@ -10,6 +10,21 @@
   const ZELLE = 64;           // Rastergröße für die Kollisionssuche
   const TURM_R = { markt:26, haeuptling:19, boot:20, orca:22, flieger:20, fabrik:21, moerser:19, eisbaer:24, koch:21, mecha:23 };
   PT.turmRadius = typ => TURM_R[typ] || 17;
+  /* ---------- Kombos ----------
+     Zwei passende Pinguine nahe beieinander (höchstens KOMBO_ABSTAND Pixel) verstärken sich gegenseitig:
+     tempo (Faktor auf die Wartezeit, kleiner = schneller), reichweite (Anteil) und camo (sieht Getarnte). */
+  const KOMBO_ABSTAND = 110;
+  PT.KOMBOS = [
+    { a:'frost', b:'schneeball', name:'Blizzard', symbol:'🌨️', tempo:0.82 },
+    { a:'zapfen', b:'rundum', name:'Stachelhagel', symbol:'🌵', tempo:0.85 },
+    { a:'harpune', b:'taucher', name:'Fangnetz', symbol:'🕸️', reichweite:0.15 },
+    { a:'boot', b:'taucher', name:'Marine', symbol:'⚓', tempo:0.88, reichweite:0.1 },
+    { a:'polar', b:'laser', name:'Kurzschluss', symbol:'⚡', tempo:0.85 },
+    { a:'ninja', b:'moerser', name:'Schattenartillerie', symbol:'🌑', camo:true, reichweite:0.1 },
+    { a:'eisbaer', b:'mecha', name:'Schwergewichte', symbol:'🏋️', tempo:0.88 },
+    { a:'flieger', b:'schneeball', name:'Luftschlag', symbol:'🪂', tempo:0.9, reichweite:0.1 }
+  ];
+  PT.komboFuer = (typ, partner) => PT.KOMBOS.find(k => (k.a === typ && k.b === partner) || (k.b === typ && k.a === partner)) || null;
   const MAX_HAUFEN = 40;      // so viele Stachelhaufen darf eine Fabrik gleichzeitig liegen haben
 
   /* ---------- Weg: abgerundete Ecken, gleichmäßig abgetastet ---------- */
@@ -126,6 +141,9 @@
       this.weg = this.wege[0];
       this.tunnel = this.kartenDaten.tunnel || [];
       this.schmelzen = this.kartenDaten.schmelzen || [];
+      this.seed = seed >>> 0;
+      this.mutationen = this.modus === 'mutation' || !!rg.mutation;
+      this.mutation = null;      // Merkmal der Fische in der laufenden Runde
       const st = PT.STUFEN[this.stufe];
       this.zielRunden = runden || rg.runden || md.runden || st.runden;
       this.unendlich = this.modus === 'sandkasten';
@@ -139,7 +157,7 @@
         this.held = null;
         this.spieler = spieler.slice(0, PT.KOOP_MAX).map((x, i) => ({
           id:String(x.id), name:String(x.name || 'Pinguin').slice(0, 16), farbe:i,
-          held:x.held && PT.HELDEN[x.held] && !md.ohneHeld ? x.held : null, kraft:!!x.kraft, boni:PT.boniOk ? PT.boniOk(x.boni) : null,
+          held:x.held && PT.HELDEN[x.held] && !md.ohneHeld ? x.held : null, kraft:!!x.kraft, boni:PT.boniOk ? PT.boniOk(x.boni) : null, rolle:PT.ROLLEN[x.rolle] ? x.rolle : null,
           geld:this.geldModus === 'getrennt' ? this.geld : 0
         }));
         // Pingu-Dorf jedes Spielers: Startgeld in seine Kasse (bzw. die gemeinsame), Leben das Beste davon
@@ -197,6 +215,7 @@
       if (this.geldModus !== 'getrennt') return this;
       return this.spielerVon(sp) || { geld:0 };
     }
+    rolleVon(sp) { const x = this.spielerVon(sp); return x ? x.rolle || null : null; }
     heldVon(sp) { if (!this.koop) return this.held; const x = this.spielerVon(sp); return x ? x.held : null; }
     // Darf dieser Spieler den Pinguin aufrüsten, verkaufen, umstellen? Bei getrenntem Geld nur die eigenen.
     darf(t, sp) { return !this.koop || this.geldModus !== 'getrennt' || t.besitzer === sp; }
@@ -241,7 +260,8 @@
     preisBau(typ, x, y) { return PT.preis(PT.def(typ).preis * this.preisFaktor(), this.stufe, this.rabattGesamt(x == null ? 0 : this.rabattAn(x, y))); }
     preisUpgrade(t, i) {
       const u = PT.PINGUINE[t.typ] && PT.PINGUINE[t.typ].pfade[i][t.pfade[i]];
-      return u ? PT.preis(u.preis * this.preisFaktor(), this.stufe, this.rabattGesamt(this.rabattAn(t.x, t.y, t))) : Infinity;
+      const baumeister = this.rolleVon(t.besitzer) === 'baumeister' ? 0.1 : 0;   // Koop-Rolle
+      return u ? PT.preis(u.preis * this.preisFaktor(), this.stufe, 1 - (1 - this.rabattGesamt(this.rabattAn(t.x, t.y, t))) * (1 - baumeister)) : Infinity;
     }
     // Stufe 5 gibt es pro Pinguinart und Pfad nur einmal
     upgradeErlaubt(t, i) {
@@ -329,7 +349,7 @@
       return true;
     }
     heldErfahrung(t, xp) {
-      t.xp += xp * (1 + ((this.boni && this.boni.heldXp) || 0));
+      t.xp += xp * (1 + ((this.boni && this.boni.heldXp) || 0)) * (this.rolleVon(t.besitzer) === 'trainer' ? 1.5 : 1);
       let auf = false;
       while (t.stufe < 10 && t.xp >= PT.HELDEN_STUFEN[t.stufe + 1]) { t.stufe++; auf = true; }
       if (auf) { this.neuBerechnen(); this.ereignisse.push({ art:'aufstieg', turm:t, stufe:t.stufe }); }
@@ -387,6 +407,28 @@
           }
         }
         e.gebufft = !!b;
+        // Kombo: der beste Partner in der Nähe (hier gewinnt der mit dem kleinsten Abstand)
+        let kombo = null, kd = KOMBO_ABSTAND + 1;
+        for (const u of this.tuerme) {
+          if (u === t) continue;
+          const k = PT.komboFuer(t.typ, u.typ);
+          const d = k ? Math.hypot(u.x - t.x, u.y - t.y) : 1e9;
+          if (k && d <= KOMBO_ABSTAND && d < kd) { kombo = k; kd = d; }
+        }
+        if (this.koop && this.rolleVon(t.besitzer) === 'taktiker') {
+          if (e.reichweite < 5000) e.reichweite *= 1.1;
+          for (const a of e.angriffe) { a.intervall *= 0.92; if (a.reichweite) a.reichweite *= 1.1; if (a.art === 'wurf' || a.art === 'rundum') a.flug *= 1.1; }
+        }
+        if (kombo) {
+          if (kombo.reichweite && e.reichweite < 5000) e.reichweite *= 1 + kombo.reichweite;
+          e.camo = e.camo || !!kombo.camo;
+          for (const a of e.angriffe) {
+            if (kombo.tempo) a.intervall *= kombo.tempo;
+            if (kombo.reichweite && a.reichweite) a.reichweite *= 1 + kombo.reichweite;
+            if (kombo.reichweite && (a.art === 'wurf' || a.art === 'rundum')) a.flug *= 1 + kombo.reichweite;
+          }
+          e.kombo = { name:kombo.name, symbol:kombo.symbol };
+        }
         t.eff = e;
         while (t.cd.length < e.angriffe.length) t.cd.push(0);
         t.cd.length = e.angriffe.length;
@@ -420,10 +462,16 @@
         this.ereignisse.push({ art:'wegWechsel', weg:i, x, y });
       }
       if (rg.wegeAb) rg.wegeAb.forEach((ab, i) => { if (ab === n && n > 1 && this.wege[i]) this.ereignisse.push({ art:'wegOffen', weg:i, x:this.wege[i].punkt(this.wege[i].vonDist + 30)[0], y:this.wege[i].punkt(this.wege[i].vonDist + 30)[1] }); });
+      // Tauwetter (Karte): immer nur ein Kanal ist offen
+      if (this.kartenDaten.wechsel) offen = this.offeneWege(n);
       const wn = offen.length || 1;
+      const mut = this.mutationen ? PT.mutationFuer(n, this.seed) : null;
+      this.mutation = mut;
       r.gruppen.forEach((g, gi) => {
+        const boss = g.typ === r.bossTyp ? r.boss : 0;
         for (let i = 0; i < g.anzahl; i++) {
-          this.warteschlange.push({ t:g.start + i * g.abstand, typ:g.typ, camo:g.camo, nach:g.nach, fest:g.fest, p:offen[(gi + i) % wn] || 0, boss:g.typ === r.bossTyp ? r.boss : 0 });
+          this.warteschlange.push({ t:g.start + i * g.abstand, typ:g.typ, camo:g.camo || (mut === 'tarn' && !boss), nach:g.nach || (mut === 'heilen' && !boss), fest:g.fest,
+            p:offen[(gi + i) % wn] || 0, boss, mut:boss ? null : mut });
         }
         ende = Math.max(ende, g.start + g.anzahl * g.abstand);
       });
@@ -438,7 +486,7 @@
         for (let i = 0; i < g.kisten; i++) this.kisten.push({ t:(i + 1) * dauer / (g.kisten + 1), turm:t, wert:Math.round(g.wert) });
       }
       this.kisten.sort((a, b) => b.t - a.t);
-      this.ereignisse.push({ art:'rundeStart', runde:n, boss:r.boss || 0, bossTyp:r.bossTyp || null, wetter:this.wetter });
+      this.ereignisse.push({ art:'rundeStart', runde:n, boss:r.boss || 0, bossTyp:r.bossTyp || null, wetter:this.wetter, mutation:mut, offen });
       return true;
     }
     // Abenteuer: zu Beginn einer Runde zerstört Sabotage die teuersten Pinguine, ein Held fällt
@@ -475,6 +523,8 @@
       if (this.zufall() < chance) this.wetter = PT.WETTER_REIHE[Math.floor(this.zufall() * PT.WETTER_REIHE.length)];
       this.wetterT = 0;
     }
+    // Kanäle, durch die in Runde n Fische schwimmen (Tauwetter: immer nur einer)
+    offeneWege(n) { return PT.offeneWege(this.kartenDaten, n, this.wege.length); }
     // Sandkasten: Fische selbst losschicken
     sandFische(typ, anzahl = 1, zusatz = {}) {
       if (!FISCHE[typ] || this.vorbei) return;
@@ -485,7 +535,8 @@
       const start = this.rundenZeit + 0.1;
       const abstand = FISCHE[typ].riese ? 1.2 : 0.25;
       for (let i = 0; i < anzahl; i++) {
-        this.warteschlange.push({ t:start + i * abstand, typ, camo:!!zusatz.camo, nach:!!zusatz.nach, fest:!!zusatz.fest, p:i % this.wege.length, boss:FISCHE[typ].boss ? 1 : 0 });
+        const offen = this.offeneWege(this.runde + 1);
+        this.warteschlange.push({ t:start + i * abstand, typ, camo:!!zusatz.camo, nach:!!zusatz.nach, fest:!!zusatz.fest, p:offen[i % offen.length], boss:FISCHE[typ].boss ? 1 : 0 });
       }
       this.warteschlange.sort((a, b) => b.t - a.t);
     }
@@ -501,7 +552,8 @@
         nach:!!mods.nach && !T.riese, ursprung:mods.ursprung || typ, nachT:0,
         frost:0, betaeubt:0, langsam:1, langsamT:0, wind:1, x:-100, y:-100, w:0, tot:false, geboren:this.zeit,
         luft:0, sprungT:T.springen ? (this.naechsteId % 9) * 0.29 : 0, gross:0, blasPause:0, tunnel:false, bossT:0, kt:{}, schild:0, geschickt:!!mods.geschickt,
-        gespiegelt:!!mods.gespiegelt
+        gespiegelt:!!mods.gespiegelt,
+        mut:T.boss ? null : mods.mut || null, mutSchild:mods.mut === 'schild' && !T.boss && !mods.erbe ? 1 : 0
       };
       f.hpMax = f.hp;
       if (vorbild) {
@@ -547,6 +599,7 @@
       if (a.schrumpf && riese) { f.hp -= f.hpMax * a.schrumpf * (f.boss ? 0.25 : 1); if (f.boss) this.bossPruefen(f); }
       const schaden = a.schaden + (riese ? a.riesen : 0);
       if (schaden <= 0) return true;
+      if (f.mutSchild > 0) { f.mutSchild--; this.ereignisse.push({ art:'mutSchild', x:f.x, y:f.y }); return true; }   // Mutation Schild
       f.hp -= schaden;
       f.nachT = 0;
       if (riese) this.ereignisse.push({ art:'riesenTreffer', fisch:f });
@@ -604,7 +657,9 @@
         const neu = this.neuerFisch(zweite, Math.max(0, f.dist - 60), { boss:f.boss }, null, f.p);
         this.ereignisse.push({ art:'zweitePhase', typ:zweite, x:neu.x, y:neu.y, fisch:neu });
       }
-      const kinder = FISCHE[f.typ].kinder;
+      const kinder = FISCHE[f.typ].kinder.slice();
+      // Mutation Teilung: ein Fisch mehr, als es sonst gäbe (nur wenn überhaupt etwas übrig bleibt)
+      if (f.mut === 'teilung' && kinder.length && !T.boss) kinder.push(kinder[0]);
       // Spiegel: nur Fische aus der Welle selbst (nicht ihre Kinder) werfen ein Spiegelbild in den anderen Kanal
       const rs = this.regeln && this.regeln.spiegel;
       if (rs && !f.boss && !f.gespiegelt && f.ursprung === f.typ && kinder.length && this.wege.length > 1 && this.zufall() < rs) {
@@ -615,7 +670,7 @@
       const neue = [];
       kinder.forEach((k, i) => {
         const c = this.neuerFisch(k, Math.max(0, f.dist - i * (FISCHE[f.typ].riese ? 14 : 7)),
-          { camo:f.camo && FISCHE[f.typ].immer !== 'camo', nach:f.nach, ursprung:f.ursprung, fest:f.fest && PT.kannGepanzert(k), geschickt:f.geschickt, gespiegelt:f.gespiegelt }, f, f.p);
+          { camo:f.camo && FISCHE[f.typ].immer !== 'camo', nach:f.nach, ursprung:f.ursprung, fest:f.fest && PT.kannGepanzert(k), geschickt:f.geschickt, gespiegelt:f.gespiegelt, mut:f.mut, erbe:true }, f, f.p);
         if (getroffen) getroffen.add(c.id);
         neue.push(c);
       });
@@ -668,10 +723,11 @@
     tempo(f) {
       if (f.frost > 0 || f.betaeubt > 0) return 0;
       const sab = this.sabotage && this.zeit < this.sabotage.bis ? this.sabotage.faktor : 1;
-      if (f.boss) return FISCHE[f.typ].tempo * (1 + sab) / 2 * this.stroemung(f);
+      // Boss-Rush: mit jeder Phase wird der Boss um 12 % schneller
+      if (f.boss) return FISCHE[f.typ].tempo * (1 + sab) / 2 * this.stroemung(f) * (this.modus === 'bossrush' ? 1 + 0.12 * f.phase : 1);
       const W = this.W;
       return FISCHE[f.typ].tempo * f.langsam * f.wind * sab * (f.luft > 0 ? 1.5 : 1) * (W && W.fischTempo ? W.fischTempo : 1) * (this.zeit < this.vs.sturmBis ? 1.35 : 1)
-        * this.stroemung(f) * (this.imLicht(f.x) ? 1.2 : 1) * (this.albtraum ? 1.12 : 1);
+        * this.stroemung(f) * (this.imLicht(f.x) ? 1.2 : 1) * (this.albtraum ? 1.12 : 1) * (f.mut === 'eilig' ? 1.3 : 1);
     }
 
     // Orkas Bucht (Pingu-Dorf): verbündete Haie auch ohne Abenteuer – im Koop gilt die beste Bucht
@@ -1439,6 +1495,17 @@
       for (const held of this.tuerme) if (PT.HELDEN[held.typ]) this.heldErfahrung(held, PT.heldenXp(this.runde));
       this.schmelzPruefen();
       this.einsturzPruefen();
+      // Koop-Rolle Heiler: je Heiler 2 Leben zurück
+      if (this.koop && !this.unendlich) {
+        const heiler = this.spieler.filter(x => x.rolle === 'heiler').length;
+        if (heiler && this.leben < this.startLeben) { this.leben = Math.min(this.startLeben, this.leben + 2 * heiler); this.ereignisse.push({ art:'geheilt' }); }
+      }
+      // Tauwetter: Der offene Kanal wechselt – vorher warnen, damit man umbauen kann
+      if (this.kartenDaten.wechsel) {
+        const jetzt = this.offeneWege(this.runde).join(), danach = this.offeneWege(this.runde + 1).join();
+        if (jetzt !== danach) this.ereignisse.push({ art:'tauWechsel', offen:this.offeneWege(this.runde + 1) });
+        else if (this.offeneWege(this.runde + 2).join() !== danach) this.ereignisse.push({ art:'wegWarnung' });
+      }
       this.ereignisse.push({ art:'rundeEnde', runde:this.runde, bonus:Math.round(bonus) });
     }
 
@@ -1515,7 +1582,7 @@
         geldModus:this.geldModus, spieler:this.spieler.map(x => ({ ...x })),
         geld:this.geld, leben:this.leben, startLeben:this.startLeben, runde:this.runde, laeuft:this.laeuft, vorbei:this.vorbei,
         gewonnen:this.gewonnen, endlos:this.endlos, naechsteId:this.naechsteId, zeit:this.zeit, zufall:this.zufall.lesen(),
-        sabotage:this.sabotage, wetterAn:this.wetterAn, wetter:this.wetter, wetterT:this.wetterT, finsternisBis:this.finsternisBis,
+        seed:this.seed, mutation:this.mutation, sabotage:this.sabotage, wetterAn:this.wetterAn, wetter:this.wetter, wetterT:this.wetterT, finsternisBis:this.finsternisBis,
         dunkelT:this.dunkelT, wellenEnde:this.wellenEnde, denkmaeler:this.denkmaeler, einkommen:this.einkommen, extra:this.extra, vs:this.vs, rundenZeit:this.rundenZeit || 0, zaeh:this.zaeh || 1, sandWelle:!!this.sandWelle, statistik:{ ...this.statistik },
         warteschlange:this.warteschlange, kisten:this.kisten.map(k => ({ t:k.t, turm:tid(k.turm), wert:k.wert })),
         tuerme:this.tuerme.map(({ werte, eff, ...t }) => ({ ...t })),
@@ -1528,7 +1595,8 @@
     static ausZustand(z) {
       const kopie = JSON.parse(JSON.stringify(z));
       const s = new Spiel({ karte:kopie.karte, stufe:kopie.stufe, runden:kopie.zielRunden, modus:kopie.modus, held:kopie.held, kraft:kopie.kraft,
-        spieler:kopie.spieler.length ? kopie.spieler : null, geldModus:kopie.geldModus, eigeneKarte:kopie.eigeneKarte, regeln:kopie.regeln, boni:kopie.boni, wetter:kopie.wetterAn });
+        spieler:kopie.spieler.length ? kopie.spieler : null, geldModus:kopie.geldModus, eigeneKarte:kopie.eigeneKarte, regeln:kopie.regeln, boni:kopie.boni, wetter:kopie.wetterAn, seed:kopie.seed == null ? 12345 : kopie.seed });
+      s.mutation = kopie.mutation || null;
       for (const k of ['geld', 'leben', 'startLeben', 'runde', 'laeuft', 'vorbei', 'gewonnen', 'endlos', 'naechsteId', 'zeit', 'sabotage', 'wetter', 'wetterT', 'finsternisBis',
         'rundenZeit', 'zaeh', 'sandWelle', 'statistik', 'warteschlange', 'fische', 'dunkelT', 'wellenEnde', 'denkmaeler', 'einkommen', 'extra', 'vs']) if (kopie[k] !== undefined) s[k] = kopie[k];
       s.spieler = kopie.spieler;
@@ -1557,7 +1625,7 @@
     /* ---------- Speichern (nur zwischen den Runden) ---------- */
     speichern() {
       return {
-        v:2, karte:this.karte, stufe:this.stufe, modus:this.modus, held:this.held, zielRunden:this.zielRunden, runde:this.runde, geld:this.geld,
+        v:2, seed:this.seed, karte:this.karte, stufe:this.stufe, modus:this.modus, held:this.held, zielRunden:this.zielRunden, runde:this.runde, geld:this.geld,
         eigeneKarte:this.karte === 'eigen' ? this.kartenDaten : null, regeln:this.regeln, boni:this.boni,
         leben:this.leben, gewonnen:this.gewonnen, endlos:this.endlos, statistik:this.statistik, kraft:this.kraft, wetterAn:this.wetterAn, denkmaeler:this.denkmaeler,
         tuerme:this.tuerme.map(t => ({ typ:t.typ, x:t.x, y:t.y, pfade:t.pfade, ziel:t.ziel, investiert:t.investiert, pops:t.pops, stufe:t.stufe, xp:t.xp, zielPunkt:t.zielPunkt, muster:t.muster, fcd:t.fcd, kraft:!!t.kraft, verdient:t.verdient || 0 })),
@@ -1566,7 +1634,7 @@
     }
     static laden(d) {
       const s = new Spiel({ karte:d.karte, stufe:d.stufe, runden:d.zielRunden, modus:d.modus || 'standard', held:d.held || null, kraft:!!d.kraft,
-        eigeneKarte:d.eigeneKarte, regeln:d.regeln, boni:d.boni, wetter:!!d.wetterAn });
+        eigeneKarte:d.eigeneKarte, regeln:d.regeln, boni:d.boni, wetter:!!d.wetterAn, seed:d.seed == null ? 12345 : d.seed });
       Object.assign(s, { runde:d.runde, geld:d.geld, leben:d.leben, gewonnen:!!d.gewonnen, endlos:!!d.endlos, statistik:{ ...s.statistik, ...(d.statistik || {}) },
         denkmaeler:Array.isArray(d.denkmaeler) ? d.denkmaeler : [] });
       for (const t of d.tuerme || []) {

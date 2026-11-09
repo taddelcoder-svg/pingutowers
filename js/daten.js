@@ -109,9 +109,11 @@
     hai:        { name:'Hai-König', symbol:'🦈', text:'Der Hai-König kommt in Runde 20 und 40 und ruft ständig neue Fische herbei. Lässt du ihn durch, ist es vorbei.', runden:40 },
     tiefsee:    { name:'Tiefsee-Finsternis', symbol:'🏮', text:'Abyssos, der Tiefseekönig, kommt in Runde 35 und 70. Immer wieder wird es stockdunkel – dann sehen nur Pinguine mit Nachtsicht die Fische.', runden:70 },
     leviathan:  { name:'Leviathan-Erwachen', symbol:'🐉', text:'Der Eis-Leviathan taucht in Runde 30 und 60 auf. Sein Eisatem friert Pinguine am Ufer ein. Lässt du ihn durch, ist es vorbei.', runden:60 },
+    mutation:   { name:'Mutanten-Wellen', symbol:'🧬', text:'Ab Runde 3 bekommen alle Fische einer Runde ein zufälliges Merkmal: Schild, Teilung, Tarnung, Heilen oder Eile. Die Vorschau verrät es dir vorher.', runden:40 },
+    bossrush:   { name:'Boss-Rush', symbol:'👑', text:'Alle 10 Runden kommt der nächste Boss: Krakus, Kaiser Orka, Eis-Leviathan und Hai-König, danach alle noch einmal stärker. Mit jeder Phase wird ein Boss schneller. Lässt du einen durch, ist es vorbei.', runden:80 },
     sandkasten: { name:'Sandkasten', symbol:'🏖️', text:'Unendlich Geld und Leben. Schick die Fische selbst los und probier alles aus.' }
   };
-  PT.MODI_REIHE = ['standard', 'grund', 'umgekehrt', 'halb', 'flut', 'boss', 'orka', 'hai', 'leviathan', 'tiefsee', 'sandkasten'];
+  PT.MODI_REIHE = ['standard', 'grund', 'umgekehrt', 'halb', 'flut', 'boss', 'orka', 'hai', 'leviathan', 'tiefsee', 'mutation', 'bossrush', 'sandkasten'];
 
   /* ---------- Wetter ----------
      Ab Runde 6 kann zu Beginn einer Runde Wetter aufziehen (bis zur nächsten Runde).
@@ -327,7 +329,28 @@
     wasser:[[420, 540, 22], [400, 410, 26], [560, 270, 22]],
     deko:'kristall'
   };
-  PT.KARTEN_REIHE = ['scholle', 'bucht', 'leuchtturm', 'kreuz', 'spalte', 'tunnel', 'schmelze', 'labyrinth', 'erebus', 'nacht', 'doppel', 'inseln', 'eisbergring', 'dreizack', 'neuhausen', 'kristallwald', 'strudel', 'spiegelsee', 'wrack', 'eingeweide', 'thron'];
+  /* Wechselwasser: zwei Kanäle, aber immer nur einer ist offen. Alle 6 Runden friert der eine zu und der andere taut auf
+     (wechsel.alle). Fische, die schon im Wasser sind, schwimmen ihren Kanal zu Ende. Dazu schmelzen zwei Eisflächen. */
+  PT.KARTEN.wechselwasser = {
+    name:'Wechselwasser', stufe:'Profi', thema:'daemmerung',
+    text:'Zwei Kanäle, aber nur einer ist offen. Alle 6 Runden friert der eine zu und der andere taut auf – baue rechtzeitig um.',
+    wege:[
+      [[-40, 90], [860, 90], [860, 230], [140, 230], [140, 330], [1040, 330]],
+      [[-40, 600], [880, 600], [880, 500], [260, 500], [260, 420], [1040, 420]]
+    ],
+    wechsel:{ alle:6 },
+    schmelzen:[[1000, 130, 44, 9], [60, 360, 40, 21]],
+    hindernisse:[[520, 160, 26], [980, 220, 30], [60, 470, 30], [560, 380, 18]],
+    wasser:[[60, 190, 26], [960, 540, 32]],
+    deko:'gletscher'
+  };
+  // Welche Kanäle sind in Runde n offen? (Karten ohne Wechsel: alle)
+  PT.offeneWege = function (karte, n, anzahl) {
+    const alle = Array.from({ length:anzahl }, (_, i) => i);
+    if (!karte || !karte.wechsel || anzahl < 2) return alle;
+    return [Math.floor((Math.max(1, n) - 1) / karte.wechsel.alle) % anzahl];
+  };
+  PT.KARTEN_REIHE = ['scholle', 'bucht', 'leuchtturm', 'kreuz', 'spalte', 'tunnel', 'schmelze', 'labyrinth', 'erebus', 'nacht', 'doppel', 'inseln', 'eisbergring', 'dreizack', 'neuhausen', 'kristallwald', 'strudel', 'spiegelsee', 'wrack', 'eingeweide', 'thron', 'wechselwasser'];
   PT.THEMEN_REIHE = ['tag', 'daemmerung', 'nacht', 'vulkan'];
   // Stimmungen nur fürs Abenteuer (überschreiben das Thema der Karte): Tiefsee, Blutnacht, Asche
   PT.STIMMUNGEN = [...PT.THEMEN_REIHE, 'tiefsee', 'blut', 'asche', 'licht', 'organisch'];
@@ -493,6 +516,37 @@
   PT.BOSS_HP = PT.BOSSE.krakus.hp;
   PT.bossFuer = modus => PT.BOSS_REIHE.find(id => PT.BOSSE[id].modus === modus) || null;
 
+  /* ---------- Mutationen (Modus „Mutanten-Wellen“ und Tages-Herausforderung) ----------
+     Pro Runde ein Merkmal für alle Fische dieser Runde, rein aus Runde und Startwert berechnet – so sehen
+     Vorschau, Server und alle Browser im Koop dasselbe. */
+  PT.MUTATIONEN = {
+    schild:  { name:'Schild', symbol:'🛡️', text:'Jeder Fisch steckt den ersten Treffer weg.' },
+    teilung: { name:'Teilung', symbol:'🧬', text:'Platzende Fische hinterlassen einen Fisch mehr.' },
+    tarn:    { name:'Tarnung', symbol:'👻', text:'Alle Fische sind getarnt.' },
+    heilen:  { name:'Heilen', symbol:'🌿', text:'Alle Fische wachsen nach.' },
+    eilig:   { name:'Eile', symbol:'💨', text:'Alle Fische schwimmen 30 % schneller.' }
+  };
+  PT.MUTATIONEN_REIHE = ['schild', 'teilung', 'tarn', 'heilen', 'eilig'];
+  PT.MUTATION_AB = 3;
+  PT.mutationFuer = function (n, seed) {
+    if (n < PT.MUTATION_AB) return null;
+    let h = ((seed >>> 0) ^ Math.imul(n, 2654435761)) >>> 0;
+    h = Math.imul(h ^ (h >>> 16), 2246822507) >>> 0;
+    h = Math.imul(h ^ (h >>> 13), 3266489909) >>> 0;
+    h = (h ^ (h >>> 16)) >>> 0;
+    return PT.MUTATIONEN_REIHE[h % PT.MUTATIONEN_REIHE.length];
+  };
+  // Boss-Rush: alle 10 Runden der nächste Boss, ab Runde 50 in Stufe 2
+  PT.BOSSRUSH = { 10:['krakus', 1], 20:['orka', 1], 30:['leviathan', 1], 40:['haikoenig', 1], 50:['krakus', 2], 60:['orka', 2], 70:['leviathan', 2], 80:['haikoenig', 2] };
+  // In welcher Runde kommt welcher Boss? { runde: [bossTyp, stufe] }
+  PT.bossPlan = function (modus) {
+    if (modus === 'bossrush') return PT.BOSSRUSH;
+    const typ = PT.bossFuer(modus);
+    const plan = {};
+    if (typ) for (const [n, stufe] of Object.entries(PT.BOSSE[typ].runden)) plan[n] = [typ, stufe];
+    return plan;
+  };
+
   // Gruppen einer Runde; nach Runde 80 geht es endlos mit immer zäheren Riesen weiter.
   // Boss-Jagd: In Runde 20 und 40 kommt Krakus (Stufe 1 und 2) mit Begleitung, beim Orka-Angriff Kaiser Orka in 25 und 50.
   // bosse (Kampagne): { runde:[typ, stufe] } – zusätzliche Bosse unabhängig vom Spielmodus
@@ -510,11 +564,11 @@
       const ab = k.endsWith('+'), rn = parseInt(k, 10);
       if (typeof t === 'string' && (ab ? n >= rn : n === rn)) r.gruppen.push(...gruppenLesen(t).filter(g => FISCHE[g.typ] && !FISCHE[g.typ].boss && g.anzahl > 0));
     }
-    const boss = PT.bossFuer(modus);
-    if (boss && PT.BOSSE[boss].runden[n]) {
-      r.boss = PT.BOSSE[boss].runden[n];
-      r.bossTyp = boss;
-      r.gruppen.unshift({ anzahl:1, typ:boss, abstand:1, start:0 });
+    const plan = PT.bossPlan(modus)[n];
+    if (plan) {
+      r.boss = plan[1];
+      r.bossTyp = plan[0];
+      r.gruppen.unshift({ anzahl:1, typ:plan[0], abstand:1, start:0 });
     } else if (bosse && bosse[n] && PT.BOSSE[bosse[n][0]]) {
       r.boss = bosse[n][1] === 2 ? 2 : 1;
       r.bossTyp = bosse[n][0];
@@ -532,6 +586,14 @@
      Bis zu vier Spieler auf einer Karte. Geld geteilt (eine Kasse) oder getrennt (jeder hat seine eigene,
      Einnahmen aus Fischen und Rundenbonus werden aufgeteilt). Startgeld gibt es pro Spieler. */
   PT.KOOP_MAX = 4;
+  // Rollen im Koop (jeder wählt in der Lobby seine eigene; keine Rolle geht auch). Wirken auf die eigenen Pinguine.
+  PT.ROLLEN = {
+    baumeister: { name:'Baumeister', symbol:'🔨', text:'Upgrades deiner Pinguine kosten 10 % weniger.' },
+    heiler:     { name:'Heiler', symbol:'💚', text:'Am Ende jeder Runde bekommt das Team 2 Leben zurück (höchstens die Startleben).' },
+    taktiker:   { name:'Taktiker', symbol:'🎯', text:'Deine Pinguine haben 10 % mehr Reichweite und schießen 8 % schneller.' },
+    trainer:    { name:'Heldentrainer', symbol:'⭐', text:'Dein Held bekommt 50 % mehr Erfahrung.' }
+  };
+  PT.ROLLEN_REIHE = ['baumeister', 'heiler', 'taktiker', 'trainer'];
   PT.KOOP_FARBEN = ['#f6c343', '#2f7fe0', '#e2463b', '#35b04a'];
   PT.KOOP_GELD = { geteilt:{ name:'Geteiltes Geld', text:'Eine Kasse für alle. Jeder darf alles kaufen und aufrüsten.' },
     getrennt:{ name:'Getrenntes Geld', text:'Jeder hat seine eigene Kasse und rüstet nur seine eigenen Pinguine auf.' } };
